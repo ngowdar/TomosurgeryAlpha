@@ -1,0 +1,9 @@
+﻿<Window x:Class="TomosurgeryAlpha.SlicePlanView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SlicePlanView" Height="446" Width="635">
+    <Grid>
+        <Image Height="308" HorizontalAlignment="Left" Margin="12,12,0,0" Name="image1" Stretch="Fill" VerticalAlignment="Top" Width="365" />
+        <Slider Height="308" HorizontalAlignment="Left" Margin="383,12,0,0" Name="slider1" VerticalAlignment="Top" Width="30" Orientation="Vertical" />
+    </Grid>
+</Window>

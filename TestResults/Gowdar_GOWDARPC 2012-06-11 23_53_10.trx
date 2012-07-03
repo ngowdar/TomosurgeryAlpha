@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<TestRun id="5972c523-b442-480c-90e3-fd28f1585b12" name="Gowdar@GOWDARPC 2012-06-11 23:53:10" runUser="GowdarPC\Gowdar" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <TestSettings name="Local" id="cf20da2c-3a3d-46cf-9ffb-ec57c4af3826">
+    <Description>These are default test settings for a local test run.</Description>
+    <Deployment enabled="false" runDeploymentRoot="Gowdar_GOWDARPC 2012-06-11 23_53_10">
+      <DeploymentItem filename="C:\Users\Gowdar\documents\visual studio 2010\Projects\TomosurgeryAlpha\TomosurgeryAlpha\bin\Debug\TomosurgeryAlpha.exe" />
+      <DeploymentItem filename="C:\Users\Gowdar\Desktop\Tomosurgery\TomosurgeryWPF\bin\Debug\opendicom-sharp.dll" />
+      <DeploymentItem filename="C:\Users\Gowdar\Downloads\OpenCLTemplate\OpenCLTemplate\OpenCLTemplate.dll" />
+    </Deployment>
+    <Execution>
+      <TestTypeSpecific />
+      <AgentRule name="Execution Agents">
+      </AgentRule>
+    </Execution>
+  </TestSettings>
+  <Times creation="2012-06-11T23:53:10.5324919-04:00" queuing="2012-06-11T23:53:11.2325320-04:00" start="2012-06-11T23:53:11.3695398-04:00" finish="2012-06-11T23:54:55.5674996-04:00" />
+  <ResultSummary outcome="Error">
+    <Counters total="1" executed="1" error="0" failed="0" timeout="0" aborted="1" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" passed="0" completed="0" inProgress="0" pending="0" />
+    <RunInfos>
+      <RunInfo computerName="GOWDARPC" outcome="Error" timestamp="2012-06-11T23:54:55.5674996-04:00">
+        <Text>Test host process exited unexpectedly.</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+  <TestDefinitions>
+    <UnitTest name="LineSpacerTest" storage="c:\users\gowdar\documents\visual studio 2010\projects\tomosurgeryalpha\linespacertestt\bin\debug\linespacertestt.dll" id="290b5c47-9b0d-8f28-f59b-48e32d7f51c7">
+      <Execution id="594c5c0c-0eca-428a-8cfd-ed7a96244f0a" />
+      <TestMethod codeBase="C:/Users/Gowdar/documents/visual studio 2010/Projects/TomosurgeryAlpha/LineSpacerTestt/bin/Debug/LineSpacerTestt.DLL" adapterTypeName="Microsoft.VisualStudio.TestTools.TestTypes.Unit.UnitTestAdapter, Microsoft.VisualStudio.QualityTools.Tips.UnitTest.Adapter, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" className="LineSpacerTestt.RasterPathTest, LineSpacerTestt, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="LineSpacerTest" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <TestEntries>
+    <TestEntry testId="290b5c47-9b0d-8f28-f59b-48e32d7f51c7" executionId="594c5c0c-0eca-428a-8cfd-ed7a96244f0a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <Results>
+    <UnitTestResult executionId="594c5c0c-0eca-428a-8cfd-ed7a96244f0a" testId="290b5c47-9b0d-8f28-f59b-48e32d7f51c7" testName="LineSpacerTest" computerName="GOWDARPC" duration="00:01:44.0749528" startTime="2012-06-11T23:53:11.4925468-04:00" endTime="2012-06-11T23:54:55.5674996-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Aborted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="594c5c0c-0eca-428a-8cfd-ed7a96244f0a">
+    </UnitTestResult>
+  </Results>
+</TestRun>

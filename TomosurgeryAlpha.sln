@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TomosurgeryAlpha", "TomosurgeryAlpha\TomosurgeryAlpha.csproj", "{C8532EF7-ECF2-4017-92DA-424AA8903624}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{891BE82D-E9F8-4B6F-9CE9-D3A0854E3950}"
+	ProjectSection(SolutionItems) = preProject
+		Local.testsettings = Local.testsettings
+		TomosurgeryAlpha.vsmdi = TomosurgeryAlpha.vsmdi
+		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(TestCaseManagementSettings) = postSolution
+		CategoryFile = TomosurgeryAlpha.vsmdi
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Debug|x86.ActiveCfg = Debug|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Debug|x86.Build.0 = Debug|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Release|Any CPU.ActiveCfg = Release|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Release|Mixed Platforms.Build.0 = Release|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Release|x86.ActiveCfg = Release|x86
+		{C8532EF7-ECF2-4017-92DA-424AA8903624}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
