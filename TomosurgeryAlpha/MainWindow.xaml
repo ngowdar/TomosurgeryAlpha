@@ -65,15 +65,15 @@
                 <MenuItem Header="Load Dose file..." Name="LoadDose_menu" Click="LoadDose_menu_Click" />
             </MenuItem>
         </Menu>
-        <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,522,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,524,0,0" Name="slider_rasterwidth" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_rasterwidth_ValueChanged" Minimum="1" Maximum="30" IsSnapToTickEnabled="True" SmallChange="1" />
-        <TextBox HorizontalAlignment="Left" Margin="921,549,0,0" Name="txt_stepsize" Width="24" Text="20" TextChanged="txt_stepsize_TextChanged" Height="23" VerticalAlignment="Top" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,549,0,0" Name="slider_stepsize" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_stepsize_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
-        <TextBox Height="23" HorizontalAlignment="Left" Margin="921,576,0,0" Name="txt_slicethickness" VerticalAlignment="Top" Width="24" Text="20" TextChanged="txt_slicethickness_TextChanged" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,576,0,0" Name="slider_slicethickness" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
-        <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="657,520,0,0" />
-        <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="673,544,0,0" Name="label3" VerticalAlignment="Top" />
-        <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="647,569,0,0" Name="label4" VerticalAlignment="Top" />
+        <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,517,0,0" Name="slider_rasterwidth" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_rasterwidth_ValueChanged" Minimum="1" Maximum="30" IsSnapToTickEnabled="True" SmallChange="1" />
+        <TextBox HorizontalAlignment="Left" Margin="921,542,0,0" Name="txt_stepsize" Width="24" Text="20" TextChanged="txt_stepsize_TextChanged" Height="23" VerticalAlignment="Top" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,542,0,0" Name="slider_stepsize" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_stepsize_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
+        <TextBox Height="23" HorizontalAlignment="Left" Margin="921,569,0,0" Name="txt_slicethickness" VerticalAlignment="Top" Width="24" Text="20" TextChanged="txt_slicethickness_TextChanged" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,569,0,0" Name="slider_slicethickness" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
+        <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="657,513,0,0" />
+        <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="673,537,0,0" Name="label3" VerticalAlignment="Top" />
+        <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="647,562,0,0" Name="label4" VerticalAlignment="Top" />
         <ListBox Height="89" HorizontalAlignment="Left" Margin="657,423,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" />
         <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="651,401,0,0" Name="label17" VerticalAlignment="Top" />
         <ProgressBar Height="17" HorizontalAlignment="Left" Margin="673,236,0,0" Name="progressBar1" VerticalAlignment="Top" Width="313" />
@@ -89,6 +89,6 @@
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="124" SelectionChanged="listBox2_SelectionChanged" />
         <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,318,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" />
         <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,318,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" />
-        <gauge:LinearGauge HorizontalAlignment="Left" Margin="657,435,0,0" Name="linearGauge1" VerticalAlignment="Top" Height="26" Width="331" />
+        <Label Content="" Height="28" HorizontalAlignment="Left" Margin="646,587,0,0" Name="redwarn_lbl" VerticalAlignment="Top" Width="326" FontStyle="Italic" Foreground="#FFD81E1E" FontWeight="Bold" IsEnabled="False" Visibility="Visible" />
     </Grid>
 </Window>

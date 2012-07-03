@@ -259,6 +259,33 @@ namespace TomosurgeryAlpha
                 return t;            
         }
 
+        public static float FindMax(float[,] d)
+        {
+            float max = 0;
+            for (int i = 0; i < d.GetLength(0); i++)
+                for (int j = 0; j < d.GetLength(1); j++)
+                    if (d[i, j] > max)
+                        max = d[i, j];
+            return max;
+        }
+
+        public static float[,] Normalize(float[,] d)
+        {
+            float divisor = 1 / FindMax(d);
+            return ScalarMultiply(d, divisor);
+        }
+
+        public static float[,] ScalarMultiply(float[,] a, float scalar)
+        {
+            float[,] product = new float[a.GetLength(0), a.GetLength(1)];
+            Parallel.For(0, a.GetLength(0), (x) =>
+            {
+                for (int y = 0; y < a.GetLength(1); y++)
+                    product[x, y] = a[x, y] * scalar;
+            });
+            return product;
+        }
+
         //public static float[,] Add(float[,] A, float[,] B)
         //{
         //    float[,] sum = new float[A.GetLength(0), A.GetLength(1)];
@@ -299,93 +326,104 @@ namespace TomosurgeryAlpha
             throw new NotImplementedException();
         }
 
-        internal static float[,] MultiplySubset(float[,] A, float[,] b, int startx, int starty)
+        internal static float[,] MultiplySubset(float[,] A, float[,] b, int centerx, int centery)
         {
-            float[,] C = new float[A.GetLength(0), A.GetLength(1)];
-            //Check if b will fit inside A
-            int endx = startx + b.GetLength(0); int endy = starty + b.GetLength(1);
-            bool xfits = false; bool yfits = false;
-
-            if (startx + (b.GetLength(0) - 1) / 2 >= A.GetLength(0))
-            {
-                endx = (A.GetLength(0) - 1);
-                xfits = false;
-            }
-            else if (startx + (b.GetLength(0) - 1) / 2 < A.GetLength(0))
-            { endx = (b.GetLength(0) - 1) / 2 + startx; xfits = true; }
-
-            if (startx - (b.GetLength(0) - 1) / 2 <= 0)
-            {
-                startx = 0;
-                xfits = false;
-            }
-            else if (startx - (b.GetLength(0) - 1) / 2 > 0)
-            { startx = startx - (b.GetLength(0) - 1) / 2; xfits = true; }
-
-            if (starty + (b.GetLength(1) - 1) / 2 >= A.GetLength(1))
-            {
-                endy = (A.GetLength(1) - 1);
-                yfits = false;
-            }
-            else if (starty + (b.GetLength(1) - 1) / 2 < A.GetLength(1))
-                endy = (A.GetLength(1) - 1) / 2;
-
-            if (starty - (b.GetLength(1) - 1) / 2 <= 0)
-            {
-                starty = 0;
-                yfits = false;
-            }
-            else if (starty - (b.GetLength(1) - 1) / 2 > 0)
-                starty = starty - (b.GetLength(1) - 1) / 2;
-            for (int i = 0; i < endx - startx; i++)
-                for (int j = 0; j < endy - starty; j++)
-                    C[i + startx, j + starty] = A[i + startx, j + starty] * b[i, j];
-            return C;
-        }
-
-        internal static float[,] MultiplySubset(float[] A, float[,] b, int startx, int starty, int sizex, int sizey)
-        {
-            //Check if b will fit inside A
-            float[,] AA = new float[sizex, sizey];
+            float[,] AA = new float[A.GetLength(0), A.GetLength(1)];
             int halfB = (b.GetLength(0) - 1) / 2;
-            int endx = startx + b.GetLength(0); int endy = starty + b.GetLength(1);
+            int startx = centerx - halfB; int starty = centery - halfB;
+            int endx = centerx + halfB; int endy = centery + halfB;
             bool xfits = false; bool yfits = false;
 
-            if (startx + halfB >= A.GetLength(0))
+            if (endx >= A.GetLength(0))
             {
                 endx = (AA.GetLength(0) - 1);
                 xfits = false;
             }
-            else if (startx + halfB < AA.GetLength(0))
-            { endx = halfB + startx; xfits = true; }
+            else if (endx < AA.GetLength(0))
+            { xfits = true; }
 
-            if (startx - halfB <= 0)
+            if (startx < 0)
             {
                 startx = 0;
                 xfits = false;
             }
-            else if (startx - halfB > 0)
-            { startx = startx - halfB; xfits = true; }
+            else if (startx >= 0)
+            { xfits = true; }
 
-            if (starty + halfB >= AA.GetLength(1))
+            if (endy >= AA.GetLength(1))
             {
                 endy = (AA.GetLength(1) - 1);
                 yfits = false;
             }
-            else if (starty + halfB < AA.GetLength(1))
-                endy = (AA.GetLength(1) - 1) / 2;
+            else if (endy < AA.GetLength(1))
+            { yfits = true; }
 
-            if (starty - halfB <= 0)
+            if (starty < 0)
             {
                 starty = 0;
                 yfits = false;
             }
-            else if (starty - halfB > 0)
-                starty = starty - halfB;
+            else if (starty >= 0)
+                yfits = true;
+            for (int i = 0; i < endx - startx; i++)
+                for (int j = 0; j < endy - starty; j++)
+                    AA[i + startx, j + starty] = A[i + startx,j + starty] * b[i, j];
+            return AA;
+        }
+
+        internal static float[,] MultiplySubset(float[] A, float[,] b, int centerx, int centery, int sizex, int sizey)
+        {
+            //Check if b will fit inside A
+            float[,] AA = new float[sizex, sizey];
+            int halfB = (b.GetLength(0) - 1) / 2;
+            int startx = centerx - halfB; int starty = centery - halfB;
+            int endx = centerx + halfB; int endy = centery + halfB;
+            bool xfits = false; bool yfits = false;
+
+            if (endx >= A.GetLength(0))
+            {
+                endx = (AA.GetLength(0) - 1);
+                xfits = false;
+            }
+            else if (endx < AA.GetLength(0))
+            { xfits = true; }
+
+            if (startx < 0)
+            {
+                startx = 0;
+                xfits = false;
+            }
+            else if (startx >= 0)
+            { xfits = true; }
+
+            if (endy >= AA.GetLength(1))
+            {
+                endy = (AA.GetLength(1) - 1);
+                yfits = false;
+            }
+            else if (endy < AA.GetLength(1))
+            { yfits = true; }
+
+            if (starty < 0)
+            {
+                starty = 0;
+                yfits = false;
+            }
+            else if (starty >= 0)
+                yfits = true;
             for (int i = 0; i < endx - startx; i++)
                 for (int j = 0; j < endy - starty; j++)
                     AA[i + startx, j + starty] = A[(i + startx)+(j + starty)*sizex] * b[i, j];
             return AA;
+        }
+
+        internal static float[] Normalize(float[] img)
+        {
+            float[] n = new float[img.GetLength(0)];
+            float max = img.Max();
+            for (int i = 0; i < img.GetLength(0); i++)
+                n[i] = img[i] / max;
+            return n;
         }
     }
 }

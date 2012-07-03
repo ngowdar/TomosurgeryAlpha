@@ -37,6 +37,7 @@ namespace TomosurgeryAlpha
         public bool IsSSLoaded = false;
         public bool IsPathSetCreated = false;
         public bool HasPreviewBeenCreated = false;
+        public bool PlanOptimized = false;
         public DICOMImageSet set;
         public StructureSet SS;
         public PathSet PS;
@@ -254,9 +255,10 @@ namespace TomosurgeryAlpha
                 img = rp.dosespace;
                 dp = true;
             }
-            float max = img.Max();
+            //float max = img.Max();
             int size = (int)Math.Sqrt(img.GetLength(0));
-            float sum = img.Sum();
+            img = Matrix.Normalize(img);
+            //float sum = img.Sum();
             wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);
             plan_imgbox.Source = wb_Plan;
             wb_Plan.Lock();
@@ -427,42 +429,54 @@ namespace TomosurgeryAlpha
             }
         }
 
-        private void DisplaySingleShot(PointF p, double weight)
-        {
+        private void DisplayWindowCenteredAboutPoint(float[,] img, PointF p)
+        {   
+            int startx = (int)p.X - (N - 1) / 2;
+            int starty = (int)p.Y - (N - 1) / 2;
+            int endx = (int)p.X + (N - 1) / 2;
+            int endy = (int)p.Y + (N - 1) / 2;
 
+            if (startx < 0)
+                startx = 0;
+            if (starty < 0)
+                starty = 0;
+            if (endx >= PS.X)
+                endx = PS.X - 1;
+            if (endy >= PS.Y)
+                endy = PS.Y - 1;
+
+            float[,] temp = new float[endx - startx + 1, endy - starty + 1];
+            for (int j = 0; j < temp.GetLength(1); j++)
+                for (int i = 0; i < temp.GetLength(0); i++)
+                    temp[i, j] = img[i + startx, j + starty];
+
+            Display2DFloat(temp);
         }
 
-        private void DisplaySingleShotDS(PointF p)
+        private void Display2DFloat(float[,] f)
         {
-            RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
-            float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
+            f = Matrix.Normalize(f);
             wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
-            DS_imgbox.Source = wb_DS;            
+            DS_imgbox.Source = wb_DS;
             wb_DS.Lock();
 
             unsafe
             {
-                for (int y = 0; y < f.GetLength(1); y++)
-                    for (int x = 0; x < f.GetLength(0); x++)
+
+                for (int j = 0; j < f.GetLength(1); j++)
+                    for (int i = 0; i < f.GetLength(0); i++)
                     {
-
                         int pBackBuffer = (int)wb_DS.BackBuffer;
-                        pBackBuffer += y * wb_DS.BackBufferStride;
-                        pBackBuffer += x * 4;
-                        double value = f[x,y];
-
-                        int alph = (int)Math.Round(255 * (value));
-                        if (alph < 0)
-                            alph = 0;
-                        if (alph >= 255)
-                            alph = 255;
-
-                        int color_data = red_colormap[alph] << 16; // R
-                        color_data |= green_colormap[alph] << 8;   // G
-                        color_data |= blue_colormap[alph] << 0;   // B
-                        //int color_data = value << 16;
-                        //color_data |= value << 8;
-                        //color_data |= value << 0;
+                        pBackBuffer += j * wb_DS.BackBufferStride;
+                        pBackBuffer += i * 4;
+                        int value; int alpha;
+                        alpha = (int)Math.Round((f[i,j]) * 255);
+                        //int color_data = red_colormap[alph] << 16; // R
+                        //color_data |= green_colormap[alph] << 8;   // G
+                        //color_data |= blue_colormap[alph] << 0;   // B
+                        int color_data = alpha << 16;
+                        color_data |= alpha << 8;
+                        color_data |= alpha << 0;
 
                         // Assign the color data to the pixel.
                         *((int*)pBackBuffer) = color_data;
@@ -470,7 +484,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_DS.AddDirtyRect(new Int32Rect(0, 0, 256, 256));
+                wb_DS.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(0), f.GetLength(1)));
             }
             catch (Exception ex)
             {
@@ -480,6 +494,140 @@ namespace TomosurgeryAlpha
             {
                 wb_DS.Unlock();
             }
+        }
+
+        private void DisplaySingleShot(PointF p, double weight)
+        {
+            UpdateSliceLabels();
+            RasterPath rp = (RasterPath)PS.RasterPaths[GetCurrentSlice()];
+            int zpos = PS.SlicePositions[GetCurrentSlice()];
+            PointF[] points = rp.ReturnSinglePoints();
+            float[] img = SS.f_structurearray[zpos]; bool dp = false;
+            if (plan_dpRB.IsChecked == true && rp.dosespace != null)
+            {
+                img = rp.dosespace;
+                dp = true;
+            }
+            float max = img.Max();
+            int size = (int)Math.Sqrt(img.GetLength(0));
+            float sum = img.Sum();
+            wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);
+            plan_imgbox.Source = wb_Plan;
+            wb_Plan.Lock();
+
+            unsafe
+            {
+                //First draw the structure slice as a background
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+
+                        int pBackBuffer = (int)wb_Plan.BackBuffer;
+                        pBackBuffer += y * wb_Plan.BackBufferStride;
+                        pBackBuffer += x * 4;
+                        int value; int alpha;
+                        alpha = (int)Math.Round((img[x + y * size]) * 255);
+                        if (!dp)
+                        {
+                            if (alpha > 0)
+                                alpha = 255;
+                            else
+                                alpha = 0;
+                        }
+
+                        //int color_data = red_colormap[alph] << 16; // R
+                        //color_data |= green_colormap[alph] << 8;   // G
+                        //color_data |= blue_colormap[alph] << 0;   // B
+                        int color_data = alpha << 16;
+                        color_data |= alpha << 8;
+                        color_data |= alpha << 0;
+
+                        // Assign the color data to the pixel.
+                        *((int*)pBackBuffer) = color_data;
+                    }
+
+                //Overlay the planned points
+                foreach (PointF pf in points)
+                {
+                    int x = (int)Math.Round(pf.X);
+                    int y = (int)Math.Round(pf.Y);
+
+                    int pBackBuffer = (int)wb_Plan.BackBuffer;
+                    pBackBuffer += y * wb_Plan.BackBufferStride;
+                    pBackBuffer += x * 4;
+
+                    int color_data = 255 << 16; // R
+                    color_data |= 0 << 8;   // G
+                    color_data |= 0 << 0;   // B
+
+                    // Assign the color data to the pixel.
+                    *((int*)pBackBuffer) = color_data;
+                }
+            }
+            try
+            {
+                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, size, size));
+            }
+            catch (Exception ex)
+            {
+                string s = ex.ToString();
+            }
+            finally
+            {
+                wb_Plan.Unlock();
+            }
+        }
+
+        private void DisplaySingleShotDS(PointF p)
+        {
+            RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
+            float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
+            f = Matrix.Normalize(f);
+            DisplayWindowCenteredAboutPoint(f, p);
+            //wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
+            //DS_imgbox.Source = wb_DS;            
+            //wb_DS.Lock();
+
+            //unsafe
+            //{
+            //    for (int y = 0; y < f.GetLength(1); y++)
+            //        for (int x = 0; x < f.GetLength(0); x++)
+            //        {
+
+            //            int pBackBuffer = (int)wb_DS.BackBuffer;
+            //            pBackBuffer += y * wb_DS.BackBufferStride;
+            //            pBackBuffer += x * 4;
+            //            double value = f[x,y];
+
+            //            int alph = (int)Math.Round(255 * (value));
+            //            if (alph < 0)
+            //                alph = 0;
+            //            if (alph >= 255)
+            //                alph = 255;
+
+            //            int color_data = red_colormap[alph] << 16; // R
+            //            color_data |= green_colormap[alph] << 8;   // G
+            //            color_data |= blue_colormap[alph] << 0;   // B
+            //            //int color_data = value << 16;
+            //            //color_data |= value << 8;
+            //            //color_data |= value << 0;
+
+            //            // Assign the color data to the pixel.
+            //            *((int*)pBackBuffer) = color_data;
+            //        }
+            //}
+            //try
+            //{
+            //    wb_DS.AddDirtyRect(new Int32Rect(0, 0, 256, 256));
+            //}
+            //catch (Exception ex)
+            //{
+            //    string s = ex.ToString();
+            //}
+            //finally
+            //{
+            //    wb_DS.Unlock();
+            //}
         }
 
         private void LoadDICOM_Menu_Click(object sender, RoutedEventArgs e)
@@ -799,6 +947,7 @@ namespace TomosurgeryAlpha
             }
         }
 
+
         private void CreatePathSet()
         {            
                PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text));
@@ -814,11 +963,13 @@ namespace TomosurgeryAlpha
             PS.PathsetWorkerProgressChanged += new ProgressChangedEventHandler(PS_PathsetWorkerProgressChanged);
             RasterPath.SliceWorkerProgressChanged += new ProgressChangedEventHandler(RasterPath_SliceWorkerProgressChanged);
         }
-
+        
+        #region Pathset BackgroundWorkers
         void RasterPath_SliceWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             //UpdateProgressBar((double)e.ProgressPercentage);
-        }        
+        }
+
 
         void PS_PathsetWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
         {
@@ -831,8 +982,19 @@ namespace TomosurgeryAlpha
         {
             UpdateStatusBar("Optimization complete");
             RefreshDataGrid();
-        }
+            
+            //Auto view the first slice in dose form
+            plan_dpRB.IsChecked = true;
+            dataGrid1.SelectedIndex = 0;
 
+            //Adjust controls to reflect the "Optimized" status.
+            PlanOptimized = true;
+            Plan_btn.Content = "Re-plan";
+            Opt_btn.IsEnabled = false;
+            save_plan_btn.IsEnabled = true;
+            export_shots_btn.IsEnabled = true;
+        }
+        #endregion
         #region CreatingTestFiles
 
         public void CreateTumorObject(int radius)
@@ -899,8 +1061,9 @@ namespace TomosurgeryAlpha
             IsSSLoaded = true;
             slider2.Minimum = 0;
             slider2.Maximum = SS.f_structurearray.GetLength(0);
-            tabControl1.SelectedIndex = 1; 
-            DisplayStructure(N/2);
+            tabControl1.SelectedIndex = 1;
+            slider2.Value = (int)(SS.f_structurearray.GetLength(0) / 2);
+            DisplayStructure(SS.f_structurearray.GetLength(0) / 2);
             AddStructureLoadedToListBox();
         }        
 
@@ -923,8 +1086,16 @@ namespace TomosurgeryAlpha
             txt_rasterwidth.Text = slider_rasterwidth.Value.ToString();
             if (PS != null)
             {
-                UpdateCurrentSlicePaths();
-                RefreshDataGrid();
+                if (!PlanOptimized)
+                {
+                    UpdateCurrentSlicePaths();
+                    RefreshDataGrid();
+                }
+                else if (PlanOptimized)
+                {
+                    redwarn_lbl.Content = "Plan already exists! Please click RePlan to see changes";
+                    redwarn_lbl.IsEnabled = true;
+                }
             }
         }
         private void slider_stepsize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -932,23 +1103,41 @@ namespace TomosurgeryAlpha
             txt_stepsize.Text = slider_stepsize.Value.ToString();
             if (PS != null)
             {
-                UpdateCurrentSlicePaths();
-                RefreshDataGrid();
+                if (!PlanOptimized)
+                {
+                    UpdateCurrentSlicePaths();
+                    RefreshDataGrid();
+                }
+                else if (PlanOptimized)
+                {
+                    redwarn_lbl.Content = "Plan already exists! Please click RePlan to see changes";
+                    redwarn_lbl.IsEnabled = true;
+                }
             }
         }
 
         private void slider_slicethickness_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            txt_slicethickness.Text = slider_slicethickness.Value.ToString();
             if (PS != null)
             {
-                txt_slicethickness.Text = slider_slicethickness.Value.ToString();
-                txt_rasterwidth.IsEnabled = false;
-                txt_stepsize.IsEnabled = false;
-                slider_rasterwidth.IsEnabled = false;
-                slider_stepsize.IsEnabled = false;
-                recalc_btn.IsEnabled = true;
-                //UpdateCurrentSlicePaths();
-                RefreshDataGrid();
+                if (!PlanOptimized)
+                {                    
+                    txt_rasterwidth.IsEnabled = false;
+                    txt_stepsize.IsEnabled = false;
+                    slider_rasterwidth.IsEnabled = false;
+                    slider_stepsize.IsEnabled = false;
+                    recalc_btn.IsEnabled = true;
+                    redwarn_lbl.IsEnabled = true;
+                    redwarn_lbl.Content = "Please click re-plan to see new slice thickness.";
+                    //UpdateCurrentSlicePaths();
+                    RefreshDataGrid();
+                }
+                else if (PlanOptimized)
+                {
+                    redwarn_lbl.Content = "Plan already exists! Please click RePlan to see changes";
+                    redwarn_lbl.IsEnabled = true;
+                }
             }
             //recalc_btn.IsEnabled = true;
         }
@@ -1100,6 +1289,15 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
 
         private void plan_btn_Click(object sender, RoutedEventArgs e)
         {
+            if (PlanOptimized)
+            {
+                redwarn_lbl.Content = "";
+                PlanOptimized = false;
+                save_plan_btn.IsEnabled = false;
+                export_shots_btn.IsEnabled = false;
+                listBox2.Items.Clear();
+                dataGrid1.Items.Clear();                
+            }
             CreatePaths();
             if (IsPathSetCreated)
                 Opt_btn.IsEnabled = true;
@@ -1113,7 +1311,8 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
 
         private void dataGrid1_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            PopulateShotList((RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex]);            
+            if (dataGrid1.SelectedIndex >= 0)
+                PopulateShotList((RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex]);            
         }
 
         private void PopulateShotList(RasterPath rp)
@@ -1130,16 +1329,21 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
 
         private void listBox2_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
-            PointF p = ((PointF[])rp.ReturnSinglePoints())[listBox2.SelectedIndex];
-            if (tabControl1.SelectedIndex == 2)
-                DisplaySingleShotDS(p);
-            else
+            if (dataGrid1.SelectedIndex >= 0)
             {
-                tabControl1.SelectedIndex = 3;
-                DisplaySingleShot(p, rp.weight[listBox2.SelectedIndex]);
+                RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
+                if (listBox2.SelectedIndex >= 0)
+                {
+                    PointF p = ((PointF[])rp.ReturnSinglePoints())[listBox2.SelectedIndex];
+                    if (tabControl1.SelectedIndex == 2)
+                        DisplaySingleShotDS(p);
+                    else
+                    {
+                        tabControl1.SelectedIndex = 3;
+                        DisplaySingleShot(p, rp.weight[listBox2.SelectedIndex]);
+                    }
+                }
             }
-            
         }
 
         

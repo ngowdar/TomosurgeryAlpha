@@ -425,17 +425,17 @@ namespace TomosurgeryAlpha
 
         public static float[,] GetMultiplied_DDS_Subset(float[,] slice, float px, float py, float[,] P)
         {
-            int startx = (int)px-(N-1)/2;
-            int starty = (int)py-(N-1)/2;
-            float[,] output = Matrix.MultiplySubset(slice, P, startx, starty);
+            //int startx = (int)px-(P.GetLength(0)-1)/2;
+            //int starty = (int)py-(P.GetLength(1)-1)/2;
+            float[,] output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
             return output;
         }
 
         public static float[,] GetMultiplied_DS_Subset(float[] ds, float px, float py, float[,] P)
         {
-            int startx = (int)px - (N - 1) / 2;
-            int starty = (int)py - (N - 1) / 2;
-            float[,] output = Matrix.MultiplySubset(ds, P, startx, starty, X, Y);
+            //int startx = (int)px - (P.GetLength(0) - 1) / 2;
+            //int starty = (int)py - (P.GetLength(1) - 1) / 2;
+            float[,] output = Matrix.MultiplySubset(ds, P, (int)px, (int)py, X, Y);
             return output;
         }
 
