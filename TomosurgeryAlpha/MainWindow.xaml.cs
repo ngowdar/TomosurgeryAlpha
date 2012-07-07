@@ -48,12 +48,13 @@ namespace TomosurgeryAlpha
         public DoseKernel DK;
         bool AlignmentOn = false;
         public Coordinates LGKcoords;
-        public double aspectMultiplier;
+        public double DICOM_aspectMultiplier = 1.0;
+        public double Plan_aspectMultiplier = 1.0;
         
         public MainWindow()
         {
             InitializeComponent();
-            aspectMultiplier = 256 / DICOM_imgbox.Width;
+            DICOM_aspectMultiplier = 256 / DICOM_imgbox.Width;
             SetParameterSliderLimits();
             ColormapTool(TomosurgeryAlpha.Properties.Resources.BWheatmap3);
             CreateCirclePoints();
@@ -255,9 +256,11 @@ namespace TomosurgeryAlpha
 
         private void DrawCirclePoints(double x, double y)
         {
-            double aspect = wb_Plan.PixelHeight / plan_imgbox.Height;
-            int i = ((int)(x * aspect)) - CursorRadius;
-            int j = ((int)(y * aspect)) - CursorRadius;
+            double Plan_aspectMultiplier = wb_Plan.PixelHeight / plan_imgbox.Height;
+            cursor_ellipse.Height = cursor_ellipse.Height / Plan_aspectMultiplier;
+            cursor_ellipse.Width = cursor_ellipse.Width / Plan_aspectMultiplier;
+            int i = ((int)(x * Plan_aspectMultiplier)) - CursorRadius;
+            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;
             
             wb_Plan.Lock();
             
@@ -331,6 +334,7 @@ namespace TomosurgeryAlpha
             }
             //float max = img.Max();
             int size = (int)Math.Sqrt(img.GetLength(0));
+            Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
             img = Matrix.Normalize(img);
             //float sum = img.Sum();
             wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);            
@@ -825,8 +829,8 @@ namespace TomosurgeryAlpha
             if (LGKcoords.finished == true)
             {
                 label1.IsEnabled = true;
-                decimal x = (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).X * aspectMultiplier) - LGKcoords.X, 2);
-                decimal y = 256 - (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).Y * aspectMultiplier) + LGKcoords.Y, 2);
+                decimal x = (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier) - LGKcoords.X, 2);
+                decimal y = 256 - (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier) + LGKcoords.Y, 2);
                 //decimal z = (decimal)Math.Round((int)DICOMImage.img_zindex[(int)sliderbar.Value] - LGKcoords.Z, 2);
                 decimal z = (decimal)Math.Round((int)set.ZIndexArray[(int)Math.Round(95 * slider2.Value / slider2.Maximum)] - LGKcoords.Z, 2);
                 label1.Content = "LGK Frame: <" + x + ", " + y + ", " + z + ">";
@@ -838,8 +842,8 @@ namespace TomosurgeryAlpha
             decimal[] img = new decimal[3];
             decimal[] dicom = new decimal[3];
 
-            img[0] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).X * aspectMultiplier, 2);
-            img[1] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).Y * aspectMultiplier, 2);
+            img[0] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier, 2);
+            img[1] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier, 2);
             img[2] = (decimal)Math.Round(slider2.Value, 2);
 
             //The DICOM position is the mouse position plus the top left pixel of the DICOM reference coordinates.
@@ -884,8 +888,8 @@ namespace TomosurgeryAlpha
         {
             if (aligning_helper_label.IsEnabled == true)
             {
-                LGKcoords.SetLGK_XYoffset(e.GetPosition(DICOM_imgbox).X * aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * aspectMultiplier);
-                CreateAlignmentMarkings(e.GetPosition(DICOM_imgbox).X * aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * aspectMultiplier);
+                LGKcoords.SetLGK_XYoffset(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
+                CreateAlignmentMarkings(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
                 aligning_helper_label.Content = "Line up left fiducial...";
                 button1.Content = "Lined up";
             }
@@ -1100,6 +1104,7 @@ namespace TomosurgeryAlpha
             slider2.Value = (int)(SS.f_structurearray.GetLength(0) / 2);
             DisplayStructure(SS.f_structurearray.GetLength(0) / 2);
             AddStructureLoadedToListBox();
+            
         }        
 
         private void SetParameterSliderLimits()
@@ -1407,7 +1412,9 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         private void plan_imgbox_MouseMove_1(object sender, MouseEventArgs e)
         {
             System.Windows.Point p = e.GetPosition(plan_imgbox);
-            cursor_ellipse.Arrange(new Rect(p.X - 7, p.Y - 7, 15, 15));
+            System.Windows.Point aspectPoint = new System.Windows.Point(p.X * Plan_aspectMultiplier, p.Y * Plan_aspectMultiplier);
+            int halfpoint = (int)((15 * Plan_aspectMultiplier - 1)/2);
+            cursor_ellipse.Arrange(new Rect(p.X - halfpoint, p.Y - halfpoint, (int)(15*Plan_aspectMultiplier), (int)(15*Plan_aspectMultiplier)));
             if (e.LeftButton == MouseButtonState.Pressed)
                 DrawCirclePoints(e.GetPosition(plan_imgbox).X, e.GetPosition(plan_imgbox).Y);
             //canvas1.Arrange(new Rect(p.X, p.Y, 15, 15));

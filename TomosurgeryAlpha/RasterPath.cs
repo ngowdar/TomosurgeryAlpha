@@ -306,7 +306,8 @@ namespace TomosurgeryAlpha
         public int isovol;
         public int massvol;
         public int[] boundaries;
-        float[,] slice;
+        float[,] binaryslice;
+        public float[,] ModdedSlice; //The "addition" layer for dose inhomogeneity.
         public float[] dosespace;
         public float[] weight;
         public Slice info;
@@ -321,12 +322,21 @@ namespace TomosurgeryAlpha
         public RasterPath(float[,] f)
         {
             SetParams(20, 20);
-            slice = f;
+            binaryslice = f;
+            ModdedSlice = f;
             X = f.GetLength(0); Y = f.GetLength(1);
             FindAllShotPoints();
             CreateSliceInfo();
             InitWeightArray();
             AttachHandlers();
+        }
+
+        private void RePrioritizeDDS(float[,] mod)
+        {
+            //Add ModLayer onto binaryslice
+            ModdedSlice = Matrix.Add(ModdedSlice, mod);
+            Matrix.Normalize(ModdedSlice);
+            
         }
 
         private void AttachHandlers()
@@ -366,7 +376,7 @@ namespace TomosurgeryAlpha
             double Error = 1000; double coverage = 0.8;
             int index = 0;
             float[] w = new float[weight.GetLength(0)];
-            float[] ds = new float[slice.GetLength(0)*slice.GetLength(1)];
+            float[] ds = new float[binaryslice.GetLength(0)*binaryslice.GetLength(1)];
 
             while (Error >= .0001 || index < 50)
             {
@@ -417,7 +427,7 @@ namespace TomosurgeryAlpha
         private float EvalShotWeightIteration(float[,] dosemidplane, float[] ds, PointF pf)
         {
             float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-            float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+            float[,] DDStimesP = GetMultiplied_DDS_Subset(binaryslice, pf.X, pf.Y, dosemidplane);
             float dssum = Matrix.SumAll(DStimesP);
             float ddssum = Matrix.SumAll(DDStimesP);
             return (float)(ddssum / dssum);            
@@ -475,14 +485,14 @@ namespace TomosurgeryAlpha
         {
             float isovolume = 0; float both = 0; float tumor = 0;
             float dose; float div;
-            for (int i = 0; i < slice.GetLength(0); i++)
-                for (int j = 0; j < slice.GetLength(1); j++)
+            for (int i = 0; i < binaryslice.GetLength(0); i++)
+                for (int j = 0; j < binaryslice.GetLength(1); j++)
                 {
-                    dose = dosespace[i + (j * slice.GetLength(0))];
+                    dose = dosespace[i + (j * binaryslice.GetLength(0))];
                     if (dose >= iso)
                     {
                         isovolume++;
-                        if (slice[i, j] > 0)
+                        if (binaryslice[i, j] > 0)
                         {
                             tumor++;
                             both++;
@@ -490,7 +500,7 @@ namespace TomosurgeryAlpha
                     }
                     else
                     {
-                        if (slice[i, j] > 0)
+                        if (binaryslice[i, j] > 0)
                             tumor++;
                     }
                 }
@@ -506,13 +516,13 @@ namespace TomosurgeryAlpha
             float isovolume = 0; float both = 0; float tumor = 0; float dose;
             Parallel.For(0, shots.GetLength(0), i =>
                 {
-                    for (int j = 0; j < slice.GetLength(1); j++)
+                    for (int j = 0; j < binaryslice.GetLength(1); j++)
                     {
-                        dose = ds_temp[i + j * slice.GetLength(0)];
+                        dose = ds_temp[i + j * binaryslice.GetLength(0)];
                         if (dose >= iso)
                         {
                             isovolume++;
-                            if (slice[i, j] > 0)
+                            if (binaryslice[i, j] > 0)
                             {
                                 tumor++;
                                 both++;
@@ -520,7 +530,7 @@ namespace TomosurgeryAlpha
                         }
                         else
                         {
-                            if (slice[i, j] > 0)
+                            if (binaryslice[i, j] > 0)
                                 tumor++;
                         }
                     }
@@ -612,18 +622,18 @@ namespace TomosurgeryAlpha
         private int[] LineBoundaries(int linepos)
         {
             int[] b = new int[2];
-            float[] line = new float[slice.GetLength(1)];
-            for (int i = 0; i < slice.GetLength(1); i++)
-                line[i] = slice[linepos, i];
+            float[] line = new float[binaryslice.GetLength(1)];
+            for (int i = 0; i < binaryslice.GetLength(1); i++)
+                line[i] = binaryslice[linepos, i];
             Boolean y1=false;
-            for (int y = 0; y < slice.GetLength(1); y++)
+            for (int y = 0; y < binaryslice.GetLength(1); y++)
             {
-                if (!y1 && slice[linepos, y] > 0)
+                if (!y1 && binaryslice[linepos, y] > 0)
                 {
                     y1 = true;
                     b[0] = y;
                 }
-                else if (y1 && slice[linepos, y] == 0)
+                else if (y1 && binaryslice[linepos, y] == 0)
                 {
                     b[1] = y;
                     break;
@@ -639,7 +649,7 @@ namespace TomosurgeryAlpha
         public void FindAllShotPoints()
         {
             //Get slice boundaries first
-            int[] boundaries = FindSliceBoundaries(slice);
+            int[] boundaries = FindSliceBoundaries(binaryslice);
 
             //Get line positions for the slice
             int[] lines = LineSpacer(boundaries[0], boundaries[1]);
