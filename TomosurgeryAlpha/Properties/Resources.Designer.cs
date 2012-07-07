@@ -73,5 +73,12 @@ namespace TomosurgeryAlpha.Properties {
                 return ((byte[])(obj));
             }
         }
+        
+        public static System.Drawing.Bitmap Test_Image_Color_Response_0_512x512_No_Noise {
+            get {
+                object obj = ResourceManager.GetObject("Test_Image_Color_Response_0_512x512_No_Noise", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }

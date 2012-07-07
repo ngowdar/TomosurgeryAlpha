@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 using System.Text;
 using System.Windows;
@@ -32,12 +33,15 @@ namespace TomosurgeryAlpha
         public int[] red_colormap;
         public int[] blue_colormap;
         public int[] green_colormap;
+        public PointF[] circle;
         public bool IsDICOMLoaded = false;
         public bool IsDoseLoaded = false;
         public bool IsSSLoaded = false;
         public bool IsPathSetCreated = false;
         public bool HasPreviewBeenCreated = false;
         public bool PlanOptimized = false;
+        public bool IsDoseEditable = false;
+        public int CursorRadius = 7;
         public DICOMImageSet set;
         public StructureSet SS;
         public PathSet PS;
@@ -52,6 +56,7 @@ namespace TomosurgeryAlpha
             aspectMultiplier = 256 / DICOM_imgbox.Width;
             SetParameterSliderLimits();
             ColormapTool(TomosurgeryAlpha.Properties.Resources.BWheatmap3);
+            CreateCirclePoints();
         }
 
         private void UpdateTextBlock(string s)
@@ -192,6 +197,12 @@ namespace TomosurgeryAlpha
             throw new NotImplementedException();
         }        
 
+        private double FindDistanceBetweenPoints(System.Drawing.Point p1, System.Drawing.Point p2)
+        {            
+            double distance = Math.Round(Math.Sqrt(Math.Pow((p2.X - p1.X), 2) + Math.Pow((p2.Y - p1.Y), 2)), 1);
+            return distance;
+        }
+
         public void DrawPixel(ref WriteableBitmap writeableBitmap, System.Windows.Controls.Image i, MouseEventArgs e)
         {
             int column = (int)e.GetPosition(i).X;
@@ -224,6 +235,68 @@ namespace TomosurgeryAlpha
             writeableBitmap.Unlock();
         }
 
+        private void CreateCirclePoints()
+        {
+            int[,] c = new int[CursorRadius * 2 + 1, CursorRadius * 2 + 1];
+            ArrayList points = new ArrayList();
+            for (int y = 0; y < c.GetLength(0); y++)
+                for (int x = 0; x < c.GetLength(1); x++)
+                {
+                    if (FindDistanceBetweenPoints(new System.Drawing.Point(7, 7), new System.Drawing.Point(x, y)) <= CursorRadius)
+                    {
+                        c[x, y] = 1;
+                        points.Add(new PointF(x, y));
+                    }
+                    else
+                        c[x, y] = 0;
+                }
+            circle = (PointF[])points.ToArray(typeof(PointF));            
+        }
+
+        private void DrawCirclePoints(double x, double y)
+        {
+            double aspect = wb_Plan.PixelHeight / plan_imgbox.Height;
+            int i = ((int)(x * aspect)) - CursorRadius;
+            int j = ((int)(y * aspect)) - CursorRadius;
+            
+            wb_Plan.Lock();
+            
+                unsafe
+                {
+                    foreach (PointF p in circle)
+                        {
+                            // Get a pointer to the back buffer.
+                            int pBackBuffer = (int)wb_Plan.BackBuffer;
+                            int u = (int)p.Y; int v = (int)p.X;
+                            // Find the address of the pixel to draw.
+                            pBackBuffer += (j + u) * wb_Plan.BackBufferStride;
+                            pBackBuffer += (i + v) * 4;
+                            // Compute the pixel's color.
+                            
+                            int color_data = 255 << 16; // R
+                            color_data |= 0 << 8;   // G
+                            color_data |= 0 << 0;   // B
+
+                            // Assign the color data to the pixel.
+                            *((int*)pBackBuffer) = color_data;
+                        }
+                    try
+                    {
+                        // Specify the area of the bitmap that changed.
+                        wb_Plan.AddDirtyRect(new Int32Rect(0, 0, (int)wb_Plan.Width, (int)wb_Plan.Height));
+                    }
+                    catch (Exception ex)
+                    {
+                        string s = ex.ToString();
+                    }
+                    finally
+                    {
+                        wb_Plan.Unlock();
+                    }                    
+                }
+            
+        }   
+
         public void ErasePixel(ref WriteableBitmap writeableBitmap, System.Windows.Controls.Image i, MouseEventArgs e)
         {
             int column = (int)e.GetPosition(i).X;
@@ -245,6 +318,7 @@ namespace TomosurgeryAlpha
 
         public void DisplayPlan()
         {
+            
             UpdateSliceLabels();
             RasterPath rp = (RasterPath)PS.RasterPaths[GetCurrentSlice()];
             int zpos = PS.SlicePositions[GetCurrentSlice()];
@@ -259,7 +333,7 @@ namespace TomosurgeryAlpha
             int size = (int)Math.Sqrt(img.GetLength(0));
             img = Matrix.Normalize(img);
             //float sum = img.Sum();
-            wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);
+            wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);            
             plan_imgbox.Source = wb_Plan;
             wb_Plan.Lock();
 
@@ -286,7 +360,7 @@ namespace TomosurgeryAlpha
                         //int color_data = red_colormap[alph] << 16; // R
                         //color_data |= green_colormap[alph] << 8;   // G
                         //color_data |= blue_colormap[alph] << 0;   // B
-                        int color_data = alpha << 16;
+                        int color_data = 0 << 16;
                         color_data |= alpha << 8;
                         color_data |= alpha << 0;
 
@@ -584,50 +658,7 @@ namespace TomosurgeryAlpha
             float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
             f = Matrix.Normalize(f);
             DisplayWindowCenteredAboutPoint(f, p);
-            //wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
-            //DS_imgbox.Source = wb_DS;            
-            //wb_DS.Lock();
-
-            //unsafe
-            //{
-            //    for (int y = 0; y < f.GetLength(1); y++)
-            //        for (int x = 0; x < f.GetLength(0); x++)
-            //        {
-
-            //            int pBackBuffer = (int)wb_DS.BackBuffer;
-            //            pBackBuffer += y * wb_DS.BackBufferStride;
-            //            pBackBuffer += x * 4;
-            //            double value = f[x,y];
-
-            //            int alph = (int)Math.Round(255 * (value));
-            //            if (alph < 0)
-            //                alph = 0;
-            //            if (alph >= 255)
-            //                alph = 255;
-
-            //            int color_data = red_colormap[alph] << 16; // R
-            //            color_data |= green_colormap[alph] << 8;   // G
-            //            color_data |= blue_colormap[alph] << 0;   // B
-            //            //int color_data = value << 16;
-            //            //color_data |= value << 8;
-            //            //color_data |= value << 0;
-
-            //            // Assign the color data to the pixel.
-            //            *((int*)pBackBuffer) = color_data;
-            //        }
-            //}
-            //try
-            //{
-            //    wb_DS.AddDirtyRect(new Int32Rect(0, 0, 256, 256));
-            //}
-            //catch (Exception ex)
-            //{
-            //    string s = ex.ToString();
-            //}
-            //finally
-            //{
-            //    wb_DS.Unlock();
-            //}
+            
         }
 
         private void LoadDICOM_Menu_Click(object sender, RoutedEventArgs e)
@@ -813,18 +844,22 @@ namespace TomosurgeryAlpha
 
             //The DICOM position is the mouse position plus the top left pixel of the DICOM reference coordinates.
             //The Z position is retrieved by the sliderbar value
-            dicom[0] = img[0] + Convert.ToDecimal(set.imagePosition[0]);
-            dicom[1] = img[1] + Convert.ToDecimal(set.imagePosition[1]);
-            dicom[2] = Convert.ToDecimal(set.imagePosition[2]) - img[2] * 2;
-
+            if (set != null)
+            {
+                dicom[0] = img[0] + Convert.ToDecimal(set.imagePosition[0]);
+                dicom[1] = img[1] + Convert.ToDecimal(set.imagePosition[1]);
+                dicom[2] = Convert.ToDecimal(set.imagePosition[2]) - img[2] * 2;
+                tracking_label.Content = "Image Pos: (" + img[0] + ", " + img[1] + ", " + img[2] + ")";
+            }
             if (LGKcoords.finished == true)
             {
                 decimal[] lgk = LGKcoords.Image2LGKCoordinates(img);
                 lgk[2] = (decimal)Math.Round(LGKcoords.getLGK_Z_forDICOM(slider2.Value), 2);
                 label1.Content = "LGK Frame: <" + lgk[0] + ", " + lgk[1] + ", " + lgk[2] + ">";
+                DICOMCoordLabel.Content = "DICOM Location: (" + (Math.Round(dicom[0], 2)) + ", " + (Math.Round(dicom[1], 2)) + ", " + (Math.Round(dicom[2], 2)) + ")";           
             }
-            tracking_label.Content = "Image Pos: (" + img[0] + ", " + img[1] + ", " + img[2] + ")";
-            DICOMCoordLabel.Content = "DICOM Location: (" + (Math.Round(dicom[0], 2)) + ", " + (Math.Round(dicom[1], 2)) + ", " + (Math.Round(dicom[2], 2)) + ")";           
+            
+            
 
         }
         private void DICOM_imgbox_MouseLeave(object sender, MouseEventArgs e)
@@ -1241,24 +1276,11 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             DisplayPlan();
         }
 
-        private void plan_imgbox_MouseEnter(object sender, MouseEventArgs e)
-        {
-            plan_imgbox.MouseMove += new MouseEventHandler(plan_imgbox_MouseMove);
-            UpdateTrackingLabels(e);
-        }
+       
 
 
 
-        void plan_imgbox_MouseMove(object sender, MouseEventArgs e)
-        {
-            UpdateTrackingLabels(e);
-        }
-
-        private void plan_imgbox_MouseLeave(object sender, MouseEventArgs e)
-        {
-            plan_imgbox.MouseMove -= plan_imgbox_MouseMove;
-            SilenceTrackingLabels();
-        }
+        
 
         private void SilenceTrackingLabels()
         {
@@ -1271,7 +1293,10 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         {
             planX_lbl.Content = "X: " + e.GetPosition(plan_imgbox).X;
             planY_lbl.Content = "Y: " + e.GetPosition(plan_imgbox).Y;
-            planZ_lbl.Content = "Z: " + PS.SlicePositions[GetCurrentSlice()];
+            if (PS != null)
+                planZ_lbl.Content = "Z: " + PS.SlicePositions[GetCurrentSlice()];
+            else
+                planZ_lbl.Content = "Z: unknown";
         }
 
         private void UpdateSliceLabels()
@@ -1345,6 +1370,86 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
                 }
             }
         }
+
+        private void plan_imgbox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+
+            //DrawCirclePoints(e.GetPosition(plan_imgbox).X, e.GetPosition(plan_imgbox).Y);
+            
+        }
+
+        private void plan_imgbox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+
+        }
+
+        void plan_imgbox_MouseMove(object sender, MouseEventArgs e)
+        {
+            UpdateTrackingLabels(e);
+            
+        }
+
+        private void plan_imgbox_MouseEnter(object sender, MouseEventArgs e)
+        {
+            plan_imgbox.MouseMove += new MouseEventHandler(plan_imgbox_MouseMove_1);
+            cursor_ellipse.IsEnabled = true;
+            UpdateTrackingLabels(e);        
+        }
+
+        private void plan_imgbox_MouseLeave(object sender, MouseEventArgs e)
+        {
+            plan_imgbox.ReleaseMouseCapture();
+            plan_imgbox.MouseMove -= plan_imgbox_MouseMove_1;
+            cursor_ellipse.IsEnabled = false;
+            
+            SilenceTrackingLabels();
+        }
+        private void plan_imgbox_MouseMove_1(object sender, MouseEventArgs e)
+        {
+            System.Windows.Point p = e.GetPosition(plan_imgbox);
+            cursor_ellipse.Arrange(new Rect(p.X - 7, p.Y - 7, 15, 15));
+            if (e.LeftButton == MouseButtonState.Pressed)
+                DrawCirclePoints(e.GetPosition(plan_imgbox).X, e.GetPosition(plan_imgbox).Y);
+            //canvas1.Arrange(new Rect(p.X, p.Y, 15, 15));
+            UpdateTrackingLabels(e);
+            //if (IsMouseCaptured)
+            //    ForceCursor = true;
+        }
+        private void plan_imgbox_IsMouseDirectlyOverChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (IsMouseDirectlyOver)
+                Mouse.Capture(plan_imgbox, CaptureMode.Element);
+            else if (!IsMouseDirectlyOver)
+                plan_imgbox.ReleaseMouseCapture();
+        }
+        private void canvas1_MouseEnter(object sender, MouseEventArgs e)
+        {
+      
+        }
+        private void canvas1_MouseLeave(object sender, MouseEventArgs e)
+        {
+       
+        }
+        private void canvas1_MouseMove(object sender, MouseEventArgs e)
+        {
+       
+        }
+        private void cursor_ellipse_MouseEnter(object sender, MouseEventArgs e)
+        {
+            
+        }
+        private void cursor_ellipse_MouseMove(object sender, MouseEventArgs e)
+        {
+            
+        }
+        
+
+        private void canvas1_IsMouseDirectlyOverChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+
+        }
+
+        
 
         
 

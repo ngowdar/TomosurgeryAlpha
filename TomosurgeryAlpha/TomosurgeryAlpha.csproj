@@ -132,6 +132,8 @@
     <None Include="Resources\dicomdictionary.bin" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\Test-Image-Color-Response-0-512x512-No-Noise.bmp" />
+    <None Include="Resources\testimg.bmp" />
     <None Include="Resources\BWheatmap3.bmp" />
     <Content Include="Resources\EvilDicom.dll" />
   </ItemGroup>

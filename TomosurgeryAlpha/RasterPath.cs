@@ -371,18 +371,18 @@ namespace TomosurgeryAlpha
             while (Error >= .0001 || index < 50)
             {
                 //Add the weighted shots to the array
-                for (int i = 0; i < shots.GetLength(0); i++)
+                Parallel.For(0, shots.GetLength(0), i =>
                 {
                     if (weight[i] == 0)
                         weight[i] = 1.0f;
-                    ds = IterateShot(ds, dosemidplane, i);                    
-                }
+                    ds = IterateShot(ds, dosemidplane, i);
+                });
                 ds = Normalize(ds);
-                for (int i = 0; i < shots.GetLength(0); i++)
+                Parallel.For(0, shots.GetLength(0), i =>
                 {
                     float ratio = EvalShotWeightIteration(dosemidplane, ds, shots[i]);
                     w[i] = weight[i] * ratio;
-                }
+                });
                 w = Normalize(w);
                 weight = Normalize(weight);                
                 Error = FindError(weight, w);
@@ -504,25 +504,27 @@ namespace TomosurgeryAlpha
         {
             double c = 0;
             float isovolume = 0; float both = 0; float tumor = 0; float dose;
-            for (int i = 0; i < slice.GetLength(0); i++)
-                for (int j = 0; j < slice.GetLength(1); j++)
+            Parallel.For(0, shots.GetLength(0), i =>
                 {
-                    dose = ds_temp[i + j * slice.GetLength(0)];
-                    if (dose >= iso)
+                    for (int j = 0; j < slice.GetLength(1); j++)
                     {
-                        isovolume++;
-                        if (slice[i, j] > 0)
+                        dose = ds_temp[i + j * slice.GetLength(0)];
+                        if (dose >= iso)
                         {
-                            tumor++;
-                            both++;
+                            isovolume++;
+                            if (slice[i, j] > 0)
+                            {
+                                tumor++;
+                                both++;
+                            }
+                        }
+                        else
+                        {
+                            if (slice[i, j] > 0)
+                                tumor++;
                         }
                     }
-                    else
-                    {
-                        if (slice[i, j] > 0)
-                            tumor++;
-                    }
-                }
+                });
             c = (float)(both / tumor);
             return c;
         }
