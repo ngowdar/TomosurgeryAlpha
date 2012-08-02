@@ -433,6 +433,40 @@ namespace TomosurgeryAlpha
             return (float)(ddssum / dssum);            
         }
 
+        private void Calculate_3D_Dose(DoseKernel dk, int slicethickness)
+        {
+            int dosethickness = 3 * slicethickness + 1;
+            float[][,] SliceSlab = new float[dosethickness][,];
+            float[][,] DoseSlab = dk.GetDoseSlab();
+            PointF center = new PointF(DoseSlab[0].GetLength(0) / 2, DoseSlab[0].GetLength(1) / 2);
+            PointF[] startpts = new PointF[shots.GetLength(0)];
+            for (int i = 0; i < shots.GetLength(0); i++)
+            {
+                PointF startpt = GetStartingPoint(center, shots[i]);
+            }
+
+            //Assuming each shot has its own indexed weight, can just do one for loop to add all of the things.
+            //Loop through each pixel in the dosekernel, and add it to its respective location for each shot in the resulting sliceslab.
+            for (int z = 0; z < DoseSlab.GetLength(0); z++)
+                for (int y = 0; y < DoseSlab[0].GetLength(1); y++)
+                    for (int x = 0; x < DoseSlab[0].GetLength(0); x++)
+                {
+                    for (int w = 0; w < startpts.GetLength(0); w++)
+                    {
+                        PointF pf = startpts[w];
+                        SliceSlab[z][(int)(pf.X+x),(int)(pf.Y+y)] = DoseSlab[z][x,y] * weight[w];
+                    }
+                }
+        }
+
+        private PointF GetStartingPoint(PointF center, PointF coord)
+        {
+            PointF start = new PointF();
+            start.X = coord.X - center.X;
+            start.Y = coord.Y - center.Y;
+            return start;
+        }
+
         public static float[,] GetMultiplied_DDS_Subset(float[,] slice, float px, float py, float[,] P)
         {
             //int startx = (int)px-(P.GetLength(0)-1)/2;

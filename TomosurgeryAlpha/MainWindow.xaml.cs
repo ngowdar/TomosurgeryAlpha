@@ -254,11 +254,17 @@ namespace TomosurgeryAlpha
             circle = (PointF[])points.ToArray(typeof(PointF));            
         }
 
+        private void AdjustCursorSize()
+        {
+            cursor_ellipse.Height = (int)(cursor_ellipse.Height / Plan_aspectMultiplier);
+            cursor_ellipse.Width = (int)(cursor_ellipse.Width / Plan_aspectMultiplier);
+        }
+
+
         private void DrawCirclePoints(double x, double y)
         {
             double Plan_aspectMultiplier = wb_Plan.PixelHeight / plan_imgbox.Height;
-            cursor_ellipse.Height = cursor_ellipse.Height / Plan_aspectMultiplier;
-            cursor_ellipse.Width = cursor_ellipse.Width / Plan_aspectMultiplier;
+            AdjustCursorSize();
             int i = ((int)(x * Plan_aspectMultiplier)) - CursorRadius;
             int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;
             
@@ -335,6 +341,7 @@ namespace TomosurgeryAlpha
             //float max = img.Max();
             int size = (int)Math.Sqrt(img.GetLength(0));
             Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
+            AdjustCursorSize();
             img = Matrix.Normalize(img);
             //float sum = img.Sum();
             wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);            
