@@ -33,6 +33,7 @@ namespace TomosurgeryAlpha
         public int[] red_colormap;
         public int[] blue_colormap;
         public int[] green_colormap;
+        public float[,] mask;
         public PointF[] circle;
         public bool IsDICOMLoaded = false;
         public bool IsDoseLoaded = false;
@@ -58,6 +59,7 @@ namespace TomosurgeryAlpha
             SetParameterSliderLimits();
             ColormapTool(TomosurgeryAlpha.Properties.Resources.BWheatmap3);
             CreateCirclePoints();
+            ResetMask();
         }
 
         private void UpdateTextBlock(string s)
@@ -258,16 +260,29 @@ namespace TomosurgeryAlpha
         {
             cursor_ellipse.Height = (int)(cursor_ellipse.Height / Plan_aspectMultiplier);
             cursor_ellipse.Width = (int)(cursor_ellipse.Width / Plan_aspectMultiplier);
+            
         }
 
+        private void ResetMask()
+        {
+            PathSet.mask = Matrix.Zeroes((int)wb_Plan.Width, (int)wb_Plan.Height);
+        }
 
         private void DrawCirclePoints(double x, double y)
         {
             double Plan_aspectMultiplier = wb_Plan.PixelHeight / plan_imgbox.Height;
-            AdjustCursorSize();
+            //AdjustCursorSize();
             int i = ((int)(x * Plan_aspectMultiplier)) - CursorRadius;
-            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;
+            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;            
             
+            //i and j is the single center of the circle, adjusted for the aspect ratio.
+            //u and v refer to each of the individual pixels in the circle cursor mask.
+            foreach (PointF p in circle)
+            {
+                int u = (int)p.Y; int v = (int)p.X;
+                mask[i + u, j + v] = 1;
+            }
+
             wb_Plan.Lock();
             
                 unsafe
@@ -341,7 +356,7 @@ namespace TomosurgeryAlpha
             //float max = img.Max();
             int size = (int)Math.Sqrt(img.GetLength(0));
             Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
-            AdjustCursorSize();
+            //AdjustCursorSize();
             img = Matrix.Normalize(img);
             //float sum = img.Sum();
             wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);            
@@ -1338,6 +1353,7 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             CreatePaths();
             if (IsPathSetCreated)
                 Opt_btn.IsEnabled = true;
+            AdjustCursorSize();
         }
 
         private void Opt_btn_Click(object sender, RoutedEventArgs e)

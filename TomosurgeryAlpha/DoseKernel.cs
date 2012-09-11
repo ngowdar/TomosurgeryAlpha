@@ -5,6 +5,8 @@ using System.Text;
 using System.IO;
 using System.Collections;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TomosurgeryAlpha
 {
@@ -22,7 +24,7 @@ namespace TomosurgeryAlpha
         {
             string hpath = GetHeaderFileName(path);
             FileInfo fi = new FileInfo(path);
-            
+
             DKI = new DoseKernelInfo();
             if (hpath != null && fi.Exists)
             {
@@ -32,16 +34,16 @@ namespace TomosurgeryAlpha
                 DKI.Name = fi.Name;
                 DKI.GetListboxInfo();
                 SetDosemidplaneForOpt();
-            }            
+            }
         }
 
         private void FindMidplane()
         {
             float[] temp = dose[N / 2];
-            midplane = new float[N,N];
+            midplane = new float[N, N];
             for (int i = 0; i < N; i++)
                 for (int j = 0; j < N; j++)
-                    midplane[i, j] = temp[j * N + i];            
+                    midplane[i, j] = temp[j * N + i];
         }
 
         private string GetHeaderFileName(string path)
@@ -74,7 +76,7 @@ namespace TomosurgeryAlpha
             }
             return output;
         }
-        
+
         private void LoadDose(string path)
         {
             StreamReader t = new StreamReader(path);
@@ -139,6 +141,36 @@ namespace TomosurgeryAlpha
             return r;
         }
 
+        public float[][,] GetDoseSlab(int startz, int endz)
+        {
+            float[][,] slab = new float[endz - startz][,];
+            int s = startz;
+            int e = endz;
+            //Change start coords if requested start and end are beyond limits
+            if (startz < 0)
+                s = 0;            
+            else if (startz >= N)
+                s = -1;
+            else
+                s = startz;
+            if (endz >= N)
+                e = N - 1;
+            else if (endz < 0)
+                e = -1;
+            else
+                e = endz;
+
+            if (s > 0 && e > 0)
+            {
+                Parallel.For(0, e - s, (i) =>
+                {
+                    slab[i] = Get2DSlice(i + s);
+                });
+            }
+            return slab;
+
+        }
+
         private void SetDosemidplaneForOpt()
         {
             float[,] dmp = new float[N, N];
@@ -152,6 +184,7 @@ namespace TomosurgeryAlpha
                 }
             RasterPath.dosemidplane = dmp;
         }
+
     }
 
     public struct DoseKernelInfo

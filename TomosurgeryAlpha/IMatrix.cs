@@ -425,5 +425,14 @@ namespace TomosurgeryAlpha
                 n[i] = img[i] / max;
             return n;
         }
+
+        internal static float[,] Zeroes(int p1, int p2)
+        {
+            float[,] output = new float[p1, p2];
+            for (int i = 0; i < p1; i++)
+                for (int j = 0; j < p2; j++)
+                    output[i, j] = 0;
+            return output;
+        }
     }
 }

@@ -22,6 +22,8 @@ namespace TomosurgeryAlpha
         public event RunWorkerCompletedEventHandler PathsetWorkerCompleted;
         public event ProgressChangedEventHandler RasterPathWorkerProgress;
         public BackgroundWorker PSworker;
+        public Boolean DoseModifiable;
+        public static float[,] mask;
         public static int N = 40;
         public static int edgepadding = N/4;
         public static int tumorflag = 10;
@@ -298,6 +300,8 @@ namespace TomosurgeryAlpha
         public static int doseN = 161;     //Size of dose matrix
         public static int N;
         public static int X; public static int Y;
+        public static bool DoseModifiable = false;
+        public static float[,] mask;
         public int RasterWidth;
         public int StepSize;
         public int NumOfLines;
@@ -436,8 +440,10 @@ namespace TomosurgeryAlpha
         private void Calculate_3D_Dose(DoseKernel dk, int slicethickness)
         {
             int dosethickness = 3 * slicethickness + 1;
+            int startz = (DoseKernel.N - dosethickness) / 2;
+            int endz = startz + dosethickness;
             float[][,] SliceSlab = new float[dosethickness][,];
-            float[][,] DoseSlab = dk.GetDoseSlab();
+            float[][,] DoseSlab = dk.GetDoseSlab(startz, endz);
             PointF center = new PointF(DoseSlab[0].GetLength(0) / 2, DoseSlab[0].GetLength(1) / 2);
             PointF[] startpts = new PointF[shots.GetLength(0)];
             for (int i = 0; i < shots.GetLength(0); i++)
@@ -471,9 +477,20 @@ namespace TomosurgeryAlpha
         {
             //int startx = (int)px-(P.GetLength(0)-1)/2;
             //int starty = (int)py-(P.GetLength(1)-1)/2;
-            float[,] output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
+            float[,] output;
+
+            // ADD DDS ADDITIONS HERE!!!
+            if (DoseModifiable)
+            {
+                float[,] TempMod = Matrix.Add(mask,slice);                
+                output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
+            }
+            else
+                output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
+
             return output;
         }
+        
 
         public static float[,] GetMultiplied_DS_Subset(float[] ds, float px, float py, float[,] P)
         {
