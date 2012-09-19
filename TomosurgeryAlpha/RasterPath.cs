@@ -7,6 +7,7 @@ using System.Collections;
 using System.Linq;
 using System.Text;
 using System.Drawing;
+using System.IO;
 
 namespace TomosurgeryAlpha
 {
@@ -529,6 +530,54 @@ namespace TomosurgeryAlpha
         
 
         #endregion
+
+        public void Calculate_3D_SliceDose(DoseKernel dk, int slicethickness, string savepath)
+        {
+            int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
+            int xmid = xsize / 2; int ymid = ysize / 2; int zmid = slicethickness / 2;
+            float[] slicedose = new float[xsize * ysize * slicethickness];
+            for (int k = 0; k < slicethickness; k++)
+                for (int j = 0; j < ysize; j++)
+                    for (int i = 0; i < xsize; i++)
+                    {
+                        for (int w = 0; w < shots.GetLength(0); w++)
+                        {
+                            PointF p = shots[w];
+                            int xloc = (int)p.X - xmid + i; int yloc = (int)p.Y - ymid + j; //the absolute position of the current dose pixel in slice-space.
+                            //Check if pixel location is less than or greater than boundary of slice
+                            if (k < 0 || k >= slicethickness || yloc < 0 || yloc >= ysize || xloc < 0 || xloc >= xsize)
+                                continue;
+                            //Convert to one-dim coordinates
+                            slicedose[k * xsize * ysize + j * xsize + i] = dk.ReturnSpecificDoseValue(i, j, k) * weight[w];
+                        }
+                    }
+            WriteToFile(savepath, slicedose);
+        }
+
+        private void WriteToFile(string savepath, float[] sd)
+        {
+            using (FileStream fs = new FileStream(savepath, FileMode.OpenOrCreate, FileAccess.Write))
+            using (BinaryWriter bw = new BinaryWriter(fs))
+            {
+                bw.Write(sd.GetLength(0));
+                foreach (float f in sd)
+                    bw.Write(f);
+            }
+        }
+
+        public float[] ReadDoseFromFile(string loadpath)
+        {
+            float[] d;
+            using (FileStream fs = new FileStream(loadpath, FileMode.Open, FileAccess.Read))
+            using (BinaryReader br = new BinaryReader(fs))
+            {                
+                int size = br.ReadInt16();
+                d = new float[size];
+                for (int i = 0; i < size; i++)
+                    d[i] = br.ReadSingle();                    
+            }
+            return d;
+        }
 
         #region Preliminary Plan methods (paramters, shot locations, etc)
         public PointF[] ReturnSinglePoints()
