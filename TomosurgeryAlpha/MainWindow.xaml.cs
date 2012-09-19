@@ -33,8 +33,8 @@ namespace TomosurgeryAlpha
         public int[] red_colormap;
         public int[] blue_colormap;
         public int[] green_colormap;
-        public float[,] mask;
-        public PointF[] circle;
+        private float[,] mask;
+        private PointF[] circle;
         public bool IsDICOMLoaded = false;
         public bool IsDoseLoaded = false;
         public bool IsSSLoaded = false;
@@ -58,6 +58,7 @@ namespace TomosurgeryAlpha
             DICOM_aspectMultiplier = 256 / DICOM_imgbox.Width;
             SetParameterSliderLimits();
             ColormapTool(TomosurgeryAlpha.Properties.Resources.BWheatmap3);
+            circle = new PointF[1];
             CreateCirclePoints();
             ResetMask();
         }
@@ -265,7 +266,7 @@ namespace TomosurgeryAlpha
 
         private void ResetMask()
         {
-            PathSet.mask = Matrix.Zeroes((int)wb_Plan.Width, (int)wb_Plan.Height);
+            PathSet.mask = Matrix.Zeroes((int)DICOM_imgbox.Width, (int)DICOM_imgbox.Height);
         }
 
         private void DrawCirclePoints(double x, double y)
@@ -277,6 +278,7 @@ namespace TomosurgeryAlpha
             
             //i and j is the single center of the circle, adjusted for the aspect ratio.
             //u and v refer to each of the individual pixels in the circle cursor mask.
+            if (circle != null)
             foreach (PointF p in circle)
             {
                 int u = (int)p.Y; int v = (int)p.X;
@@ -1477,6 +1479,20 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         private void canvas1_IsMouseDirectlyOverChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
 
+        }
+
+        private void tabControl1_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
+        }
+
+        private void Select4mmDefault_Click(object sender, RoutedEventArgs e)
+        {
+            DK = new DoseKernel(4);
+            plan_dpRB.IsEnabled = true;
+            IsDoseLoaded = true;
+            RasterPath.doseN = DoseKernel.N;
+            AddDoseLoadedToListBox();
         }
 
         

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Tomosurgery - Case Western Reserve University, Dean Imaging Lab 2012" Height="675" Width="1020" xmlns:editors="http://schemas.actiprosoftware.com/winfx/xaml/editors" xmlns:views="http://schemas.actiprosoftware.com/winfx/xaml/views" xmlns:gauge="http://schemas.actiprosoftware.com/winfx/xaml/gauge">
     <Grid>
-        <TabControl Height="560" HorizontalAlignment="Left" Margin="12,29,0,0" Name="tabControl1" VerticalAlignment="Top" Width="628" TabStripPlacement="Bottom">
+        <TabControl Height="560" HorizontalAlignment="Left" Margin="12,29,0,0" Name="tabControl1" VerticalAlignment="Top" Width="628" TabStripPlacement="Bottom" SelectionChanged="tabControl1_SelectionChanged">
             <TabItem Header="DICOM" Name="DICOMtab">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -72,7 +72,12 @@
                 <MenuItem Header="Load DICOM Image set..." Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
                 <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Click="LoadStructure_Menu_Click" />
                 <MenuItem Header="Load Test File..." Name="LoadTest_menu" Click="LoadTest_menu_Click" />
-                <MenuItem Header="Load Dose file..." Name="LoadDose_menu" Click="LoadDose_menu_Click" />
+                <MenuItem Header="Load Dose" Name="LoadDose_menu"  >
+                    <Button x:Name="Select4mmDefault" Content="4mm Default" Click="Select4mmDefault_Click"/>
+                    <Button Content="8mm Default"/>
+                    <Button Content="16mm Default"/>
+                    <Button Content="From file..." Click="LoadDose_menu_Click"/>
+                </MenuItem>
             </MenuItem>
         </Menu>
         <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />

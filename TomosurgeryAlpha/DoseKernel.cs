@@ -7,6 +7,7 @@ using System.Collections;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace TomosurgeryAlpha
 {
@@ -35,6 +36,77 @@ namespace TomosurgeryAlpha
                 DKI.GetListboxInfo();
                 SetDosemidplaneForOpt();
             }
+        }
+
+        public DoseKernel(int size)
+        {
+            DKI = new DoseKernelInfo();
+            switch(size)
+            {
+                case 4:
+                    Create4mmKernel();
+                    DKI.Name = "4mmKernel";
+                    break;
+                case 8:
+                    Create8mmKernel();
+                    DKI.Name = "8mmKernel";
+                    break;
+                case 16:
+                    Create16mmKernel();
+                    DKI.Name = "16mmKernel";
+                    break;
+                default:
+                    Create4mmKernel();
+                    DKI.Name = "4mmKernel";
+                    break;
+            }
+            FindMidplane();
+            DKI.GetListboxInfo();
+            SetDosemidplaneForOpt();                
+        }
+
+        private void Create16mmKernel()
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+        }
+
+        private void Create8mmKernel()
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+        }
+
+        private void Create4mmKernel()
+        {
+            string[] names = this.GetType().Assembly.GetManifestResourceNames();
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+
         }
 
         private void FindMidplane()
@@ -77,9 +149,8 @@ namespace TomosurgeryAlpha
             return output;
         }
 
-        private void LoadDose(string path)
-        {
-            StreamReader t = new StreamReader(path);
+        private void LoadDose(StreamReader t)
+        {            
             dose = new float[N][];
             float[] temp;
             for (int j = 0; j < N; j++)
@@ -94,9 +165,14 @@ namespace TomosurgeryAlpha
             }
         }
 
-        private void LoadHeader(string hpath)
+        private void LoadDose(string path)
         {
-            StreamReader head = new StreamReader(hpath);
+            StreamReader s = new StreamReader(path);
+            LoadDose(s);
+        }
+
+        private void LoadHeader(StreamReader head)
+        {            
             head.ReadLine();
             string sectorconfig = head.ReadLine();
             DKI.SectorConfig = Convert.ToInt32(sectorconfig);
@@ -114,6 +190,12 @@ namespace TomosurgeryAlpha
             DKI.ShotLocation = "" + location[0] + ", " + location[1] + ", " + location[2];
             N = Convert.ToInt16(head.ReadLine());
             DKI.Size = N;
+        }
+
+        private void LoadHeader(string hpath)
+        {
+            StreamReader head = new StreamReader(hpath);
+            LoadHeader(head);
         }
 
         private void SetSectors(string sectorconfig)

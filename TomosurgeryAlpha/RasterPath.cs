@@ -437,37 +437,84 @@ namespace TomosurgeryAlpha
             return (float)(ddssum / dssum);            
         }
 
+        /// <summary>
+        /// Calculates the full 3D matrix of dose, and converts it to a file.
+        /// </summary>
+        /// <param name="dk"></param>
+        /// <param name="slicethickness"></param>
         private void Calculate_3D_Dose(DoseKernel dk, int slicethickness)
         {
             int dosethickness = 3 * slicethickness + 1;
             int startz = (DoseKernel.N - dosethickness) / 2;
             int endz = startz + dosethickness;
+            int actualx_start = 0;
+            int actualy_start = 0;
+            int actualz_start = 0;
+            int ex = 0;
+            int ey = 0;
+            int ez = 0;
             float[][,] SliceSlab = new float[dosethickness][,];
             float[][,] DoseSlab = dk.GetDoseSlab(startz, endz);
             PointF center = new PointF(DoseSlab[0].GetLength(0) / 2, DoseSlab[0].GetLength(1) / 2);
             PointF[] startpts = new PointF[shots.GetLength(0)];
             for (int i = 0; i < shots.GetLength(0); i++)
             {
-                PointF startpt = GetStartingPoint(center, shots[i]);
+                //startpts[i] = GetStartingPoint(center, shots[i]);
+                PointF temp = GetStartingPoint(center, shots[i]);
+                PointF actualstart = temp;
+                if (temp.X < 0)
+                    actualstart.X = 0 - (int)temp.X;
+                else if (temp.X + DoseSlab[0].GetLength(0) > SliceSlab[0].GetLength(0))
+                    ex = SliceSlab[0].GetLength(0) - ((int)temp.X + DoseSlab[0].GetLength(0));
+                if (temp.Y < 0)
+                    actualstart.Y = 0 - (int)temp.Y;
+                else if (temp.Y + DoseSlab[0].GetLength(1) > SliceSlab[0].GetLength(1))
+                    ey = SliceSlab[0].GetLength(1) - ((int)temp.Y + DoseSlab[0].GetLength(1));
+                //temp is the starting point within the TUMOR space (not the doseslab space)
+                /*Need to check if the starting point is negative, then the starting location needs to change.                
+                 * Conditions:
+                 * 1) If starting point of dose slab is negative
+                 *   then need to start the doseslab loop below at the
+                 *   location that corresponds to the true 0 location within the tumor matrix.
+                 * 2) If ending point of dose slab is outside of matrix
+                 * then need to end the dose loop earlier (bc end is beyond matrix)
+                 * Do this by subtracting the endx/endy/endz variable from the doseslab conditions.                 
+                 * 
+                 * In plain english, if the start point in the tumor space is negative, make the
+                 * actual start point in the doseslab space equal to the negative shift amount
+                 * (i.e. move it forwards so that it aligns with 0,0)
+                 * If the start point (temp) plus the length of the dose slab is beyond the bounds
+                 * of the tumor matrix, then set the ending point within the doseslab loop to be the
+                 * coordinate that aligns with the last pixel in the tumorspace, which would just be 
+                 * the length of sliceslab - the total length, which will give the negative shift
+                 * amount to adjust the loop end by.
+                 */
+                startpts[i] = actualstart;
             }
 
             //Assuming each shot has its own indexed weight, can just do one for loop to add all of the things.
-            //Loop through each pixel in the dosekernel, and add it to its respective location for each shot in the resulting sliceslab.
+            //Loop through each pixel in the dosekernel, and add it to the translated location relative to the shot center, 
+            //weighted by the shotweight.
             for (int z = 0; z < DoseSlab.GetLength(0); z++)
-                for (int y = 0; y < DoseSlab[0].GetLength(1); y++)
-                    for (int x = 0; x < DoseSlab[0].GetLength(0); x++)
+                for (int doseY_index = 0; doseY_index < DoseSlab[0].GetLength(1)-ey; doseY_index++)
+                    for (int doseX_index = 0; doseX_index < DoseSlab[0].GetLength(0)-ex; doseX_index++)
                 {
-                    for (int w = 0; w < startpts.GetLength(0); w++)
+                    Parallel.For(0, startpts.GetLength(0), (shotpoint) =>
                     {
-                        PointF pf = startpts[w];
-                        SliceSlab[z][(int)(pf.X+x),(int)(pf.Y+y)] = DoseSlab[z][x,y] * weight[w];
-                    }
+                        //The 
+                        PointF topleft_dose = startpts[shotpoint];
+                        SliceSlab[z][(int)(topleft_dose.X + doseX_index), (int)(topleft_dose.Y + doseY_index)] = DoseSlab[z][doseX_index, doseY_index] * weight[shotpoint];
+                    });
                 }
         }
 
         private PointF GetStartingPoint(PointF center, PointF coord)
         {
             PointF start = new PointF();
+            /*The coord is the shot coordinate, which should correspond to the dead center of
+             * the dose slab. If a shot is located at (0,0,0), then the actual starting pixel
+             * is in the negative, because it is (coord - center) for find the starting point.
+            */
             start.X = coord.X - center.X;
             start.Y = coord.Y - center.Y;
             return start;
