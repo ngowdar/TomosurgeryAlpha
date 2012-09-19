@@ -42,10 +42,10 @@
     <Reference Include="ActiproSoftware.Shared.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
     <Reference Include="ActiproSoftware.Views.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
     <Reference Include="OpenCLTemplate">
-      <HintPath>..\..\..\..\..\Downloads\OpenCLTemplate\OpenCLTemplate\OpenCLTemplate.dll</HintPath>
+      <HintPath>..\..\..\Downloads\OpenCLTemplate\OpenCLTemplate\OpenCLTemplate.dll</HintPath>
     </Reference>
     <Reference Include="opendicom-sharp">
-      <HintPath>..\..\..\..\..\Desktop\Tomosurgery\TomosurgeryWPF\bin\Debug\opendicom-sharp.dll</HintPath>
+      <HintPath>..\..\..\..\Desktop\Tomosurgery2\TomosurgeryWPF\bin\Debug\opendicom-sharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />

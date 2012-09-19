@@ -88,7 +88,6 @@
         <DataGrid AutoGenerateColumns="False" Height="178" HorizontalAlignment="Left" Margin="673,52,0,0" Name="dataGrid1" VerticalAlignment="Top" Width="183" SelectionChanged="dataGrid1_SelectionChanged" />
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="124" SelectionChanged="listBox2_SelectionChanged" />
         <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,318,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" />
-        <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,318,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" />
-        <gauge:LinearGauge HorizontalAlignment="Left" Margin="657,435,0,0" Name="linearGauge1" VerticalAlignment="Top" Height="26" Width="331" />
+        <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,318,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" />        
     </Grid>
 </Window>
