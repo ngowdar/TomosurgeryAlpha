@@ -109,6 +109,21 @@ namespace TomosurgeryAlpha
 
         }
 
+        public float[] ReturnDose1D()
+        {
+            float[] d = new float[N * N * N];
+            for (int k = 0; k < N; k++)
+                for (int j = 0; j < N; j++)
+                    for (int i = 0; i < N; i++)
+                        d[k * N * N + j * N + i] = dose[k][j * N + i];
+            return d;
+        }
+
+        public float ReturnSpecificDoseValue(int i, int j, int k)
+        {
+            return dose[k][j * N + i];
+        }
+
         private void FindMidplane()
         {
             float[] temp = dose[N / 2];
