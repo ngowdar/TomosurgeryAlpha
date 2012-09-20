@@ -32,10 +32,10 @@ Once these two inputs are loaded, a plan can be successfully run. However, DICOM
 
 TO RUN A PLAN:
 -----------------
-- 1) Load the two inputs described above.
-- 2) Choose a desired slice thickness using the slider located at the bottom of the window.
-- 3) Click the 'Plan' button (it should no longer be gray if both inputs are loaded correctly).
--- The structure will be divided into slices and shots will be planned according to the default parameters (Raster Width, Step Size, and Slice Thickness). 
-- 4) Ensure that you are in the 'Plan' tab. You can now adjust the step-size and raster width of the plan for each slice individually using the parameter sliders. The red dots on the structure image will adjust in real-time. If you would like to see a dose overlay, click "Dose Preview" radio button.
-- 5) Once you are satisfied with the plan, click 'Optimize' to run the weighting algorithm, which will choose the weights of each shot to optimize coverage and minimize dose external to the structure.
-- 6) When finished, view the resulting dose and the associated coverage values listed in the list box. 
+1) Load the two inputs described above.
+2) Choose a desired slice thickness using the slider located at the bottom of the window.
+2) Click the 'Plan' button (it should no longer be gray if both inputs are loaded correctly).
+- The structure will be divided into slices and shots will be planned according to the default parameters (Raster Width, Step Size, and Slice Thickness). 
+3) Ensure that you are in the 'Plan' tab. You can now adjust the step-size and raster width of the plan for each slice individually using the parameter sliders. The red dots on the structure image will adjust in real-time. If you would like to see a dose overlay, click "Dose Preview" radio button.
+4) Once you are satisfied with the plan, click 'Optimize' to run the weighting algorithm, which will choose the weights of each shot to optimize coverage and minimize dose external to the structure.
+5) When finished, view the resulting dose and the associated coverage values listed in the list box. 

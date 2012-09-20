@@ -3,25 +3,20 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Tomosurgery - Case Western Reserve University, Dean Imaging Lab 2012" Height="675" Width="1020" xmlns:editors="http://schemas.actiprosoftware.com/winfx/xaml/editors" xmlns:views="http://schemas.actiprosoftware.com/winfx/xaml/views" xmlns:gauge="http://schemas.actiprosoftware.com/winfx/xaml/gauge">
     <Grid>
-        <TabControl Height="560" HorizontalAlignment="Left" Margin="12,29,0,0" Name="tabControl1" VerticalAlignment="Top" Width="628" TabStripPlacement="Bottom" SelectionChanged="tabControl1_SelectionChanged">
+        <TabControl Height="560" HorizontalAlignment="Left" Margin="12,29,0,0" Name="tabControl1" VerticalAlignment="Top" Width="628" TabStripPlacement="Bottom">
             <TabItem Header="DICOM" Name="DICOMtab">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="174*" />
-                        <ColumnDefinition Width="444*" />
-                    </Grid.ColumnDefinitions>
-                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DICOM_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseEnter="DICOM_imgbox_MouseEnter" MouseMove="DICOM_imgbox_MouseMove_1" MouseLeave="DICOM_imgbox_MouseLeave" MouseWheel="DICOM_imgbox_MouseWheel_1" MouseLeftButtonDown="DICOM_imgbox_MouseLeftButtonDown_1" Grid.ColumnSpan="2" Source="file:///C:/Users/Gowdar/Documents/Visual%20Studio%202010/Projects/TomosurgeryAlpha/TomosurgeryAlpha/Resources/Test-Image-Color-Response-0-512x512-No-Noise.bmp" />
+                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DICOM_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseEnter="DICOM_imgbox_MouseEnter" MouseMove="DICOM_imgbox_MouseMove_1" MouseLeave="DICOM_imgbox_MouseLeave" MouseWheel="DICOM_imgbox_MouseWheel_1" MouseLeftButtonDown="DICOM_imgbox_MouseLeftButtonDown_1" />
                     <Label Content="Image:" Height="27" HorizontalAlignment="Left" Margin="6,504,0,0" Name="imgnumb_label" VerticalAlignment="Top" Width="76" Foreground="White" FontWeight="Bold" />
-                    <Button Content="Align Z" Height="23" HorizontalAlignment="Left" Margin="354,11,0,0" Name="button1" VerticalAlignment="Top" Width="74" Click="button1_Click" Grid.Column="1" />
-                    <Label Content="" Height="53" HorizontalAlignment="Left" Margin="92,11,0,0" Name="aligning_helper_label" VerticalAlignment="Top" Width="310" IsEnabled="False" UseLayoutRounding="False" ClipToBounds="False" FontStretch="Normal" Foreground="#FFE5E435" FontWeight="Bold" Visibility="Visible" Grid.ColumnSpan="2" />
-                    <Label Content="LGK Location:" Height="28"  HorizontalAlignment="Left" IsEnabled="False" Margin="3,488,0,0" Name="label1" VerticalAlignment="Top" Width="294" FontWeight="Bold" Foreground="#FFF8F8F5" FontFamily="Anonymous Pro" FontSize="14" Grid.ColumnSpan="2" />
-                    <Label Content="Image Location:" Height="28" HorizontalAlignment="Left" Margin="7,460,0,0" Name="tracking_label" VerticalAlignment="Top" Width="294" IsEnabled="False" Foreground="#FFF5EFEF" FontFamily="Anonymous Pro" Grid.ColumnSpan="2" />
-                    <Label Content="DICOM Coordinates:" Foreground="#FFF5EFEF" Height="28" HorizontalAlignment="Left" IsEnabled="False" Margin="6,460,0,0" Name="DICOMCoordLabel" VerticalAlignment="Top" Width="294" FontFamily="Anonymous Pro" Grid.ColumnSpan="2" />
-                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="354,51,0,0" Name="label5" VerticalAlignment="Top" Width="78" Grid.Column="1" />
-                    <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="354,104,0,0" Name="label6" VerticalAlignment="Top" Width="78" Grid.Column="1" />
-                    <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="354,117,0,0" Name="label7" VerticalAlignment="Top" Width="78" Grid.Column="1" />
-                    <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="354,130,0,0" Name="label8" VerticalAlignment="Top" Width="78" Grid.Column="1" />
-                    
+                    <Button Content="Align Z" Height="23" HorizontalAlignment="Left" Margin="528,11,0,0" Name="button1" VerticalAlignment="Top" Width="74" Click="button1_Click" />
+                    <Label Content="" Height="53" HorizontalAlignment="Left" Margin="92,11,0,0" Name="aligning_helper_label" VerticalAlignment="Top" Width="310" IsEnabled="False" UseLayoutRounding="False" ClipToBounds="False" FontStretch="Normal" Foreground="#FFE5E435" FontWeight="Bold" Visibility="Visible" />
+                    <Label Content="LGK Location:" Height="28"  HorizontalAlignment="Left" IsEnabled="False" Margin="3,488,0,0" Name="label1" VerticalAlignment="Top" Width="294" FontWeight="Bold" Foreground="#FFF8F8F5" FontFamily="Anonymous Pro" FontSize="14" />
+                    <Label Content="Image Location:" Height="28" HorizontalAlignment="Left" Margin="7,460,0,0" Name="tracking_label" VerticalAlignment="Top" Width="294" IsEnabled="False" Foreground="#FFF5EFEF" FontFamily="Anonymous Pro" />
+                    <Label Content="DICOM Coordinates:" Foreground="#FFF5EFEF" Height="28" HorizontalAlignment="Left" IsEnabled="False" Margin="6,460,0,0" Name="DICOMCoordLabel" VerticalAlignment="Top" Width="294" FontFamily="Anonymous Pro" />
+                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="528,51,0,0" Name="label5" VerticalAlignment="Top" Width="78" />
+                    <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,104,0,0" Name="label6" VerticalAlignment="Top" Width="78" />
+                    <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,117,0,0" Name="label7" VerticalAlignment="Top" Width="78" />
+                    <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,130,0,0" Name="label8" VerticalAlignment="Top" Width="78" />
                 </Grid>
             </TabItem>
             <TabItem Header="Structure/DDS" Name="DDStab" IsVisibleChanged="DDStab_IsVisibleChanged">
@@ -44,11 +39,7 @@
             </TabItem>
             <TabItem Header="Plan View" Name="PlanViewtab" GotFocus="PlanViewtab_GotFocus">
                 <Grid>
-                    <Canvas Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="canvas1" VerticalAlignment="Top" Width="512" IsMouseDirectlyOverChanged="canvas1_IsMouseDirectlyOverChanged">
-                        <Image Height="512" Name="plan_imgbox" Stretch="Fill" Width="512" Margin="6,6,90,10" MouseEnter="plan_imgbox_MouseEnter" MouseLeave="plan_imgbox_MouseLeave" MouseLeftButtonDown="plan_imgbox_MouseLeftButtonDown" MouseLeftButtonUp="plan_imgbox_MouseLeftButtonUp" MouseMove="plan_imgbox_MouseMove_1" Source="file:///C:/Users/Gowdar/Documents/Visual Studio 2010/Projects/TomosurgeryAlpha/TomosurgeryAlpha/Resources/Test-Image-Color-Response-0-512x512-No-Noise.bmp" Canvas.Left="-6" Canvas.Top="-6" Cursor="None" IsMouseDirectlyOverChanged="plan_imgbox_IsMouseDirectlyOverChanged" />
-                        <Ellipse Canvas.Left="0" Canvas.Top="497" Fill="Red" Height="15" Name="cursor_ellipse" OpacityMask="#38000000" Stroke="Red" Width="15" MouseEnter="cursor_ellipse_MouseEnter" MouseMove="cursor_ellipse_MouseMove" Cursor="None" IsHitTestVisible="False" />                        
-                    </Canvas>
-                    
+                    <Image Height="512" Name="plan_imgbox" Stretch="Fill" Width="512" Margin="6,6,90,10" MouseEnter="plan_imgbox_MouseEnter" MouseLeave="plan_imgbox_MouseLeave" />
                     <Button Content="Re-slice" Height="23" HorizontalAlignment="Left" Margin="524,239,0,0" Name="recalc_btn" VerticalAlignment="Top" Width="88" IsEnabled="True" Click="recalc_btn_Click" />
                     <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="524,6,0,0" Name="plansize_lbl" VerticalAlignment="Top" Width="94" />
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="524,59,0,0" Name="planX_lbl" VerticalAlignment="Top" Width="78" />
@@ -60,7 +51,6 @@
                     <RadioButton Content="Structure" Height="16" HorizontalAlignment="Left" Margin="524,332,0,0" Name="plan_strRB" VerticalAlignment="Top" Width="78" IsChecked="True" />
                     <RadioButton Content="DosePreview" Height="16" HorizontalAlignment="Left" Margin="524,354,0,0" Name="plan_dpRB" VerticalAlignment="Top" Width="88" IsEnabled="False" Checked="plan_dpRB_Checked" />
                     <Button Content="Re-Dose" Height="23" HorizontalAlignment="Left" IsEnabled="True" Margin="524,389,0,0" Name="plan_dose_btn" VerticalAlignment="Top" Width="88" Click="plan_dose_btn_Click" />
-                    
                 </Grid>
             </TabItem>
         </TabControl>
@@ -72,40 +62,32 @@
                 <MenuItem Header="Load DICOM Image set..." Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
                 <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Click="LoadStructure_Menu_Click" />
                 <MenuItem Header="Load Test File..." Name="LoadTest_menu" Click="LoadTest_menu_Click" />
-                <MenuItem Header="Load Dose" Name="LoadDose_menu"  >
-                    <Button x:Name="Select4mmDefault" Content="4mm Default" Click="Select4mmDefault_Click"/>
-                    <Button Content="8mm Default"/>
-                    <Button Content="16mm Default"/>
-                    <Button Content="From file..." Click="LoadDose_menu_Click"/>
-                </MenuItem>
+                <MenuItem Header="Load Dose file..." Name="LoadDose_menu" Click="LoadDose_menu_Click" />
             </MenuItem>
         </Menu>
-        <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,517,0,0" Name="slider_rasterwidth" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_rasterwidth_ValueChanged" Minimum="1" Maximum="30" IsSnapToTickEnabled="True" SmallChange="1" />
-        <TextBox HorizontalAlignment="Left" Margin="921,542,0,0" Name="txt_stepsize" Width="24" Text="20" TextChanged="txt_stepsize_TextChanged" Height="23" VerticalAlignment="Top" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,542,0,0" Name="slider_stepsize" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_stepsize_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
-        <TextBox Height="23" HorizontalAlignment="Left" Margin="921,569,0,0" Name="txt_slicethickness" VerticalAlignment="Top" Width="24" Text="20" TextChanged="txt_slicethickness_TextChanged" />
-        <Slider Height="21" HorizontalAlignment="Left" Margin="741,569,0,0" Name="slider_slicethickness" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
-        <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="657,513,0,0" />
-        <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="673,537,0,0" Name="label3" VerticalAlignment="Top" />
-        <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="647,562,0,0" Name="label4" VerticalAlignment="Top" />
-        <ListBox Height="61" HorizontalAlignment="Left" Margin="657,451,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" />
-        <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="651,428,0,0" Name="label17" VerticalAlignment="Top" />
+        <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,522,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,524,0,0" Name="slider_rasterwidth" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_rasterwidth_ValueChanged" Minimum="1" Maximum="30" IsSnapToTickEnabled="True" SmallChange="1" />
+        <TextBox HorizontalAlignment="Left" Margin="921,549,0,0" Name="txt_stepsize" Width="24" Text="20" TextChanged="txt_stepsize_TextChanged" Height="23" VerticalAlignment="Top" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,549,0,0" Name="slider_stepsize" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_stepsize_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
+        <TextBox Height="23" HorizontalAlignment="Left" Margin="921,576,0,0" Name="txt_slicethickness" VerticalAlignment="Top" Width="24" Text="20" TextChanged="txt_slicethickness_TextChanged" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="741,576,0,0" Name="slider_slicethickness" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
+        <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="657,520,0,0" />
+        <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="673,544,0,0" Name="label3" VerticalAlignment="Top" />
+        <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="647,569,0,0" Name="label4" VerticalAlignment="Top" />
+        <ListBox Height="89" HorizontalAlignment="Left" Margin="657,423,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" />
+        <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="651,401,0,0" Name="label17" VerticalAlignment="Top" />
         <ProgressBar Height="17" HorizontalAlignment="Left" Margin="673,236,0,0" Name="progressBar1" VerticalAlignment="Top" Width="313" />
         <StatusBar Height="23" HorizontalAlignment="Left" Margin="0,613,0,0" Name="statusBar1" VerticalAlignment="Top" Width="998">
             <StatusBarItem>
                 <TextBlock x:Name="textBlock1" Text="Ready." Width="476" />
             </StatusBarItem>
         </StatusBar>
-        <Button Content="Plan" Height="33" HorizontalAlignment="Left" Margin="673,260,0,0" Name="Plan_btn" VerticalAlignment="Top" Width="313" Click="plan_btn_Click" IsEnabled="False" FontSize="16" FontWeight="Normal" VerticalContentAlignment="Center" FontStyle="Italic" />
-        <Button Content="Optimize" Height="32" HorizontalAlignment="Left" IsEnabled="False" Margin="673,299,0,0" Name="Opt_btn" VerticalAlignment="Top" Width="313" Click="Opt_btn_Click" FontSize="16" FontWeight="Bold" />
-        <TextBlock Height="67" HorizontalAlignment="Left" Margin="673,366,0,0" Name="textBlock2" Text="" VerticalAlignment="Top" Width="313" />
+        <Button Content="Plan" Height="23" HorizontalAlignment="Left" Margin="673,260,0,0" Name="Plan_btn" VerticalAlignment="Top" Width="313" Click="plan_btn_Click" IsEnabled="False" />
+        <Button Content="Optimize" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,289,0,0" Name="Opt_btn" VerticalAlignment="Top" Width="313" Click="Opt_btn_Click" />
+        <TextBlock Height="56" HorizontalAlignment="Left" Margin="673,351,0,0" Name="textBlock2" Text="" VerticalAlignment="Top" Width="313" />
         <DataGrid AutoGenerateColumns="False" Height="178" HorizontalAlignment="Left" Margin="673,52,0,0" Name="dataGrid1" VerticalAlignment="Top" Width="183" SelectionChanged="dataGrid1_SelectionChanged" />
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="124" SelectionChanged="listBox2_SelectionChanged" />
-        <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,337,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" />
-        <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,337,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" />
-        <Label Content="" Height="28" HorizontalAlignment="Left" Margin="646,587,0,0" Name="redwarn_lbl" VerticalAlignment="Top" Width="326" FontStyle="Italic" Foreground="#FFD81E1E" FontWeight="Bold" IsEnabled="False" Visibility="Visible" />
-        <Label Content="Slices" Height="28" HorizontalAlignment="Left" Margin="673,29,0,0" Name="label18" VerticalAlignment="Top" FontFamily="Meiryo UI" />
-        <Label Content="Shots" FontFamily="Meiryo UI" Height="28" HorizontalAlignment="Left" Margin="862,29,0,0" Name="label19" VerticalAlignment="Top" />
+        <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,318,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" />
+        <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,318,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" />        
     </Grid>
 </Window>
