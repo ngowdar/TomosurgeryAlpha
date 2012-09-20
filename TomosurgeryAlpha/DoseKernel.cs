@@ -37,6 +37,96 @@ namespace TomosurgeryAlpha
             }
         }
 
+<<<<<<< HEAD
+        public DoseKernel(int size)
+        {
+            DKI = new DoseKernelInfo();
+            switch(size)
+            {
+                case 4:
+                    Create4mmKernel();
+                    DKI.Name = "4mmKernel";
+                    break;
+                case 8:
+                    Create8mmKernel();
+                    DKI.Name = "8mmKernel";
+                    break;
+                case 16:
+                    Create16mmKernel();
+                    DKI.Name = "16mmKernel";
+                    break;
+                default:
+                    Create4mmKernel();
+                    DKI.Name = "4mmKernel";
+                    break;
+            }
+            FindMidplane();
+            DKI.GetListboxInfo();
+            SetDosemidplaneForOpt();                
+        }
+
+        private void Create16mmKernel()
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+        }
+
+        private void Create8mmKernel()
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+        }
+
+        private void Create4mmKernel()
+        {
+            string[] names = this.GetType().Assembly.GetManifestResourceNames();
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_head.bin"))
+            using (StreamReader head = new StreamReader(stream))
+            {
+                LoadHeader(head);
+            }
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_dose.bin"))
+            using (StreamReader t = new StreamReader(s))
+            {
+                LoadDose(t);
+            }
+
+        }
+
+        public float[] ReturnDose1D()
+        {
+            float[] d = new float[N * N * N];
+            for (int k = 0; k < N; k++)
+                for (int j = 0; j < N; j++)
+                    for (int i = 0; i < N; i++)
+                        d[k * N * N + j * N + i] = dose[k][j * N + i];
+            return d;
+        }
+
+        public float ReturnSpecificDoseValue(int i, int j, int k)
+        {
+            return dose[k][j * N + i];
+        }
+
+
+=======
+>>>>>>> parent of a5fc302... Create3DDose with Test (earlier version)
         private void FindMidplane()
         {
             float[] temp = dose[N / 2];
