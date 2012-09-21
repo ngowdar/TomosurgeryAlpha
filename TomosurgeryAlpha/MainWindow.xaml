@@ -99,7 +99,7 @@
         </StatusBar>
         <Button Content="Plan" Height="33" HorizontalAlignment="Left" Margin="673,260,0,0" Name="Plan_btn" VerticalAlignment="Top" Width="313" Click="plan_btn_Click" IsEnabled="False" FontSize="16" FontWeight="Normal" VerticalContentAlignment="Center" FontStyle="Italic" />
         <Button Content="Optimize" Height="32" HorizontalAlignment="Left" IsEnabled="False" Margin="673,299,0,0" Name="Opt_btn" VerticalAlignment="Top" Width="313" Click="Opt_btn_Click" FontSize="16" FontWeight="Bold" />
-        <TextBlock Height="67" HorizontalAlignment="Left" Margin="673,366,0,0" Name="textBlock2" Text="" VerticalAlignment="Top" Width="313" />
+        <TextBlock Height="35" HorizontalAlignment="Left" Margin="673,398,0,0" Name="textBlock2" Text="" VerticalAlignment="Top" Width="313" />
         <DataGrid AutoGenerateColumns="False" Height="178" HorizontalAlignment="Left" Margin="673,52,0,0" Name="dataGrid1" VerticalAlignment="Top" Width="183" SelectionChanged="dataGrid1_SelectionChanged" />
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="124" SelectionChanged="listBox2_SelectionChanged" />
         <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,337,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" />
@@ -107,5 +107,6 @@
         <Label Content="" Height="28" HorizontalAlignment="Left" Margin="646,587,0,0" Name="redwarn_lbl" VerticalAlignment="Top" Width="326" FontStyle="Italic" Foreground="#FFD81E1E" FontWeight="Bold" IsEnabled="False" Visibility="Visible" />
         <Label Content="Slices" Height="28" HorizontalAlignment="Left" Margin="673,29,0,0" Name="label18" VerticalAlignment="Top" FontFamily="Meiryo UI" />
         <Label Content="Shots" FontFamily="Meiryo UI" Height="28" HorizontalAlignment="Left" Margin="862,29,0,0" Name="label19" VerticalAlignment="Top" />
+        <Button Content="Calculate Final Dose and Save" Height="32" HorizontalAlignment="Left" IsEnabled="False" Margin="673,366,0,0" x:Name="CalcSaveDose_btn" VerticalAlignment="Top" Width="313" FontSize="16" FontWeight="Bold" Click="CalcSaveDose_btn_Click" />
     </Grid>
 </Window>

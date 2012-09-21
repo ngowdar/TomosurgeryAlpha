@@ -105,14 +105,12 @@ namespace TomosurgeryAlpha
             if (PathsetWorkerProgressChanged != null)
                 PathsetWorkerProgressChanged.Invoke(null, e);
         }
-
         void PSworker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             if (PathsetWorkerCompleted != null)
                 PathsetWorkerCompleted.Invoke(null, e);
         }
-
-
+        
         public void RecalculateSlices(int sthick, int tolthick)
         {
             SliceThickness = sthick;
@@ -267,7 +265,112 @@ namespace TomosurgeryAlpha
                         squished[i, j] = 1;
             ddd = Matrix.SumAll(squished);
             return squished;
-        }    }
+        }
+
+        #region Assembling Final Dose Computation
+
+        /// <summary>
+        /// The actual method that is called by the UI, which takes in a folder directory path, and 
+        /// loads in each slicedose file and writes it to the global dosespace file.
+        /// </summary>
+        /// <param name="folderpath"></param>
+        public void AssembleFinalDoseMatrix(string folderpath)
+        {
+            string path;
+            int x = volume[0].GetLength(0); int y = volume[0].GetLength(1); int z = volume.GetLength(0);
+            /* First, a for-loop to create the string name for each slice, which then loads each
+             * slicedose file and in turn adds it to the result matrix.*/
+            for (int s = 0; s < NumSlices; s++)
+            {                
+                path = string.Concat(folderpath, "slice_");
+                path = string.Concat(path, s);
+                float[] slicedose = ReadDoseFromFile(path);
+                WriteSliceDoseToDoseSpace(slicedose, SlicePositions[s]);
+            }
+
+        }
+
+        /// <summary>
+        /// Takes in a slice 1D float matrix, and adds it to the global dosespace array for final calculation. Called by 
+        /// AssembleFinalDoseMatrix().
+        /// </summary>
+        /// <param name="slicedose"></param>
+        /// <param name="which_z"></param>
+        private void WriteSliceDoseToDoseSpace(float[] slicedose, int which_z)
+        {
+            int TranslateZBy = SliceThickness / 2; // <- NEED TO CHANGE APPROPRIATELY
+            //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
+            //Then change slicethickness in for loop limit to another variable based on size.
+            Parallel.For(0, SliceThickness, (z) =>
+            {
+                dosespace[TranslateZBy] = Matrix.Add(dosespace[TranslateZBy], GrabSlice(slicedose, z, dosespace[0].GetLength(0), dosespace[0].GetLength(1)));
+            });
+        }
+
+        /// <summary>
+        /// Takes in a 1D float matrix, grabs a 2D slice out based on which z position. Called by GrabSlice().
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="which"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        private float[,] GrabSlice(float[] input, int which, int x, int y)
+        {
+            float[,] result = new float[x,y];
+            for (int i = 0; i < x; i++)
+                for (int j = 0; j < y; j++)
+            {
+                result[x, y] = input[which * x * y + j * x + i];
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Given a path, loads in the associated slicedose 1D float matrix. Called by AssembleFinalDoseMatrix()
+        /// </summary>
+        /// <param name="loadpath"></param>
+        /// <returns></returns>
+        public float[] ReadDoseFromFile(string loadpath)
+        {
+            float[] d;
+            using (FileStream fs = new FileStream(loadpath, FileMode.Open, FileAccess.Read))
+            using (BinaryReader br = new BinaryReader(fs))
+            {
+                int x = br.ReadInt16(); int y = br.ReadInt16(); int z = br.ReadInt16();
+                d = new float[x * y * z];
+                for (int i = 0; i < d.GetLength(0); i++)
+                    d[i] = br.ReadSingle();
+            }
+            return d;
+        }
+        #endregion
+
+
+        #region Save SliceDoses to File
+        /// <summary>
+        /// Given a folder path and a DoseKernel, will create path names for each rasterpath in RasterPaths 
+        /// and write each to the numbered path.
+        /// </summary>
+        /// <param name="dk"></param>
+        /// <param name="folderpath"></param>
+        public void CalculateSliceDosesAndWrite(DoseKernel dk, string folderpath)
+        {
+            string path;
+            for (int s = 0; s < NumSlices; s++)
+            {
+                path = string.Concat(folderpath, "slice_");
+                path = string.Concat(path, s);
+                RasterPath rp = (RasterPath)RasterPaths[s];
+                rp.CalculateAndSaveSliceDose(dk, SliceThickness, path);
+            }
+            //Need to have some kind of confirmation event?
+        }
+
+        #endregion
+    }
+
+    
 
     /// <summary>
     /// Contains the shot paths for one slice, along with associated methods for
@@ -509,7 +612,7 @@ namespace TomosurgeryAlpha
         //        }
         //}
 
-        public void Calculate_3D_SliceDose(DoseKernel dk, int slicethickness, string savepath)
+        public void CalculateAndSaveSliceDose(DoseKernel dk, int slicethickness, string savepath)
         {
             int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
             int xmid = xsize / 2; int ymid = ysize / 2; int zmid = slicethickness / 2;
@@ -529,33 +632,23 @@ namespace TomosurgeryAlpha
                             slicedose[k * xsize * ysize + j * xsize + i] = dk.ReturnSpecificDoseValue(i, j, k) * weight[w];
                         }
                     }
-            WriteToFile(savepath, slicedose);
+            WriteToFile(savepath, slicedose, xsize, ysize, slicethickness);
         }
 
-        private void WriteToFile(string savepath, float[] sd)
+        public void WriteToFile(string savepath, float[] sd, int sizex, int sizey, int sizez)
         {
             using (FileStream fs = new FileStream(savepath, FileMode.OpenOrCreate, FileAccess.Write))
             using (BinaryWriter bw = new BinaryWriter(fs))
             {
-                bw.Write(sd.GetLength(0));
+                bw.Write(sizex); //first write the size
+                bw.Write(sizey);
+                bw.Write(sizez);
                 foreach (float f in sd)
                     bw.Write(f);
             }
         }
 
-        public float[] ReadDoseFromFile(string loadpath)
-        {
-            float[] d;
-            using (FileStream fs = new FileStream(loadpath, FileMode.Open, FileAccess.Read))
-            using (BinaryReader br = new BinaryReader(fs))
-            {
-                int size = br.ReadInt16();
-                d = new float[size];
-                for (int i = 0; i < size; i++)
-                    d[i] = br.ReadSingle();
-            }
-            return d;
-        }
+        
 
         private PointF GetStartingPoint(PointF center, PointF coord)
         {

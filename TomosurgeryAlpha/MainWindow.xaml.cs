@@ -1495,6 +1495,20 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             AddDoseLoadedToListBox();
         }
 
+        private void CalcSaveDose_btn_Click(object sender, RoutedEventArgs e)
+        {
+            //TODO: Allow user to pick a folder path here first
+            string fp = "";
+            CreateDoseMatrix(fp);
+        }
+
+        private void CreateDoseMatrix(string folderpath)
+        {
+            //TODO:  Put this shit into background worker
+            PS.CalculateSliceDosesAndWrite(DK, folderpath);
+            PS.AssembleFinalDoseMatrix(folderpath);
+        }
+
         
 
         
