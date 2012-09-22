@@ -301,10 +301,11 @@ namespace TomosurgeryAlpha
             int TranslateZBy = SliceThickness / 2; // <- NEED TO CHANGE APPROPRIATELY
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
             //Then change slicethickness in for loop limit to another variable based on size.
-            Parallel.For(0, SliceThickness, (z) =>
+            for (int z = 0; z < SliceThickness; z++) 
             {
-                dosespace[TranslateZBy] = Matrix.Add(dosespace[TranslateZBy], GrabSlice(slicedose, z, dosespace[0].GetLength(0), dosespace[0].GetLength(1)));
-            });
+                int current_z = which_z - TranslateZBy + z;
+                dosespace[current_z] = Matrix.Add(dosespace[current_z], GrabSlice(slicedose, z, dosespace[0].GetLength(0), dosespace[0].GetLength(1)));
+            }
         }
 
         /// <summary>
@@ -359,8 +360,9 @@ namespace TomosurgeryAlpha
             string path;
             for (int s = 0; s < NumSlices; s++)
             {
-                path = string.Concat(folderpath, "slice_");
-                path = string.Concat(path, s);
+                string date = System.DateTime.Now.ToShortTimeString();
+                date = string.Concat(new string[]{folderpath,"\\", date, "\\slice_"});                
+                path = string.Concat(date, s);
                 RasterPath rp = (RasterPath)RasterPaths[s];
                 rp.CalculateAndSaveSliceDose(dk, SliceThickness, path);
             }
@@ -614,25 +616,82 @@ namespace TomosurgeryAlpha
 
         public void CalculateAndSaveSliceDose(DoseKernel dk, int slicethickness, string savepath)
         {
+            PointF[] startingpoints = GetStartingPoints(shots);
             int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
             int xmid = xsize / 2; int ymid = ysize / 2; int zmid = slicethickness / 2;
             float[] slicedose = new float[xsize * ysize * slicethickness];
             for (int k = 0; k < slicethickness; k++)
-                for (int j = 0; j < ysize; j++)
-                    for (int i = 0; i < xsize; i++)
+                for (int j = 0; j < N; j++)
+                    for (int i = 0; i < N; i++)
                     {
                         for (int w = 0; w < shots.GetLength(0); w++)
                         {
-                            PointF p = shots[w];
-                            int xloc = (int)p.X - xmid + i; int yloc = (int)p.Y - ymid + j; //the absolute position of the current dose pixel in slice-space.
-                            //Check if pixel location is less than or greater than boundary of slice
-                            if (k < 0 || k >= slicethickness || yloc < 0 || yloc >= ysize || xloc < 0 || xloc >= xsize)
+                            PointF shot = shots[w];
+                            PointF center = new PointF((N-1)/2,(N-1)/2);
+                            //TODO: Need to find the bottom left pixel (starting position) of the dose in 
+                            //terms of the slicedose coordinate system.
+                            PointF firstdosepixel = FindFirstExistingDosePixel(shot);
+                            PointF lastdosepixel = FindLastExistingDosePixel(shot,new PointF(xsize,ysize));
+                            if (firstdosepixel.X > i || firstdosepixel.Y > j) //if the current dose pixel doesn't exist for the shot, continue
                                 continue;
-                            //Convert to one-dim coordinates
-                            slicedose[k * xsize * ysize + j * xsize + i] = dk.ReturnSpecificDoseValue(i, j, k) * weight[w];
+                            else                            
+                                slicedose[k * xsize * ysize + ((int)shot.Y- (int)center.Y+j)* xsize + ((int)shot.X-(int)center.X+i)] = dk.ReturnSpecificDoseValue(i, j, k) * weight[w];
                         }
                     }
             WriteToFile(savepath, slicedose, xsize, ysize, slicethickness);
+        }
+
+        public PointF FindFirstExistingDosePixel(PointF shot)
+        {
+            PointF first = new PointF(0,0);
+            PointF center = new Point((N - 1) / 2, (N - 1) / 2);
+            float Xdiff = shot.X - center.X;
+            float Ydiff = shot.Y - center.Y;
+            
+            if (Xdiff < 0) //i.e. first dosepixel is outside.
+                first.X = center.X - shot.X;
+            else 
+                first.X = 0; //set first dose pixel to first corresponding real tumor pixel
+            
+            //Repeat above logic for Y coordinate.
+            if (Ydiff >= 0)
+                first.Y = 0;
+            else if (Ydiff < 0)
+                first.Y = center.Y - shot.Y;
+
+            return first;
+        }
+
+        public PointF FindLastExistingDosePixel(PointF shot, PointF tumorsize)
+        {
+            PointF last = new PointF(0,0);
+            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
+            float XDistToTumorEdge = tumorsize.X - shot.X;
+            float YDistToTumorEdge = tumorsize.Y - shot.Y;
+
+            if (XDistToTumorEdge < center.X) //last dosepixel outside tumor
+                last.X = center.X + XDistToTumorEdge;
+            else  //last dosepixel inside tumor
+                last.X = N - 1;
+
+            //Repeat above logic for Y coordinate
+            if (YDistToTumorEdge < center.Y)
+                last.Y = center.Y + YDistToTumorEdge;
+            else
+                last.Y = N - 1;
+            
+            return last;
+
+
+        }
+        public PointF[] GetStartingPoints(PointF[] shots)
+        {
+            PointF[] output = new PointF[shots.GetLength(0)];
+            for (int i = 0; i < shots.GetLength(0); i++)
+            {
+                output[i] = new PointF(shots[i].X - (N / 2), shots[i].Y - (N / 2));
+            }
+            return output;
         }
 
         public void WriteToFile(string savepath, float[] sd, int sizex, int sizey, int sizez)

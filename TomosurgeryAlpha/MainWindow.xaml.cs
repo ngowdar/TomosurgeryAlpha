@@ -1056,6 +1056,7 @@ namespace TomosurgeryAlpha
             Opt_btn.IsEnabled = false;
             save_plan_btn.IsEnabled = true;
             export_shots_btn.IsEnabled = true;
+            CalcSaveDose_btn.IsEnabled = true;
         }
         #endregion
         #region CreatingTestFiles
@@ -1497,9 +1498,29 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
 
         private void CalcSaveDose_btn_Click(object sender, RoutedEventArgs e)
         {
-            //TODO: Allow user to pick a folder path here first
-            string fp = "";
-            CreateDoseMatrix(fp);
+            
+            //TODO: Allow user to pick a folder path here first            
+            string _folderName = "c:\\dinoch";
+
+            _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
+            var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
+            {
+                Description = "Select a folder for temporary files and dosefile:",
+                ShowNewFolderButton = true,
+                ShowEditBox = true,
+                //NewStyle = false,
+                SelectedPath = _folderName,
+                ShowFullPathInEditBox = false,
+            };
+            dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
+
+            var result = dlg1.ShowDialog();
+
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                _folderName = dlg1.SelectedPath;                
+            }
+            CreateDoseMatrix(_folderName);
         }
 
         private void CreateDoseMatrix(string folderpath)
