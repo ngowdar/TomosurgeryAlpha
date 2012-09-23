@@ -429,6 +429,8 @@ namespace TomosurgeryAlpha
             
         }
 
+        
+
         private void DisplayStructure(int slice)
         {
             float[] structureimg = SS.f_structurearray[slice];
@@ -552,12 +554,12 @@ namespace TomosurgeryAlpha
                 for (int i = 0; i < temp.GetLength(0); i++)
                     temp[i, j] = img[i + startx, j + starty];
 
-            Display2DFloat(temp);
+            Display2DFloat(Matrix.Normalize(temp));
         }
 
         private void Display2DFloat(float[,] f)
         {
-            f = Matrix.Normalize(f);
+            //f = Matrix.Normalize(f);
             wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
             DS_imgbox.Source = wb_DS;
             wb_DS.Lock();
@@ -739,7 +741,7 @@ namespace TomosurgeryAlpha
         private void slider2_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             int slice = (int)Math.Round(slider2.Value);
-            if (tabControl1.SelectedIndex == 0)
+            if (tabControl1.SelectedIndex == 0) //"DICOM" tab
             {
                 slider2.Minimum = 0;
                 slider2.Maximum = set.f_imagearray.GetLength(0) - 1;
@@ -749,12 +751,23 @@ namespace TomosurgeryAlpha
                 //slicepos_label.Content = "Actual Z: " + (int)DICOMImageSet.ZIndexArray[slice];
                 imgnumb_label.Content = "Image: " + slice;
             }
-            if (tabControl1.SelectedIndex == 1)
+            if (tabControl1.SelectedIndex == 1) //"Structure/DDS" tab
             {
                 slider2.Minimum = 0;
                 slider2.Maximum = SS.f_structurearray.GetLength(0) - 1;
                 DisplayStructure(slice);
             }
+
+            if (tabControl1.SelectedIndex == 2) //"DS" tab
+            {
+                if (PS != null)
+                {
+                    slider2.Minimum = 0;
+                    slider2.MaxHeight = PS.dosespace.GetLength(0) - 1;
+                    Display2DFloat(PS.dosespace[(int)slider2.Value]);
+                }
+            }
+
             if (tabControl1.SelectedIndex == 3)
             {
                 if (PS != null)
@@ -1528,11 +1541,8 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             //TODO:  Put this shit into background worker
             PS.CalculateSliceDosesAndWrite(DK, folderpath);
             PS.AssembleFinalDoseMatrix(folderpath);
+            Display2DFloat(PS.dosespace[PS.dosespace.GetLength(0) / 2]);
         }
-
-        
-
-        
 
         
     }

@@ -13,7 +13,7 @@ namespace TomosurgeryAlpha
 {
     public class DoseKernel
     {
-        float[][] dose;
+        public float[][] dose;
         public static int N;
         int[] sectorsizes;
         double resolution;
@@ -32,6 +32,7 @@ namespace TomosurgeryAlpha
                 LoadHeader(hpath);
                 LoadDose(path);
                 FindMidplane();
+                DKI.Size = dose.GetLength(0);
                 DKI.Name = fi.Name;
                 DKI.GetListboxInfo();
                 SetDosemidplaneForOpt();
@@ -61,6 +62,7 @@ namespace TomosurgeryAlpha
                     break;
             }
             FindMidplane();
+            DKI.Size = dose.GetLength(0);
             DKI.GetListboxInfo();
             SetDosemidplaneForOpt();                
         }
