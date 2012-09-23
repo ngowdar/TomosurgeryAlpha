@@ -72,12 +72,13 @@
                 <MenuItem Header="Load DICOM Image set..." Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
                 <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Click="LoadStructure_Menu_Click" />
                 <MenuItem Header="Load Test File..." Name="LoadTest_menu" Click="LoadTest_menu_Click" />
-                <MenuItem Header="Load Dose" Name="LoadDose_menu"  >
+                <MenuItem Header="Load Dose Kernel..." Name="LoadDose_menu"  >
                     <Button x:Name="Select4mmDefault" Content="4mm Default" Click="Select4mmDefault_Click"/>
                     <Button Content="8mm Default"/>
                     <Button Content="16mm Default"/>
                     <Button Content="From file..." Click="LoadDose_menu_Click"/>
                 </MenuItem>
+                <MenuItem Header="Load Previous Dosespace" Name="LoadDS_menu" Click="LoadDS_menu_Click_1" />
             </MenuItem>
         </Menu>
         <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" />

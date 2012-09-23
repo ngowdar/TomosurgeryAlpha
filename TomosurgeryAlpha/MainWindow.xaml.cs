@@ -763,8 +763,8 @@ namespace TomosurgeryAlpha
                 if (PS != null)
                 {
                     slider2.Minimum = 0;
-                    slider2.MaxHeight = PS.dosespace.GetLength(0) - 1;
-                    Display2DFloat(PS.dosespace[(int)slider2.Value]);
+                    slider2.Maximum = PS.dosespace.GetLength(0) - 1;
+                    Display2DFloat(PS.dosespace[GetCurrentSlice()]);
                 }
             }
 
@@ -779,6 +779,8 @@ namespace TomosurgeryAlpha
             }
 
         }
+
+        
 
         private void LoadStructure_Menu_Click(object sender, RoutedEventArgs e)
         {
@@ -1542,6 +1544,17 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             PS.CalculateSliceDosesAndWrite(DK, folderpath);
             PS.AssembleFinalDoseMatrix(folderpath);
             Display2DFloat(PS.dosespace[PS.dosespace.GetLength(0) / 2]);
+        }
+
+        private void LoadDS_menu_Click_1(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog loadDS = new Microsoft.Win32.OpenFileDialog();
+            loadDS.Title = "Select the Dosespace text file";
+            loadDS.Filter = "Text files (.txt)|*.txt";            
+            if (loadDS.ShowDialog() != false)
+            {
+                PS = new PathSet(loadDS.FileName);
+            }
         }
 
         

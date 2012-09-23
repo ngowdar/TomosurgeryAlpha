@@ -32,6 +32,7 @@ namespace TomosurgeryAlpha
         public int NumSlices;
         public ArrayList RasterPaths;
         public string ActiveDirectory;
+        public int DoseCalculationThickness;
         public int SliceThickness;
         public int RasterWidth;
         public int TolThickness;
@@ -46,6 +47,7 @@ namespace TomosurgeryAlpha
             X = f[0].GetLength(0); Y = f[0].GetLength(1); Z = f.GetLength(0);
             boundaries = FindBoundaries(f);
             SliceThickness = sthick;
+            DoseCalculationThickness = SliceThickness * 2;
             TolThickness = tolthick;
             CalculateNumSlices();
             RasterPaths = new ArrayList();
@@ -71,6 +73,11 @@ namespace TomosurgeryAlpha
             //}
             volume = f;
             AttachHandlers();
+        }
+
+        public PathSet(string dosespace_path)
+        {
+            ReadDoseSpaceFromFile(dosespace_path);
         }
 
         private void AttachHandlers()
@@ -282,7 +289,7 @@ namespace TomosurgeryAlpha
             int x = volume[0].GetLength(0); int y = volume[0].GetLength(1); int z = volume.GetLength(0);
             /* First, a for-loop to create the string name for each slice, which then loads each
              * slicedose file and in turn adds it to the result matrix.*/
-            dosespace = new float[NumSlices * SliceThickness][,];
+            dosespace = new float[DoseCalculationThickness + ((NumSlices-1) * SliceThickness)][,];
             for (int s = 0; s < NumSlices; s++)
             {                
                 string filename = String.Concat("slice_", s);
@@ -334,7 +341,7 @@ namespace TomosurgeryAlpha
             System.Windows.MessageBox.Show(string.Concat("Dosespace written to: ", path));
         }
 
-        private void ReadDoseSpaceFromFile(string path)
+        public void ReadDoseSpaceFromFile(string path)
         {
             using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
             using (StreamReader br = new StreamReader(fs))
@@ -351,6 +358,7 @@ namespace TomosurgeryAlpha
                     for (int j = 0; j < y; j++)
                         for (int i = 0; i < x; i++)
                             slice[i, j] = Convert.ToSingle(br.ReadLine());
+                    dosespace[k] = slice;
                 }
             }
         }
@@ -360,15 +368,15 @@ namespace TomosurgeryAlpha
         /// AssembleFinalDoseMatrix().
         /// </summary>
         /// <param name="slicedose"></param>
-        /// <param name="which_z"></param>
-        public void WriteSliceDoseToDoseSpace(float[] slicedose, int which_z)
+        /// <param name="which_z_slice"></param>
+        public void WriteSliceDoseToDoseSpace(float[] slicedose, int which_z_slice)
         {
-            int TranslateZBy = which_z - SlicePositions[0]; // <- NEED TO CHANGE APPROPRIATELY
+            int TranslateZBy = which_z_slice - SlicePositions[0]; // <- NEED TO CHANGE APPROPRIATELY
             
             
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
             //Then change slicethickness in for loop limit to another variable based on size.
-            for (int z = 0; z < SliceThickness; z++) 
+            for (int z = 0; z < DoseCalculationThickness; z++) 
             {                
                 int current_z = TranslateZBy + z;
                 if (dosespace[current_z] == null)
@@ -441,7 +449,7 @@ namespace TomosurgeryAlpha
                 string filename = string.Concat("slice_",s);
                 path = System.IO.Path.Combine(subfolder,filename);
                 RasterPath rp = (RasterPath)RasterPaths[s];
-                rp.CalculateAndSaveSliceDose(dk, SliceThickness, path);
+                rp.CalculateAndSaveSliceDose(dk, DoseCalculationThickness, path);
             }
             //Need to have some kind of confirmation event?
         }
@@ -691,14 +699,15 @@ namespace TomosurgeryAlpha
         //        }
         //}
 
-        public void CalculateAndSaveSliceDose(DoseKernel dk, int slicethickness, string savepath)
+        public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
         {
             PointF[] startingpoints = GetStartingPoints(shots);
             N = dk.DKI.Size;
             int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
-            int xmid = xsize / 2; int ymid = ysize / 2; int zmid = slicethickness / 2;
-            float[] slicedose = new float[xsize * ysize * slicethickness];
-            for (int k = 0; k < slicethickness; k++)
+            int xmid = xsize / 2; int ymid = ysize / 2; int zmid = dosecalcthickness / 2;
+            int StartingDoseSlice = ((N - 1) / 2) - zmid;
+            float[] slicedose = new float[xsize * ysize * dosecalcthickness];
+            for (int k = 0; k < dosecalcthickness; k++)
                 for (int j = 0; j < N; j++)
                     for (int i = 0; i < N; i++)
                         for (int w = 0; w < shots.GetLength(0); w++)
@@ -716,11 +725,11 @@ namespace TomosurgeryAlpha
                             else
                             {
                                 if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
-                                    slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, k) * weight[w];
+                                    slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice+k) * weight[w];
                             }
                         }                    
             float f = dk.ReturnSpecificDoseValue(80, 80, 80);
-            WriteToFile(savepath, slicedose, xsize, ysize, slicethickness);
+            WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
         }
 
         public PointF FindFirstExistingDosePixel(PointF shot)
