@@ -91,6 +91,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Analysis.cs" />
     <Compile Include="Coordinates.cs" />
     <Compile Include="DoseKernel.cs" />
     <Compile Include="FolderBrowserDialogEx.cs">

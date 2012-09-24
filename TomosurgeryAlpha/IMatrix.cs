@@ -275,6 +275,23 @@ namespace TomosurgeryAlpha
             return ScalarMultiply(d, divisor);
         }
 
+        public static float[][,] Normalize(float[][,] d)
+        {
+            float max = 0;
+            for (int k = 0; k < d.GetLength(0); k++)
+            {                
+                float tempmax = FindMax(d[k]);
+                if (tempmax > max)
+                    max = tempmax;
+            }
+            for (int k = 0; k < d.GetLength(0); k++)
+            {
+                float divisor = 1 / max;
+                d[k] = ScalarMultiply(d[k], divisor);
+            }
+            return d;
+        }
+
         public static float[,] ScalarMultiply(float[,] a, float scalar)
         {
             float[,] product = new float[a.GetLength(0), a.GetLength(1)];

@@ -1490,7 +1490,14 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         {
             
         }
-        
+
+        private void AddAnalysisTab()
+        {
+            TabItem analysis = new TabItem();
+            analysis.Header = "Analysis";
+            tabControl1.Items.Add(analysis);
+
+        }
 
         private void canvas1_IsMouseDirectlyOverChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
@@ -1544,6 +1551,18 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             PS.CalculateSliceDosesAndWrite(DK, folderpath);
             PS.AssembleFinalDoseMatrix(folderpath);
             Display2DFloat(PS.dosespace[PS.dosespace.GetLength(0) / 2]);
+            if (PS.dosespace != null)
+            {
+                Analysis_datagrid.IsEnabled = true;
+            }
+        }
+
+        private void SetUpAnalysis()
+        {
+            Analysis_datagrid.IsEnabled = true;
+            AnalysisInfo AI = Analysis.RunAnalysis(PS, SS, 0.5);
+            AI.TestName = System.DateTime.Now.ToShortTimeString();
+            Analysis_datagrid.Items.Add(AI);
         }
 
         private void LoadDS_menu_Click_1(object sender, RoutedEventArgs e)
@@ -1555,6 +1574,16 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             {
                 PS = new PathSet(loadDS.FileName);
             }
+        }
+
+        private void run_analysis_btn_Click(object sender, RoutedEventArgs e)
+        {
+            SetUpAnalysis();
+        }
+
+        private void clearhistory_btn_Click(object sender, RoutedEventArgs e)
+        {
+            Analysis_datagrid.Items.Clear();
         }
 
         
