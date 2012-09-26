@@ -28,6 +28,17 @@ namespace TomosurgeryAlpha
             return ff;
         }
 
+        public static float[][,] MakeJaggedFloat(float[] f, int x, int y, int z)
+        {
+            int[] size = new int[3]{f.GetLength(0),f.GetLength(1),f.GetLength(2)};
+            float[][,] ff = new float[size[2]][,];
+            for (int k = 0; k < z; k++)
+                for (int j = 0; j < y; j++)
+                    for (int i = 0; i < x; i++)                    
+                        ff[k][i,j] = f[k*x*y + j*x + i];
+            return ff;
+        }
+
         public static float[] Zero1DFloat(int xyz)
         {
             return (float[])Array.CreateInstance(typeof(float), xyz);
@@ -303,6 +314,18 @@ namespace TomosurgeryAlpha
             return product;
         }
 
+        internal static float[][,] ScalarMultiply(float[][,] a, float scalar)
+        {
+            float[][,] product = new float[a.GetLength(0)][,];
+            Parallel.For(0, a.GetLength(0), (k) =>
+            {
+                for (int y = 0; y < a[0].GetLength(1); y++)
+                    for (int x = 0; x < a[0].GetLength(0); x++)
+                        product[k][x, y] = a[k][x, y] * scalar;
+            });
+            return product;
+        }
+
         //public static float[,] Add(float[,] A, float[,] B)
         //{
         //    float[,] sum = new float[A.GetLength(0), A.GetLength(1)];
@@ -336,6 +359,22 @@ namespace TomosurgeryAlpha
                 System.Windows.MessageBox.Show("MultiplyElements: Matrices aren't same length!!");
                 return product;
             }
+        }
+
+        internal static float[][,] MultiplyElements(float[][,] A, float[][,] B)
+        {
+            float[][,] product = new float[A.GetLength(0)][,];
+            if (A.GetLength(0) != B.GetLength(0))
+            {
+                System.Windows.MessageBox.Show("MultiplyElements: Matrices aren't same length!!");
+            }
+            else
+            {
+                //Loop through each z-slice and call the 2D version of the function.
+                for (int k = 0; k < A.GetLength(0); k++)
+                    product[k] = MultiplyElements(A[k], B[k]);
+            }
+            return product;
         }
 
         internal static object Subset(float[] ds, int startx, int starty, int p, int p_2)
@@ -451,5 +490,19 @@ namespace TomosurgeryAlpha
                     output[i, j] = 0;
             return output;
         }
+
+        internal static double SumAll(float[][,] p)
+        {
+            double sum = 0;
+            for (int k = 0; k < p.GetLength(0); k++)
+                for (int j = 0; j < p[0].GetLength(1); j++)
+                    for (int i = 0; i < p[0].GetLength(0); i++)
+                    {
+                        sum += p[k][i, j];
+                    }
+            return sum;
+        }
+
+        
     }
 }

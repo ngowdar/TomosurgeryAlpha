@@ -99,6 +99,7 @@
     </Compile>
     <Compile Include="GPUdose.cs" />
     <Compile Include="LinMatrix.cs" />
+    <Compile Include="PathSet.cs" />
     <Compile Include="RasterPath.cs" />
     <Compile Include="SlicePlanView.xaml.cs">
       <DependentUpon>SlicePlanView.xaml</DependentUpon>

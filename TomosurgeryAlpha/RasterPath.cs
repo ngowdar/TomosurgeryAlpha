@@ -8,458 +8,12 @@ using System.Linq;
 using System.Text;
 using System.Drawing;
 using System.IO;
+using System.Diagnostics;
+    
 
 namespace TomosurgeryAlpha
 {
-   
-    /// <summary>
-    /// A collection class that contains the information about a group of RasterPath objects.
-    /// Takes tumor object, compresses it into slices and creates a RasterPath object 
-    /// for each slice.
-    /// </summary>
-    public class PathSet
-    {
-        public event ProgressChangedEventHandler PathsetWorkerProgressChanged;
-        public event RunWorkerCompletedEventHandler PathsetWorkerCompleted;
-        public event ProgressChangedEventHandler RasterPathWorkerProgress;
-        public BackgroundWorker PSworker;
-        public Boolean DoseModifiable;
-        public static float[,] mask;
-        public static int N = 40;
-        public static int edgepadding = N/4;
-        public static int tumorflag = 10;
-        public static int CSflag = 2;
-        public int NumSlices;
-        public ArrayList RasterPaths;
-        public string ActiveDirectory;
-        public int DoseCalculationThickness;
-        public int SliceThickness;
-        public int RasterWidth;
-        public int TolThickness;
-        public float[][,] volume;
-        public float[][,] dosespace;
-        public int[] SlicePositions;
-        public int[] boundaries; //6-term sequence (xstart, xend, ystart...etc.)
-        public int X; public int Y; public int Z;
-
-        public PathSet(float[][,] f, int sthick, int tolthick)
-        {
-            X = f[0].GetLength(0); Y = f[0].GetLength(1); Z = f.GetLength(0);
-            boundaries = FindBoundaries(f);
-            SliceThickness = sthick;
-            DoseCalculationThickness = SliceThickness * 2;
-            TolThickness = tolthick;
-            CalculateNumSlices();
-            RasterPaths = new ArrayList();
-            for (int i = 0; i < NumSlices; i++)
-            {
-                RasterPath rp = new RasterPath(CompressSection(f, SlicePositions[i], SliceThickness/2));
-                RasterPaths.Add(rp);
-            }
-            //Slice thickness logic goes here:
-                /* - Divide by slice thickness
-                 * - Decide what to do with the extra bit
-                 */
-            
-            //for (int i = 0; i < NumSlices; i++)
-            //{
-                /*For each slice, send the smaller float[][,] to the CompressSection()
-                 *-An easy way to do this is to loop through x and y,
-                 * then add up all the z for each pixel.
-                 * -Then create a RasterPath object out of this slice.
-                 * -Add this RasterPath object to some sort of collection
-                 * that is stored as a variable in PathSet.
-                 */
-            //}
-            volume = f;
-            AttachHandlers();
-        }
-
-        public PathSet(string dosespace_path)
-        {
-            ReadDoseSpaceFromFile(dosespace_path);
-        }
-
-        private void AttachHandlers()
-        {
-            PSworker = new BackgroundWorker();            
-            PSworker.WorkerReportsProgress = true;
-            PSworker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(PSworker_RunWorkerCompleted);
-            PSworker.ProgressChanged += new ProgressChangedEventHandler(PSworker_ProgressChanged);
-            PSworker.DoWork += new DoWorkEventHandler(PSworker_DoWork);
-        }
-
-        void PSworker_DoWork(object sender, DoWorkEventArgs e)
-        {
-            double count = 0;
-            for (int i = 0; i < NumSlices; i++)
-            {                
-                //((RasterPath)RasterPaths[i]).RPworker.RunWorkerAsync();
-                ((RasterPath)RasterPaths[i]).OptimizeShotWeights();
-                count++;
-                PSworker.ReportProgress((int)(100*count/NumSlices));
-                
-            }
-        }
-
-        void PathSet_SliceWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
-        {
-            if (RasterPathWorkerProgress != null)
-                RasterPathWorkerProgress.Invoke(null, e);
-        }
-
-        void PSworker_ProgressChanged(object sender, ProgressChangedEventArgs e)
-        {              
-            if (PathsetWorkerProgressChanged != null)
-                PathsetWorkerProgressChanged.Invoke(null, e);
-        }
-        void PSworker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        {
-            if (PathsetWorkerCompleted != null)
-                PathsetWorkerCompleted.Invoke(null, e);
-        }
-        
-        public void RecalculateSlices(int sthick, int tolthick)
-        {
-            SliceThickness = sthick;
-            TolThickness = tolthick;
-            CalculateNumSlices();
-            RasterPaths = new ArrayList();
-            for (int i = 0; i < NumSlices; i++)
-            {
-                RasterPath rp = new RasterPath(CompressSection(volume, SlicePositions[i], SliceThickness / 2));
-                RasterPaths.Add(rp);
-            }
-        }
-        public void CalculatePlanDose(DoseKernel dk)
-        {
-            float[,] midplane = dk.Get2DSlice(N / 2);
-
-        }
-        private float[][,] GrabSlab(float[][,] f, int center)
-        {
-            int from = center - RasterWidth / 2;
-            int to = center + RasterWidth / 2;
-            int dist = to - from;
-            float[][,] slab = new float[dist][,];
-            for (int i = 0; i < dist; i++)
-            {
-                slab[i] = f[i + from];
-            }
-            return slab;
-        }
-        public void CalculateNumSlices()
-        {
-            int remainder_slices; int new_spacing;
-            int padding;
-            int[] zrasterpos;
-            int zstart = boundaries[4];
-            int zend = boundaries[5];
-            //bool can_another_slice_fit = false;
-            int StartPosition = zstart + TolThickness / 2;
-            int initial_slice_estimate = ((zend + SliceThickness / 4) - (zstart - SliceThickness / 4)) / SliceThickness;
-            int initial_remainder = ((zend + SliceThickness / 4) - (zstart - SliceThickness / 4)) % SliceThickness;
-
-            /*If there is a significant remainder, add a slice and shift to equalize.
-             * If there the remainder is small, just shift the slices */
-            if (initial_remainder >= 0.7 * SliceThickness)
-            {
-                NumSlices = initial_slice_estimate + 1;
-                zrasterpos = new int[NumSlices];
-                padding = (SliceThickness - initial_remainder) / 2;
-                zrasterpos[0] = (zstart + SliceThickness / 4) - padding;
-                for (int i = 1; i < NumSlices; i++)
-                {
-                    zrasterpos[i] = zrasterpos[0] + i * SliceThickness;
-                }
-
-            }
-            else
-            {
-                NumSlices = initial_slice_estimate;
-                padding = initial_remainder / 2;
-                zrasterpos = new int[NumSlices];
-                zrasterpos[0] = (zstart + SliceThickness / 4) + padding;
-                for (int i = 1; i < NumSlices; i++)
-                {
-                    zrasterpos[i] = zrasterpos[0] + i * SliceThickness;
-                }
-            }
-            SlicePositions = zrasterpos;
-        }
-        public int[] FindBoundaries(float[][,] f)
-        {
-            int[] boundaries = new int[6];
-
-            //Z boundaries
-            Boolean z1 = false; Boolean z2 = false;
-            for (int k = 0; k < Z; k++)
-            {
-                float[,] temp = f[k];
-                float sum = Matrix.SumAll(temp);
-                if (sum > 0)
-                    if (z1 == false)
-                    {
-                        boundaries[4] = k;
-                        z1 = true;
-                    }
-                    else
-                        boundaries[5] = k;
-
-
-                //X boundaries
-                Boolean x1 = false; Boolean x2 = false;
-                for (int i = 0; i < X; i++)
-                    for (int j = 0; j < Y; j++)
-                    {
-                        if (!x1 && temp[i, j] >= 0)
-                        {
-                            x1 = true;
-                            boundaries[0] = i;
-                        }
-                        if (!x2 && temp[X - i - 1, j] >= 0)
-                        {
-                            x2 = true;
-                            boundaries[1] = X - i;
-                        }
-                        if (x1 && x2)
-                            break;
-                    }
-                //Y boundaries
-                Boolean y1 = false; Boolean y2 = false;
-                
-                    for (int j = 0; j < Y; j++)
-                        for (int i = 0; i < X; i++)
-                    {
-                        if (!y1 && temp[i, j] >= 0)
-                        {
-                            y1 = true;
-                            boundaries[2] = j;
-                        }
-                        if (!y2 && temp[i,Y - j - 1] > 0)
-                        {
-                            y2 = true;
-                            boundaries[3] = Y - j;
-                        }
-                        if (y1 && y2)
-                            break;
-                    }
-            }
-            return boundaries;
-        }
-        public float[,] CompressSection(float[][,] f, int zt, int spt)
-        {            
-            float[,] squished = new float[X, Y];
-            float[,] center = f[zt];
-            int bz = zt - spt;
-            int ez = zt + spt;            
-                        
-            for (int j = 0; j < Y; j++)                
-                for (int i = 0; i < X; i++)
-                    for (int k = 0; k < ez - bz; k++)
-                    {
-                        squished[i, j] += f[k][i, j];
-                    }
-
-            for (int i = 0; i < X; i++)
-                for (int j = 0; j < Y; j++)
-                    squished[i, j] -= center[i, j];
-
-            squished = Matrix.Add(Matrix.ThresholdEq(squished, 2), center);
-            double ddd = Matrix.SumAll(squished);
-            for (int i = 0; i < squished.GetLength(0); i++)
-                for (int j = 0; j < squished.GetLength(1); j++)
-                    if (squished[i, j] > 0)
-                        squished[i, j] = 1;
-            ddd = Matrix.SumAll(squished);
-            return squished;
-        }
-
-        #region Assembling Final Dose Computation
-
-        /// <summary>
-        /// The actual method that is called by the UI, which takes in a folder directory path, and 
-        /// loads in each slicedose file and writes it to the global dosespace file.
-        /// </summary>
-        /// <param name="folderpath"></param>
-        public void AssembleFinalDoseMatrix(string folderpath)
-        {
-            string subfolder = ActiveDirectory;
-            
-            int x = volume[0].GetLength(0); int y = volume[0].GetLength(1); int z = volume.GetLength(0);
-            /* First, a for-loop to create the string name for each slice, which then loads each
-             * slicedose file and in turn adds it to the result matrix.*/
-            dosespace = new float[DoseCalculationThickness + ((NumSlices-1) * SliceThickness)][,];
-            for (int s = 0; s < NumSlices; s++)
-            {                
-                string filename = String.Concat("slice_", s);
-                string path = System.IO.Path.Combine(subfolder, filename);                
-                float[] slicedose = ReadDoseFromFile(path);
-                WriteSliceDoseToDoseSpace(slicedose, SlicePositions[s]);
-            }
-            //Normalize Dosespace
-            NormalizeDosespace();
-            
-            //Write dosespace to file.
-            WriteDoseSpaceToFile();
-        }
-
-        private void NormalizeDosespace()
-        {
-            float max = 0;
-            for (int k = 0; k < dosespace.GetLength(0); k++)
-                if (Matrix.FindMax(dosespace[k]) > max)
-                    max = Matrix.FindMax(dosespace[k]);
-            for (int k = 0; k < dosespace.GetLength(0); k++)
-                for (int j = 0; j < dosespace[0].GetLength(1); j++)
-                    for (int i = 0; i < dosespace[0].GetLength(0); i++)
-                        dosespace[k][i, j] = dosespace[k][i, j] / max;
-                            
-        }
-
-        private void WriteDoseSpaceToFile()
-        {
-            string subfolder = ActiveDirectory;
-            string filename = "DoseSpace.txt";
-            string path = System.IO.Path.Combine(subfolder, filename);
-            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write))
-            using (StreamWriter bw = new StreamWriter(fs))
-            {
-                //Write dimensions and plan info
-                bw.WriteLine("Dimensions (x,y,z):");
-                bw.WriteLine(dosespace[0].GetLength(0));
-                bw.WriteLine(dosespace[0].GetLength(1));
-                bw.WriteLine(dosespace.GetLength(0));
-                bw.WriteLine("Number of Slices:");
-                bw.WriteLine(NumSlices);
-                bw.WriteLine("Dose data:");
-                for (int k = 0; k < dosespace.GetLength(0); k++)
-                    for (int j = 0; j < dosespace[0].GetLength(1); j++)
-                        for (int i = 0; i < dosespace[0].GetLength(0); i++)
-                            bw.WriteLine(dosespace[k][i,j]);
-            }
-            System.Windows.MessageBox.Show(string.Concat("Dosespace written to: ", path));
-        }
-
-        public void ReadDoseSpaceFromFile(string path)
-        {
-            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
-            using (StreamReader br = new StreamReader(fs))
-            {
-                br.ReadLine();
-                int x = Convert.ToInt16(br.ReadLine()); int y = Convert.ToInt16(br.ReadLine()); int z = Convert.ToInt16(br.ReadLine());
-                br.ReadLine();
-                NumSlices = Convert.ToInt16(br.ReadLine());
-                br.ReadLine();
-                dosespace = new float[z][,];
-                for (int k = 0; k < z; k++)
-                {
-                    float[,] slice = new float[x,y];
-                    for (int j = 0; j < y; j++)
-                        for (int i = 0; i < x; i++)
-                            slice[i, j] = Convert.ToSingle(br.ReadLine());
-                    dosespace[k] = slice;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Takes in a slice 1D float matrix, and adds it to the global dosespace array for final calculation. Called by 
-        /// AssembleFinalDoseMatrix().
-        /// </summary>
-        /// <param name="slicedose"></param>
-        /// <param name="which_z_slice"></param>
-        public void WriteSliceDoseToDoseSpace(float[] slicedose, int which_z_slice)
-        {
-            int TranslateZBy = which_z_slice - SlicePositions[0]; // <- NEED TO CHANGE APPROPRIATELY
-            
-            
-            //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
-            //Then change slicethickness in for loop limit to another variable based on size.
-            for (int z = 0; z < DoseCalculationThickness; z++) 
-            {                
-                int current_z = TranslateZBy + z;
-                if (dosespace[current_z] == null)
-                    dosespace[current_z] = GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1));
-                else
-                {
-                    dosespace[current_z] = Matrix.Add(dosespace[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));
-                }
-
-            }
-        }
-
-        /// <summary>
-        /// Takes in a 1D float matrix, grabs a 2D slice out based on which z position. Called by GrabSlice().
-        /// </summary>
-        /// <param name="input"></param>
-        /// <param name="which"></param>
-        /// <param name="xsize"></param>
-        /// <param name="ysize"></param>
-        /// <returns></returns>
-        private float[,] GrabSlice(float[] input, int which, int xsize, int ysize)
-        {
-            float[,] result = new float[xsize,ysize];
-            for (int j = 0; j < ysize; j++)
-                for (int i = 0; i < xsize; i++)                
-            {
-                int index = (which * xsize * ysize) + (j * xsize) + i;
-                result[i, j] = input[index];
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Given a path, loads in the associated slicedose 1D float matrix. Called by AssembleFinalDoseMatrix()
-        /// </summary>
-        /// <param name="loadpath"></param>
-        /// <returns></returns>
-        public float[] ReadDoseFromFile(string loadpath)
-        {
-            float[] d;
-            using (FileStream fs = new FileStream(loadpath, FileMode.Open, FileAccess.Read))
-            using (StreamReader br = new StreamReader(fs))
-            {
-                int x = Convert.ToInt16(br.ReadLine()); int y = Convert.ToInt16(br.ReadLine()); int z = Convert.ToInt16(br.ReadLine());
-                d = new float[x * y * z];
-                for (int i = 0; i < d.GetLength(0); i++)
-                    d[i] = Convert.ToSingle(br.ReadLine());
-            }
-            float sum = d.Sum();
-            return d;
-        }
-        #endregion
-
-
-        #region Save SliceDoses to File
-        /// <summary>
-        /// Given a folder path and a DoseKernel, will create path names for each rasterpath in RasterPaths 
-        /// and write each to the numbered path.
-        /// </summary>
-        /// <param name="dk"></param>
-        /// <param name="folderpath"></param>
-        public void CalculateSliceDosesAndWrite(DoseKernel dk, string folderpath)
-        {
-            string path;
-            string subfolder = System.IO.Path.Combine(folderpath, DateTime.Now.ToString("yyyyMMddHHmmssfff"));
-            System.IO.Directory.CreateDirectory(subfolder);
-            ActiveDirectory = subfolder;
-            for (int s = 0; s < NumSlices; s++)
-            {                
-                string filename = string.Concat("slice_",s);
-                path = System.IO.Path.Combine(subfolder,filename);
-                RasterPath rp = (RasterPath)RasterPaths[s];
-                rp.CalculateAndSaveSliceDose(dk, DoseCalculationThickness, path);
-            }
-            //Need to have some kind of confirmation event?
-        }
-
-        #endregion
-    }
-
-    
-
-    /// <summary>
+/// <summary>
     /// Contains the shot paths for one slice, along with associated methods for
     /// finding and creating them.
     /// </summary>
@@ -520,10 +74,10 @@ namespace TomosurgeryAlpha
             slice = f;
             ModdedSlice = f;
             X = f.GetLength(0); Y = f.GetLength(1);
-            FindAllShotPoints();
-            CreateSliceInfo();
+            FindAllShotPoints();            
             InitWeightArray();
             AttachHandlers();
+            CreateSliceInfo();
         }
 
         private void RePrioritizeDDS(float[,] mod)
@@ -534,6 +88,25 @@ namespace TomosurgeryAlpha
             
         }
 
+        
+#endregion
+
+        #region Background Worker Methods
+        
+        void RPworker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            OptimizeShotWeights();
+        }
+        void RPworker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            if (SliceWorkerCompleted != null)
+                SliceWorkerCompleted.Invoke(null, e);
+        }
+        void RPworker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            if (SliceWorkerProgressChanged != null)
+                SliceWorkerProgressChanged.Invoke(null, e);
+        }
         private void AttachHandlers()
         {
             RPworker = new BackgroundWorker();
@@ -542,393 +115,6 @@ namespace TomosurgeryAlpha
             RPworker.WorkerReportsProgress = true;
             RPworker.DoWork += new DoWorkEventHandler(RPworker_DoWork);
         }
-#endregion
-        #region Background Worker Methods
-        void RPworker_DoWork(object sender, DoWorkEventArgs e)
-        {
-            OptimizeShotWeights();
-        }
-
-        void RPworker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        {
-            if (SliceWorkerCompleted != null)
-                SliceWorkerCompleted.Invoke(null, e);
-        }
-
-        void RPworker_ProgressChanged(object sender, ProgressChangedEventArgs e)
-        {
-            if (SliceWorkerProgressChanged != null)
-                SliceWorkerProgressChanged.Invoke(null, e);
-        }
-        #endregion
-
-
-
-        #region Optimization methods
-        public void OptimizeShotWeights()
-        {
-            shots = ReturnSinglePoints();
-            double Error = 1000; double coverage = 0.8;
-            int index = 0;
-            float[] w = new float[weight.GetLength(0)];
-            float[] ds = new float[slice.GetLength(0)*slice.GetLength(1)];
-
-            while (Error >= .0001 || index < 50)
-            {
-                //Add the weighted shots to the array
-                Parallel.For(0, shots.GetLength(0), i =>
-                {
-                    if (weight[i] == 0)
-                        weight[i] = 1.0f;
-                    ds = IterateShot(ds, dosemidplane, i);
-                });
-                ds = Normalize(ds);
-                Parallel.For(0, shots.GetLength(0), i =>
-                {
-                    float ratio = EvalShotWeightIteration(dosemidplane, ds, shots[i]);
-                    w[i] = weight[i] * ratio;
-                });
-                w = Normalize(w);
-                weight = Normalize(weight);                
-                Error = FindError(weight, w);
-                double cov = CalculateIterationCoverage(ds, 0.5f);
-                if (index > 2 || cov < coverage) //Old version was index > 1 && cov < coverage
-                    break;
-                else
-                    coverage = cov;
-                index++;
-                weight = w;
-                //REPORT PROGRESS HERE:
-                string report = "Error: " + Error + "; Current iteration: " + index;
-                SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, null));
-                //RPworker.ReportProgress(2 * index);
-
-            } //END of WHILE LOOP
-            this.coverage = coverage;
-            dosespace = ds;
-            optimized = true;
-        }
-        
-        private double FindError(float[] weight, float[] w)
-        {
-            double diff = 0;
-            for (int i = 0; i < w.GetLength(0); i++)
-            {
-                diff += Math.Pow(Math.Abs((weight[i] - w[i])),2);
-            }
-            return Math.Sqrt(diff);
-        }
-
-        private float EvalShotWeightIteration(float[,] dosemidplane, float[] ds, PointF pf)
-        {
-            float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-            float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
-            float dssum = Matrix.SumAll(DStimesP);
-            float ddssum = Matrix.SumAll(DDStimesP);
-            return (float)(ddssum / dssum);            
-        }
-
-        ///// <summary>
-        ///// Calculates the full 3D matrix of dose, and converts it to a file.
-        ///// </summary>
-        ///// <param name="dk"></param>
-        ///// <param name="slicethickness"></param>
-        //private void Calculate_3D_Dose(DoseKernel dk, int slicethickness)
-        //{
-        //    int dosethickness = 3 * slicethickness + 1;
-        //    int startz = (DoseKernel.N - dosethickness) / 2;
-        //    int endz = startz + dosethickness;
-        //    int actualx_start = 0;
-        //    int actualy_start = 0;
-        //    int actualz_start = 0;
-        //    int ex = 0;
-        //    int ey = 0;
-        //    int ez = 0;
-        //    float[][,] SliceSlab = new float[dosethickness][,];
-        //    float[][,] DoseSlab = dk.GetDoseSlab(startz, endz);
-        //    PointF center = new PointF(DoseSlab[0].GetLength(0) / 2, DoseSlab[0].GetLength(1) / 2);
-        //    PointF[] startpts = new PointF[shots.GetLength(0)];
-        //    for (int i = 0; i < shots.GetLength(0); i++)
-        //    {
-        //        //startpts[i] = GetStartingPoint(center, shots[i]);
-        //        PointF temp = GetStartingPoint(center, shots[i]);
-        //        PointF actualstart = temp;
-        //        if (temp.X < 0)
-        //            actualstart.X = 0 - (int)temp.X;
-        //        else if (temp.X + DoseSlab[0].GetLength(0) > SliceSlab[0].GetLength(0))
-        //            ex = SliceSlab[0].GetLength(0) - ((int)temp.X + DoseSlab[0].GetLength(0));
-        //        if (temp.Y < 0)
-        //            actualstart.Y = 0 - (int)temp.Y;
-        //        else if (temp.Y + DoseSlab[0].GetLength(1) > SliceSlab[0].GetLength(1))
-        //            ey = SliceSlab[0].GetLength(1) - ((int)temp.Y + DoseSlab[0].GetLength(1));
-        //        //temp is the starting point within the TUMOR space (not the doseslab space)
-        //        /*Need to check if the starting point is negative, then the starting location needs to change.                
-        //         * Conditions:
-        //         * 1) If starting point of dose slab is negative
-        //         *   then need to start the doseslab loop below at the
-        //         *   location that corresponds to the true 0 location within the tumor matrix.
-        //         * 2) If ending point of dose slab is outside of matrix
-        //         * then need to end the dose loop earlier (bc end is beyond matrix)
-        //         * Do this by subtracting the endx/endy/endz variable from the doseslab conditions.                 
-        //         * 
-        //         * In plain english, if the start point in the tumor space is negative, make the
-        //         * actual start point in the doseslab space equal to the negative shift amount
-        //         * (i.e. move it forwards so that it aligns with 0,0)
-        //         * If the start point (temp) plus the length of the dose slab is beyond the bounds
-        //         * of the tumor matrix, then set the ending point within the doseslab loop to be the
-        //         * coordinate that aligns with the last pixel in the tumorspace, which would just be 
-        //         * the length of sliceslab - the total length, which will give the negative shift
-        //         * amount to adjust the loop end by.
-        //         */
-        //        startpts[i] = actualstart;
-        //    }
-
-        //    //Assuming each shot has its own indexed weight, can just do one for loop to add all of the things.
-        //    //Loop through each pixel in the dosekernel, and add it to the translated location relative to the shot center, 
-        //    //weighted by the shotweight.
-        //    for (int z = 0; z < DoseSlab.GetLength(0); z++)
-        //        for (int doseY_index = 0; doseY_index < DoseSlab[0].GetLength(1)-ey; doseY_index++)
-        //            for (int doseX_index = 0; doseX_index < DoseSlab[0].GetLength(0)-ex; doseX_index++)
-        //        {
-        //            Parallel.For(0, startpts.GetLength(0), (shotpoint) =>
-        //            {
-        //                //The 
-        //                PointF topleft_dose = startpts[shotpoint];
-        //                SliceSlab[z][(int)(topleft_dose.X + doseX_index), (int)(topleft_dose.Y + doseY_index)] = DoseSlab[z][doseX_index, doseY_index] * weight[shotpoint];
-        //            });
-        //        }
-        //}
-
-        public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
-        {
-            PointF[] startingpoints = GetStartingPoints(shots);
-            N = dk.DKI.Size;
-            int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
-            int xmid = xsize / 2; int ymid = ysize / 2; int zmid = dosecalcthickness / 2;
-            int StartingDoseSlice = ((N - 1) / 2) - zmid;
-            float[] slicedose = new float[xsize * ysize * dosecalcthickness];
-            for (int k = 0; k < dosecalcthickness; k++)
-                for (int j = 0; j < N; j++)
-                    for (int i = 0; i < N; i++)
-                        for (int w = 0; w < shots.GetLength(0); w++)
-                        {
-                            PointF shot = shots[w];
-                            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
-                            //TODO: Need to find the bottom left pixel (starting position) of the dose in 
-                            //terms of the slicedose coordinate system.
-                            PointF firstdosepixel = FindFirstExistingDosePixel(shot);
-                            PointF lastdosepixel = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
-                            if (i < firstdosepixel.X || j < firstdosepixel.Y) //if the current dose pixel doesn't exist for the shot, continue
-                                continue;
-                            else if (i > lastdosepixel.X || j > lastdosepixel.Y)
-                                continue;
-                            else
-                            {
-                                if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
-                                    slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice+k) * weight[w];
-                            }
-                        }                    
-            float f = dk.ReturnSpecificDoseValue(80, 80, 80);
-            WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
-        }
-
-        public PointF FindFirstExistingDosePixel(PointF shot)
-        {
-            PointF first = new PointF(0,0);
-            PointF center = new Point((N - 1) / 2, (N - 1) / 2);
-            float Xdiff = shot.X - center.X;
-            float Ydiff = shot.Y - center.Y;
-            
-            if (Xdiff < 0) //i.e. first dosepixel is outside.
-                first.X = center.X - shot.X;
-            else 
-                first.X = 0; //set first dose pixel to first corresponding real tumor pixel
-            
-            //Repeat above logic for Y coordinate.
-            if (Ydiff >= 0)
-                first.Y = 0;
-            else if (Ydiff < 0)
-                first.Y = center.Y - shot.Y;
-
-            return first;
-        }
-
-        public PointF FindLastExistingDosePixel(PointF shot, PointF tumorsize)
-        {
-            PointF last = new PointF(0,0);
-            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
-            float XDistToTumorEdge = tumorsize.X - shot.X;
-            float YDistToTumorEdge = tumorsize.Y - shot.Y;
-
-            if (XDistToTumorEdge < center.X) //last dosepixel outside tumor
-                last.X = center.X + XDistToTumorEdge;
-            else  //last dosepixel inside tumor
-                last.X = N - 1;
-
-            //Repeat above logic for Y coordinate
-            if (YDistToTumorEdge < center.Y)
-                last.Y = center.Y + YDistToTumorEdge;
-            else
-                last.Y = N - 1;
-            
-            return last;
-
-
-        }
-        public PointF[] GetStartingPoints(PointF[] shots)
-        {
-            PointF[] output = new PointF[shots.GetLength(0)];
-            for (int i = 0; i < shots.GetLength(0); i++)
-            {
-                output[i] = new PointF(shots[i].X - (N / 2), shots[i].Y - (N / 2));
-            }
-            return output;
-        }
-
-        public void WriteToFile(string savepath, float[] sd, int sizex, int sizey, int sizez)
-        {
-            using (FileStream fs = System.IO.File.Create(savepath))//new FileStream(savepath, FileMode.OpenOrCreate, FileAccess.Write))
-                 using (StreamWriter bw = new StreamWriter(fs))
-            {
-                bw.WriteLine(sizex); //first write the size
-                bw.WriteLine(sizey);
-                bw.WriteLine(sizez);
-                foreach (float f in sd)
-                    bw.WriteLine(f);
-            }
-        }
-
-        
-
-        private PointF GetStartingPoint(PointF center, PointF coord)
-        {
-            PointF start = new PointF();
-            /*The coord is the shot coordinate, which should correspond to the dead center of
-             * the dose slab. If a shot is located at (0,0,0), then the actual starting pixel
-             * is in the negative, because it is (coord - center) for find the starting point.
-            */
-            start.X = coord.X - center.X;
-            start.Y = coord.Y - center.Y;
-            return start;
-        }
-
-        public static float[,] GetMultiplied_DDS_Subset(float[,] slice, float px, float py, float[,] P)
-        {
-            //int startx = (int)px-(P.GetLength(0)-1)/2;
-            //int starty = (int)py-(P.GetLength(1)-1)/2;
-            float[,] output;
-
-            // ADD DDS ADDITIONS HERE!!!
-            if (DoseModifiable)
-            {
-                float[,] TempMod = Matrix.Add(mask,slice);                
-                output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
-            }
-            else
-                output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
-
-            return output;
-        }
-        
-
-        public static float[,] GetMultiplied_DS_Subset(float[] ds, float px, float py, float[,] P)
-        {
-            //int startx = (int)px - (P.GetLength(0) - 1) / 2;
-            //int starty = (int)py - (P.GetLength(1) - 1) / 2;
-            float[,] output = Matrix.MultiplySubset(ds, P, (int)px, (int)py, X, Y);
-            return output;
-        }
-
-        public float[] IterateShot(float[] ds, float[,] dosemidplane, int whichshot)
-        {
-            int index;
-            float ds_x; float ds_y;
-            for (int i = 0; i < dosemidplane.GetLength(1); i++)
-                for (int j = 0; j < dosemidplane.GetLength(0); j++)
-                {
-                    ds_x = ((PointF)shots[whichshot]).X - (doseN / 2) + j;
-                    ds_y = ((PointF)shots[whichshot]).Y - (doseN / 2) + i;
-                    index = (int)Math.Round(ds_x) + StructureSet.size * (int)Math.Round(ds_y);
-                    ds[index] += dosemidplane[j, i] * weight[whichshot];
-                }
-            return ds;
-        }
-
-        private void NormalizeDose()
-        {
-            //Find max
-            dosespace = Normalize(dosespace);
-        }
-
-        private float[] Normalize(float[] d)
-        {
-            float max = 0;
-            for (int i = 0; i < d.GetLength(0); i++)
-                if (d[i] > max)
-                    max = d[i];
-            for (int j = 0; j < d.GetLength(0); j++)
-                d[j] = (float)(d[j] / max);
-            return d;
-        }
-
-        public void Calculate2DCoverage(float iso)
-        {
-            float isovolume = 0; float both = 0; float tumor = 0;
-            float dose; float div;
-            for (int j = 0; j < slice.GetLength(1); j++)
-                for (int i = 0; i < slice.GetLength(0); i++)                
-                {
-                    dose = dosespace[i + (j * slice.GetLength(0))];
-                    if (dose >= iso)
-                    {
-                        isovolume++;
-                        if (slice[i, j] > 0)
-                        {
-                            tumor++;
-                            both++;
-                        }
-                    }
-                    else
-                    {
-                        if (slice[i, j] > 0)
-                            tumor++;
-                    }
-                }
-            div = (float)(both / tumor);
-            coverage = div;
-            isovol = (int)isovolume;
-            massvol = (int)tumor;
-        }
-
-        public double CalculateIterationCoverage(float[] ds_temp, float iso)
-        {
-            double c = 0;
-            float isovolume = 0; float both = 0; float tumor = 0; float dose;
-            for (int j = 0; j < slice.GetLength(1); j++)
-                for (int i = 0; i < slice.GetLength(0); i++)
-                {
-                    dose = ds_temp[i + (j * slice.GetLength(0))];
-                    if (dose >= iso)
-                    {
-                        isovolume++;
-                        if (slice[i, j] > 0)
-                        {
-                            tumor++;
-                            both++;
-                        }
-                    }
-                    else
-                    {
-                        if (slice[i, j] > 0)
-                            tumor++;
-                    }
-
-                }
-            c = (float)(both / tumor);
-            return c;
-        }
-        
-
         #endregion
 
         #region Preliminary Plan methods (paramters, shot locations, etc)
@@ -1153,24 +339,24 @@ namespace TomosurgeryAlpha
             shots = ReturnSinglePoints();
             if (!optimized)
                 InitWeightArray();
-            float ds_x; float ds_y;
+            int ds_x; int ds_y;
             dosespace = new float[StructureSet.size * StructureSet.size];
             int index;
             //The first two arrays loop through the midplane
-            for (int i = 0; i < dosemidplane.GetLength(1); i++)                            
-                for (int j = 0; j < dosemidplane.GetLength(0); j++)
+            for (int j = 0; j < dosemidplane.GetLength(1); j++)                            
+                for (int i = 0; i < dosemidplane.GetLength(0); i++)
                 {
                     //This loop calculates the same pixel [i,j] for each shot.
                     //Parallel.For(0, shots.GetLength(0), k =>
                     for (int k = 0; k < shots.GetLength(0); k++)
                     {
                         //Finds the coordinates relative to dosespace
-                        ds_x = ((PointF)shots[k]).X - (doseN / 2) + j;
-                        ds_y = ((PointF)shots[k]).Y - (doseN / 2) + i;
+                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
+                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
 
                         //Add the final result
-                        index = (int)Math.Round(ds_x) + StructureSet.size * (int)Math.Round(ds_y);
-                        dosespace[index] += dosemidplane[j, i] * weight[k];
+                        index = ds_x + StructureSet.size * ds_y;
+                        dosespace[index] += dosemidplane[i, j] * weight[k];
                     
                     }//);
                 }
@@ -1179,6 +365,343 @@ namespace TomosurgeryAlpha
         }                
         #endregion        
         
+        #region Shot Optimization methods (Step 1)
+          #region Helper methods for OptimizeShotWeight (Step 1)
+        private double FindError(float[] weight, float[] w)
+        {
+            double diff = 0;
+            for (int i = 0; i < w.GetLength(0); i++)
+            {
+                diff += Math.Pow(Math.Abs((weight[i] - w[i])),2);
+            }
+            return Math.Sqrt(diff);
+        }
+
+        private float EvalShotWeightIteration(float[,] dosemidplane, float[] ds, PointF pf)
+        {
+            float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
+            float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+            float dssum = Matrix.SumAll(DStimesP);
+            float ddssum = Matrix.SumAll(DDStimesP);
+            return (float)(ddssum / dssum);            
+        }
+
+        private float[] ReoptimizeShotWeights(float[] ds, float[] temp_weight)
+        {            
+            for (int shot = 0; shot < shots.GetLength(0); shot++)
+            {
+                PointF pf = shots[shot];
+                float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
+                float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+                float dssum = Matrix.SumAll(DStimesP);
+                Debug.Assert(dssum > 0);
+                float ddssum = Matrix.SumAll(DDStimesP);
+                Debug.Assert(ddssum > 0);
+                float ratio = (float)(ddssum / dssum);
+                Debug.Assert(ratio > 0);
+                temp_weight[shot] = weight[shot] * ratio;
+                Debug.WriteLine("Old: " + weight[shot] + " * R: " + ratio + " = New: " + temp_weight[shot]);
+            }
+            temp_weight = Normalize(temp_weight);
+            return temp_weight;
+        }
+        public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
+        {
+            PointF[] startingpoints = GetStartingPoints(shots);
+            N = dk.DKI.Size;
+            int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
+            int xmid = xsize / 2; int ymid = ysize / 2; int zmid = dosecalcthickness / 2;
+            int StartingDoseSlice = ((N - 1) / 2) - zmid;
+            float[] slicedose = new float[xsize * ysize * dosecalcthickness];
+            for (int k = 0; k < dosecalcthickness; k++)
+                for (int j = 0; j < N; j++)
+                    for (int i = 0; i < N; i++)
+                        for (int w = 0; w < shots.GetLength(0); w++)
+                        {
+                            PointF shot = shots[w];
+                            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);                            
+                            PointF firstdosepixel = FindFirstExistingDosePixel(shot);
+                            PointF lastdosepixel = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
+                            if (i < firstdosepixel.X || j < firstdosepixel.Y) //if the current dose pixel doesn't exist for the shot, continue
+                                continue;
+                            else if (i > lastdosepixel.X || j > lastdosepixel.Y)
+                                continue;
+                            else
+                            {
+                                if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
+                                    slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice+k) * weight[w];
+                            }
+                        }                    
+            float f = dk.ReturnSpecificDoseValue(80, 80, 80);
+            WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
+        }
+
+        public PointF FindFirstExistingDosePixel(PointF shot)
+        {
+            PointF first = new PointF(0,0);
+            PointF center = new Point((N - 1) / 2, (N - 1) / 2);
+            float Xdiff = shot.X - center.X;
+            float Ydiff = shot.Y - center.Y;
+            
+            if (Xdiff < 0) //i.e. first dosepixel is outside.
+                first.X = center.X - shot.X;
+            else 
+                first.X = 0; //set first dose pixel to first corresponding real tumor pixel
+            
+            //Repeat above logic for Y coordinate.
+            if (Ydiff >= 0)
+                first.Y = 0;
+            else if (Ydiff < 0)
+                first.Y = center.Y - shot.Y;
+
+            return first;
+        }
+        public PointF FindLastExistingDosePixel(PointF shot, PointF tumorsize)
+        {
+            PointF last = new PointF(0,0);
+            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
+            float XDistToTumorEdge = tumorsize.X - shot.X;
+            float YDistToTumorEdge = tumorsize.Y - shot.Y;
+
+            if (XDistToTumorEdge < center.X) //last dosepixel outside tumor
+                last.X = center.X + XDistToTumorEdge;
+            else  //last dosepixel inside tumor
+                last.X = N - 1;
+
+            //Repeat above logic for Y coordinate
+            if (YDistToTumorEdge < center.Y)
+                last.Y = center.Y + YDistToTumorEdge;
+            else
+                last.Y = N - 1;
+            
+            return last;
+
+
+        }
+        public PointF[] GetStartingPoints(PointF[] shots)
+        {
+            PointF[] output = new PointF[shots.GetLength(0)];
+            for (int i = 0; i < shots.GetLength(0); i++)
+            {
+                output[i] = new PointF(shots[i].X - (N / 2), shots[i].Y - (N / 2));
+            }
+            return output;
+        }
+
+        public void WriteToFile(string savepath, float[] sd, int sizex, int sizey, int sizez)
+        {
+            using (FileStream fs = System.IO.File.Create(savepath))//new FileStream(savepath, FileMode.OpenOrCreate, FileAccess.Write))
+                 using (StreamWriter bw = new StreamWriter(fs))
+            {
+                bw.WriteLine(sizex); //first write the size
+                bw.WriteLine(sizey);
+                bw.WriteLine(sizez);
+                foreach (float f in sd)
+                    bw.WriteLine(f);
+            }
+        }
+
+        
+
+        private PointF GetStartingPoint(PointF center, PointF coord)
+        {
+            PointF start = new PointF();
+            /*The coord is the shot coordinate, which should correspond to the dead center of
+             * the dose slab. If a shot is located at (0,0,0), then the actual starting pixel
+             * is in the negative, because it is (coord - center) for find the starting point.
+            */
+            start.X = coord.X - center.X;
+            start.Y = coord.Y - center.Y;
+            return start;
+        }
+
+        public static float[,] GetMultiplied_DDS_Subset(float[,] slice, float px, float py, float[,] P)
+        {
+            //int startx = (int)px-(P.GetLength(0)-1)/2;
+            //int starty = (int)py-(P.GetLength(1)-1)/2;
+            float[,] output;
+
+            // ADD DDS ADDITIONS HERE!!!
+            if (DoseModifiable)
+            {
+                float[,] TempMod = Matrix.Add(mask,slice);                
+                output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
+            }
+            else
+                output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
+
+            return output;
+        }
+        
+
+        public static float[,] GetMultiplied_DS_Subset(float[] ds, float px, float py, float[,] P)
+        {
+            //int startx = (int)px - (P.GetLength(0) - 1) / 2;
+            //int starty = (int)py - (P.GetLength(1) - 1) / 2;
+            float[,] output = Matrix.MultiplySubset(ds, P, (int)px, (int)py, X, Y);
+            return output;
+        }
+
+        //public float[] IterateShot(float[] ds, float[,] dosemidplane, int whichshot)
+        //{            
+        //    //NOTE THIS IS REPLACED BY ITERATESHOTS()
+        //    int ds_x; int ds_y;
+        //    for (int j = 0; j < dosemidplane.GetLength(1); j++)
+        //        for (int i = 0; i < dosemidplane.GetLength(0); i++)                
+        //        {
+        //            //Find index pixel relative to center shot coordinate
+        //            ds_x = (int)((PointF)shots[whichshot]).X - ((N-1) / 2) + i;
+        //            ds_y = (int)((PointF)shots[whichshot]).Y - ((N-1) / 2) + j;                    
+
+        //            //Add the weighted dose pixel to the indexed location
+        //            ds[(ds_y * StructureSet.size) + ds_x] += dosemidplane[i, j] * weight[whichshot];
+        //        }            
+            
+        //    return ds;
+        //}
+
+        /// <summary>
+        /// Adds a weighted dose midplane at each particular shot location to the dosespace matrix,
+        /// based on the most recent weights. Called by OptimizeShotWeight().
+        /// </summary>
+        private float[] IterateShots(float[] ds)
+        {
+            for (int j = 0; j < dosemidplane.GetLength(1); j++)
+                for (int i = 0; i < dosemidplane.GetLength(0); i++)
+                    for (int whichshot = 0; whichshot < shots.GetLength(0); whichshot++)
+                    {
+                        //Find index pixel relative to center shot coordinate
+                        int ds_x = (int)((PointF)shots[whichshot]).X - ((N - 1) / 2) + i;
+                        int ds_y = (int)((PointF)shots[whichshot]).Y - ((N - 1) / 2) + j;
+
+                        //Add the weighted dose pixel to the indexed location
+                        ds[(ds_y * StructureSet.size) + ds_x] += dosemidplane[i, j] * weight[whichshot];
+                    }
+            ds = Normalize(ds);
+            return ds;
+        }
+
+        private void NormalizeDose()
+        {            
+            dosespace = Normalize(dosespace);
+        }
+
+        private float[] Normalize(float[] d)
+        {
+            float max = 0;
+            for (int i = 0; i < d.GetLength(0); i++)
+                if (d[i] > max)
+                    max = d[i];
+            for (int j = 0; j < d.GetLength(0); j++)
+                d[j] = (float)(d[j] / max);
+            return d;
+        }
+
+        public void Calculate2DCoverage(float iso)
+        {
+            float isovolume = 0; float both = 0; float tumor = 0;
+            float dose; float div;
+            for (int j = 0; j < slice.GetLength(1); j++)
+                for (int i = 0; i < slice.GetLength(0); i++)                
+                {
+                    dose = dosespace[i + (j * slice.GetLength(0))];
+                    if (dose >= iso)
+                    {
+                        isovolume++;
+                        if (slice[i, j] > 0)
+                        {
+                            tumor++;
+                            both++;
+                        }
+                    }
+                    else
+                    {
+                        if (slice[i, j] > 0)
+                            tumor++;
+                    }
+                }
+            div = (float)(both / tumor);
+            coverage = div;
+            isovol = (int)isovolume;
+            massvol = (int)tumor;
+        }
+
+        public double CalculateIterationCoverage(float iso)
+        {
+            double c = 0;
+            float isovolume = 0; double both = 0; double tumor = 0; float dose;
+            for (int j = 0; j < slice.GetLength(1); j++)
+                for (int i = 0; i < slice.GetLength(0); i++)
+                {
+                    dose = dosespace[i + (j * slice.GetLength(0))];
+                    if (dose >= iso)
+                    {
+                        isovolume++;
+                        if (slice[i, j] > 0)
+                        {
+                            tumor++;
+                            both++;
+                        }
+                    }
+                    else
+                    {
+                        if (slice[i, j] > 0)
+                            tumor++;
+                    }
+
+                }
+            c = both / tumor;
+            return c;
+        }
+        #endregion
+        
+        /// <summary>
+        /// Called from RPworker, which is called from within a slice loop in PathSet. 
+        /// This method comprises the meat of Step 1 (shot-based) optimization, which
+        /// finds shot weights within a single slice. Writes final result to the float[] ds matrix
+        /// and calculates coverage too.
+        /// </summary>        
+        public void OptimizeShotWeights()
+        {
+            shots = ReturnSinglePoints();
+            double Error = 1000; double coverage = 0.4;
+            int index = 0;
+            float[] temp_weight = new float[weight.GetLength(0)];
+            for (int i = 0; i < shots.GetLength(0); i++)
+            {
+                temp_weight[i] = 1.0f;
+                weight[i] = 1.0f;
+            }            
+            float[] ds = new float[slice.GetLength(0)*slice.GetLength(1)];
+
+            while (Error >= .01 || index < 25)
+            {
+                ds = IterateShots(ds);
+                Debug.Assert(ds.Max() > 0);                
+                Debug.Assert(temp_weight.Max() > 0);
+                temp_weight = ReoptimizeShotWeights(ds, temp_weight);                                
+                Error = FindError(weight, temp_weight);
+                ds = Normalize(ds);
+                double temp_coverage = CalculateIterationCoverage(0.5f);
+
+                if (temp_coverage < coverage) //Old version was index > 1 && cov < coverage
+                    break;
+                else
+                {
+                    coverage = Convert.ToDouble(temp_coverage);                    
+                    weight = (float[])temp_weight.Clone();                    
+                    string report = "Err: " + Error + "; Iter: " + index +"; Cov: " + coverage + ";";
+                    Debug.WriteLine(report);
+                    Debug.Write(weight);
+                    index++;
+                    SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, null));
+                    //RPworker.ReportProgress(2 * index);
+                }
+            } //END of WHILE LOOP
+            this.coverage = coverage;
+            //dosespace = ds;
+            optimized = true;
+        }
         
         /// <summary>
         /// Create a Slice struct unique to this slice that contains info
@@ -1191,6 +714,8 @@ namespace TomosurgeryAlpha
             info.NumberOfShots = NumOfShots;
             info.Coverage = coverage;            
         }
+        
+        #endregion
     }
 
     public struct Slice

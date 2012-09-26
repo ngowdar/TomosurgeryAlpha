@@ -63,6 +63,7 @@ namespace TomosurgeryAlpha
             ResetMask();
         }
 
+        #region UI Update Methods
         private void UpdateTextBlock(string s)
         {
             textBlock2.Text += s + "\n";
@@ -77,6 +78,9 @@ namespace TomosurgeryAlpha
         {
             progressBar1.Value = v;            
         }
+
+        #endregion
+
 
         public void InitializeDICOM()
         {
@@ -97,14 +101,12 @@ namespace TomosurgeryAlpha
             DDS_imgbox.MouseLeftButtonDown += new MouseButtonEventHandler(DDS_imgbox_MouseLeftButtonDown);
             DDS_imgbox.MouseRightButtonDown += new MouseButtonEventHandler(DDS_imgbox_MouseRightButtonDown);
         }
-
         public int GetCurrentSlice()
         {
             int value;
             value = (int)Math.Round(slider2.Value);
             return value;
         }      
-
         public void InitializeDS()
         {
             wb_DS = new WriteableBitmap(256, 256, 96, 96, PixelFormats.Bgr32, null);
@@ -120,6 +122,7 @@ namespace TomosurgeryAlpha
             set.ImageWorkerProgressChanged += new ProgressChangedEventHandler(DICOMImageSet_ProgressChanged);
         }
 
+        #region Background Workers
         void DICOMImageSet_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             double imgnum = e.ProgressPercentage;
@@ -147,32 +150,29 @@ namespace TomosurgeryAlpha
             AddDICOMLoadedToListBox();
 
         }
+        #endregion
 
+        #region UI Element Handlers
         void DDS_imgbox_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             ErasePixel(ref wb_DDS, DDS_imgbox, e);
         }
-
         void DDS_imgbox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             DrawPixel(ref wb_DDS, DDS_imgbox, e);
         }
-
         void DS_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             throw new NotImplementedException();
         }
-
         void DS_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
             throw new NotImplementedException();
         }
-
         void DDS_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             throw new NotImplementedException();
         }
-
         void DDS_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed)
@@ -180,7 +180,6 @@ namespace TomosurgeryAlpha
             else if (e.RightButton == MouseButtonState.Pressed)
                 ErasePixel(ref wb_DDS, DDS_imgbox, e);
         }       
-
         void DICOM_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             double val = slider2.Value + e.Delta;
@@ -190,17 +189,90 @@ namespace TomosurgeryAlpha
                 val = slider2.Minimum;
             slider2.Value = val;
         }
-
         void DICOM_imgbox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {            
            throw new NotImplementedException();
         }
-
         void DICOM_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
             throw new NotImplementedException();
-        }        
+        }
+        private void DICOM_imgbox_MouseEnter(object sender, MouseEventArgs e)
+        {
+            tracking_label.IsEnabled = true;
+            tracking_label.Content = "Image Pos: (" + Math.Round(e.GetPosition(this.DICOM_imgbox).X, 2) + ", " + Math.Round(e.GetPosition(this.DICOM_imgbox).Y, 2) + ")";
+            if (LGKcoords.finished == true)
+            {
+                label1.IsEnabled = true;
+                decimal x = (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier) - LGKcoords.X, 2);
+                decimal y = 256 - (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier) + LGKcoords.Y, 2);
+                //decimal z = (decimal)Math.Round((int)DICOMImage.img_zindex[(int)sliderbar.Value] - LGKcoords.Z, 2);
+                decimal z = (decimal)Math.Round((int)set.ZIndexArray[(int)Math.Round(95 * slider2.Value / slider2.Maximum)] - LGKcoords.Z, 2);
+                label1.Content = "LGK Frame: <" + x + ", " + y + ", " + z + ">";
+            }
+        }
+        private void DICOM_imgbox_MouseMove_1(object sender, MouseEventArgs e)
+        {
+            //Get absolute mouse position, multiply it by aspect multiplier (usually < 1, since the image is probably 256x256)
+            decimal[] img = new decimal[3];
+            decimal[] dicom = new decimal[3];
 
+            img[0] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier, 2);
+            img[1] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier, 2);
+            img[2] = (decimal)Math.Round(slider2.Value, 2);
+
+            //The DICOM position is the mouse position plus the top left pixel of the DICOM reference coordinates.
+            //The Z position is retrieved by the sliderbar value
+            if (set != null)
+            {
+                dicom[0] = img[0] + Convert.ToDecimal(set.imagePosition[0]);
+                dicom[1] = img[1] + Convert.ToDecimal(set.imagePosition[1]);
+                dicom[2] = Convert.ToDecimal(set.imagePosition[2]) - img[2] * 2;
+                tracking_label.Content = "Image Pos: (" + img[0] + ", " + img[1] + ", " + img[2] + ")";
+            }
+            if (LGKcoords.finished == true)
+            {
+                decimal[] lgk = LGKcoords.Image2LGKCoordinates(img);
+                lgk[2] = (decimal)Math.Round(LGKcoords.getLGK_Z_forDICOM(slider2.Value), 2);
+                label1.Content = "LGK Frame: <" + lgk[0] + ", " + lgk[1] + ", " + lgk[2] + ">";
+                DICOMCoordLabel.Content = "DICOM Location: (" + (Math.Round(dicom[0], 2)) + ", " + (Math.Round(dicom[1], 2)) + ", " + (Math.Round(dicom[2], 2)) + ")";
+            }
+
+
+
+        }
+        private void DICOM_imgbox_MouseLeave(object sender, MouseEventArgs e)
+        {
+            tracking_label.IsEnabled = false;
+            label1.IsEnabled = false;
+        }
+        private void DICOM_imgbox_MouseWheel_1(object sender, MouseWheelEventArgs e)
+        {
+            double value = (int)slider2.Value + e.Delta;
+            if (e.Delta > 0)
+                value = slider2.Value + slider2.LargeChange;
+            else if (e.Delta < 0)
+                value = slider2.Value - slider2.LargeChange;
+            if (value < slider2.Minimum)
+                value = slider2.Minimum;
+            else if (value > slider2.Maximum)
+                value = slider2.Maximum;
+            slider2.Value = value;
+        }
+        private void DICOM_imgbox_MouseLeftButtonDown_1(object sender, MouseButtonEventArgs e)
+        {
+            if (aligning_helper_label.IsEnabled == true)
+            {
+                LGKcoords.SetLGK_XYoffset(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
+                CreateAlignmentMarkings(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
+                aligning_helper_label.Content = "Line up left fiducial...";
+                button1.Content = "Lined up";
+            }
+        }
+        #endregion
+
+
+        #region Display Methods
         private double FindDistanceBetweenPoints(System.Drawing.Point p1, System.Drawing.Point p2)
         {            
             double distance = Math.Round(Math.Sqrt(Math.Pow((p2.X - p1.X), 2) + Math.Pow((p2.Y - p1.Y), 2)), 1);
@@ -274,11 +346,12 @@ namespace TomosurgeryAlpha
             double Plan_aspectMultiplier = wb_Plan.PixelHeight / plan_imgbox.Height;
             //AdjustCursorSize();
             int i = ((int)(x * Plan_aspectMultiplier)) - CursorRadius;
-            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;            
-            
+            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;
+
+            ResetMask();
             //i and j is the single center of the circle, adjusted for the aspect ratio.
             //u and v refer to each of the individual pixels in the circle cursor mask.
-            if (circle != null)
+            if (circle != null)                
             foreach (PointF p in circle)
             {
                 int u = (int)p.Y; int v = (int)p.X;
@@ -690,6 +763,8 @@ namespace TomosurgeryAlpha
             DisplayWindowCenteredAboutPoint(f, p);
             
         }
+        #endregion
+
 
         private void LoadDICOM_Menu_Click(object sender, RoutedEventArgs e)
         {
@@ -861,79 +936,7 @@ namespace TomosurgeryAlpha
             }
         }
 
-        private void DICOM_imgbox_MouseEnter(object sender, MouseEventArgs e)
-        {
-            tracking_label.IsEnabled = true;
-            tracking_label.Content = "Image Pos: (" + Math.Round(e.GetPosition(this.DICOM_imgbox).X, 2) + ", " + Math.Round(e.GetPosition(this.DICOM_imgbox).Y, 2) + ")";
-            if (LGKcoords.finished == true)
-            {
-                label1.IsEnabled = true;
-                decimal x = (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier) - LGKcoords.X, 2);
-                decimal y = 256 - (decimal)Math.Round((e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier) + LGKcoords.Y, 2);
-                //decimal z = (decimal)Math.Round((int)DICOMImage.img_zindex[(int)sliderbar.Value] - LGKcoords.Z, 2);
-                decimal z = (decimal)Math.Round((int)set.ZIndexArray[(int)Math.Round(95 * slider2.Value / slider2.Maximum)] - LGKcoords.Z, 2);
-                label1.Content = "LGK Frame: <" + x + ", " + y + ", " + z + ">";
-            }
-        }
-        private void DICOM_imgbox_MouseMove_1(object sender, MouseEventArgs e)
-        {
-            //Get absolute mouse position, multiply it by aspect multiplier (usually < 1, since the image is probably 256x256)
-            decimal[] img = new decimal[3];
-            decimal[] dicom = new decimal[3];
-
-            img[0] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).X * DICOM_aspectMultiplier, 2);
-            img[1] = (decimal)Math.Round(e.GetPosition(this.DICOM_imgbox).Y * DICOM_aspectMultiplier, 2);
-            img[2] = (decimal)Math.Round(slider2.Value, 2);
-
-            //The DICOM position is the mouse position plus the top left pixel of the DICOM reference coordinates.
-            //The Z position is retrieved by the sliderbar value
-            if (set != null)
-            {
-                dicom[0] = img[0] + Convert.ToDecimal(set.imagePosition[0]);
-                dicom[1] = img[1] + Convert.ToDecimal(set.imagePosition[1]);
-                dicom[2] = Convert.ToDecimal(set.imagePosition[2]) - img[2] * 2;
-                tracking_label.Content = "Image Pos: (" + img[0] + ", " + img[1] + ", " + img[2] + ")";
-            }
-            if (LGKcoords.finished == true)
-            {
-                decimal[] lgk = LGKcoords.Image2LGKCoordinates(img);
-                lgk[2] = (decimal)Math.Round(LGKcoords.getLGK_Z_forDICOM(slider2.Value), 2);
-                label1.Content = "LGK Frame: <" + lgk[0] + ", " + lgk[1] + ", " + lgk[2] + ">";
-                DICOMCoordLabel.Content = "DICOM Location: (" + (Math.Round(dicom[0], 2)) + ", " + (Math.Round(dicom[1], 2)) + ", " + (Math.Round(dicom[2], 2)) + ")";           
-            }
-            
-            
-
-        }
-        private void DICOM_imgbox_MouseLeave(object sender, MouseEventArgs e)
-        {
-            tracking_label.IsEnabled = false;
-            label1.IsEnabled = false;
-        }
-        private void DICOM_imgbox_MouseWheel_1(object sender, MouseWheelEventArgs e)
-        {
-            double value = (int)slider2.Value + e.Delta;
-            if (e.Delta > 0)
-                value = slider2.Value + slider2.LargeChange;
-            else if (e.Delta < 0)
-                value = slider2.Value - slider2.LargeChange;
-            if (value < slider2.Minimum)
-                value = slider2.Minimum;
-            else if (value > slider2.Maximum)
-                value = slider2.Maximum;            
-            slider2.Value = value;
-        }
-        private void DICOM_imgbox_MouseLeftButtonDown_1(object sender, MouseButtonEventArgs e)
-        {
-            if (aligning_helper_label.IsEnabled == true)
-            {
-                LGKcoords.SetLGK_XYoffset(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
-                CreateAlignmentMarkings(e.GetPosition(DICOM_imgbox).X * DICOM_aspectMultiplier, e.GetPosition(DICOM_imgbox).Y * DICOM_aspectMultiplier);
-                aligning_helper_label.Content = "Line up left fiducial...";
-                button1.Content = "Lined up";
-            }
-        }
-
+        
         public void CreateAlignmentMarkings(double x, double y)
         {
             PointF[] P = new PointF[7];
@@ -1003,7 +1006,6 @@ namespace TomosurgeryAlpha
             dataGrid1.Columns.Add(numshots);
             dataGrid1.Columns.Add(coverage);
         }
-
         private void PopulateDataGrid(PathSet ps)
         {
             for (int i = 0; i < ps.RasterPaths.Count; i++)
@@ -1013,7 +1015,6 @@ namespace TomosurgeryAlpha
                 dataGrid1.Items.Add(rp.info);
             }
         }
-
         private void RefreshDataGrid()
         {
             for (int i = 0; i < dataGrid1.Items.Count; i++)
@@ -1024,17 +1025,18 @@ namespace TomosurgeryAlpha
                 dataGrid1.Items[i] = rp.info;                
             }
         }
-
-
         private void CreatePathSet()
         {            
-               PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text));
-               AttachPSHandlers();
+               PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
+               AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
                slider2.Minimum = 0;
                slider2.Maximum = PS.NumSlices - 1;
+               if (DK != null)
+                   PS.DK = DK;
+               if (SS != null)
+                   PS.SS = SS;
         }
-
         private void AttachPSHandlers()
         {
             PS.PathsetWorkerCompleted += new RunWorkerCompletedEventHandler(PS_PathsetWorkerCompleted);
@@ -1074,6 +1076,7 @@ namespace TomosurgeryAlpha
             CalcSaveDose_btn.IsEnabled = true;
         }
         #endregion
+
         #region CreatingTestFiles
 
         public void CreateTumorObject(int radius)
@@ -1238,13 +1241,13 @@ namespace TomosurgeryAlpha
             DisplayPlan();
         }
         
-private void plan_dose_btn_Click(object sender, RoutedEventArgs e)
+        private void plan_dose_btn_Click(object sender, RoutedEventArgs e)
         {
             RasterPath rp = GetCurrentSliceRP();
             rp.Calculate2DDoseSpace(DK.midplane);
             UpdateCurrentSlicePaths();
         }
-private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
+        private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         {
             
         }
@@ -1377,7 +1380,29 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         private void Opt_btn_Click(object sender, RoutedEventArgs e)
         {
             UpdateStatusBar("Running optimization...this may take some time.");
-            PS.PSworker.RunWorkerAsync();
+            string _folderName = "c:\\dinoch";
+
+            _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
+            var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
+            {
+                Description = "Select a folder for temporary files and dosefile:",
+                ShowNewFolderButton = true,
+                ShowEditBox = true,
+                //NewStyle = false,
+                SelectedPath = _folderName,
+                ShowFullPathInEditBox = false,
+            };
+            dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
+
+            var result = dlg1.ShowDialog();
+
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                _folderName = dlg1.SelectedPath;
+            }
+            PS.ActiveDirectory = _folderName;
+            PS.folderpath = _folderName;
+            PS.PS_ShotOptimize_worker.RunWorkerAsync();
         }
 
         private void dataGrid1_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1515,41 +1540,21 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
             plan_dpRB.IsEnabled = true;
             IsDoseLoaded = true;
             RasterPath.doseN = DoseKernel.N;
+            RasterPath.N = DoseKernel.N;
             AddDoseLoadedToListBox();
         }
 
         private void CalcSaveDose_btn_Click(object sender, RoutedEventArgs e)
         {
             
-            //TODO: Allow user to pick a folder path here first            
-            string _folderName = "c:\\dinoch";
-
-            _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
-            var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
-            {
-                Description = "Select a folder for temporary files and dosefile:",
-                ShowNewFolderButton = true,
-                ShowEditBox = true,
-                //NewStyle = false,
-                SelectedPath = _folderName,
-                ShowFullPathInEditBox = false,
-            };
-            dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
-
-            var result = dlg1.ShowDialog();
-
-            if (result == System.Windows.Forms.DialogResult.OK)
-            {
-                _folderName = dlg1.SelectedPath;                
-            }
-            CreateDoseMatrix(_folderName);
+            //CreateDoseMatrix(PS.ActiveDirectory);
         }
 
         private void CreateDoseMatrix(string folderpath)
         {
-            //TODO:  Put this shit into background worker
-            PS.CalculateSliceDosesAndWrite(DK, folderpath);
-            PS.AssembleFinalDoseMatrix(folderpath);
+            //Moved this to the end of the Optimize step of the 2nd button click.
+            //PS.CreateDoseMatrix(DK, folderpath); //Calls the PS_InitialDose background worker
+
             Display2DFloat(PS.dosespace[PS.dosespace.GetLength(0) / 2]);
             if (PS.dosespace != null)
             {
@@ -1560,9 +1565,12 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         private void SetUpAnalysis()
         {
             Analysis_datagrid.IsEnabled = true;
-            AnalysisInfo AI = Analysis.RunAnalysis(PS, SS, 0.5);
-            AI.TestName = System.DateTime.Now.ToShortTimeString();
-            Analysis_datagrid.Items.Add(AI);
+            Analysis.RunAnalysis(PS, SS, 0.5);
+        }
+
+        private List<AnalysisInfo> GetAnalysisInfo()
+        {
+            return Analysis.AIList;
         }
 
         private void LoadDS_menu_Click_1(object sender, RoutedEventArgs e)
@@ -1579,6 +1587,7 @@ private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         private void run_analysis_btn_Click(object sender, RoutedEventArgs e)
         {
             SetUpAnalysis();
+            Analysis_datagrid.ItemsSource = GetAnalysisInfo();
         }
 
         private void clearhistory_btn_Click(object sender, RoutedEventArgs e)
