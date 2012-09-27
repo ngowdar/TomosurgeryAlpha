@@ -73,7 +73,7 @@ namespace TomosurgeryAlpha
             
             for (int i = 0; i < f_imagearray.GetLength(0); i++)
             {                
-                f_imagearray[i] = Matrix.ScalarMultiply(ref f_imagearray[i], max);
+                f_imagearray[i] = Matrix.ScalarMultiply(f_imagearray[i], max);
             }
 
         }

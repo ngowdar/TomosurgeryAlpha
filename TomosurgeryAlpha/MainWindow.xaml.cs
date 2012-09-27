@@ -838,8 +838,8 @@ namespace TomosurgeryAlpha
                 if (PS != null)
                 {
                     slider2.Minimum = 0;
-                    slider2.Maximum = PS.dosespace.GetLength(0) - 1;
-                    Display2DFloat(PS.dosespace[GetCurrentSlice()]);
+                    slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
+                    Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
                 }
             }
 
@@ -1555,8 +1555,8 @@ namespace TomosurgeryAlpha
             //Moved this to the end of the Optimize step of the 2nd button click.
             //PS.CreateDoseMatrix(DK, folderpath); //Calls the PS_InitialDose background worker
 
-            Display2DFloat(PS.dosespace[PS.dosespace.GetLength(0) / 2]);
-            if (PS.dosespace != null)
+            Display2DFloat(PS.DoseSpace[PS.DoseSpace.GetLength(0) / 2]);
+            if (PS.DoseSpace != null)
             {
                 Analysis_datagrid.IsEnabled = true;
             }

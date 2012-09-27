@@ -10,11 +10,12 @@ namespace TomosurgeryAlpha
 {
     public static class Matrix
     {
-        public static float[] ScalarMultiply(ref float[] f, float m)
+        public static float[] ScalarMultiply(float[] f, float m)
         {
+            float[] F = new float[f.GetLength(0)];
             for (int i = 0; i < f.GetLength(0); i++)
-                f[i] = f[i] * m;
-            return f;
+                F[i] = f[i] * m;
+            return F;
         }
 
         public static float[][] MakeJaggedFloat(float[, ,] f)
@@ -319,6 +320,7 @@ namespace TomosurgeryAlpha
             float[][,] product = new float[a.GetLength(0)][,];
             Parallel.For(0, a.GetLength(0), (k) =>
             {
+                product[k] = new float[a[0].GetLength(0), a[0].GetLength(1)];
                 for (int y = 0; y < a[0].GetLength(1); y++)
                     for (int x = 0; x < a[0].GetLength(0); x++)
                         product[k][x, y] = a[k][x, y] * scalar;

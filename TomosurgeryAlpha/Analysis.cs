@@ -19,11 +19,11 @@ namespace TomosurgeryAlpha
             double rtogindex;
             double lomaxscheib;
             double vantreits;
-            PS.dosespace = Matrix.Normalize(PS.dosespace);
+            PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;
             int startingz = PS.SlicePositions[0] - (PS.DoseCalculationThickness / 2);
-            AnalyzeLesionCoverage(PS.dosespace,SS.fj_Tumor,startingz);
+            AnalyzeLesionCoverage(PS.DoseSpace,SS.fj_Tumor,startingz);
             ai.RxLevel = RX;
             ai.LesionVolume = lesionvolume;
             ai.Rx_Volume = totalvolcoveredbyrx;
