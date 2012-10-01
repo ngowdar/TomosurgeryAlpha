@@ -61,6 +61,16 @@ namespace TomosurgeryAlpha.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap _469_307_2 {
+            get {
+                object obj = ResourceManager.GetObject("_469_307_2", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to 0.01107046
         ///0.0108469
         ///0.01128872
@@ -138,6 +148,26 @@ namespace TomosurgeryAlpha.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap carbon_fiber_background_wallpaper_2560x1600 {
+            get {
+                object obj = ResourceManager.GetObject("carbon_fiber_background_wallpaper_2560x1600", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap carbon_fiber_wallpaper_1280x960 {
+            get {
+                object obj = ResourceManager.GetObject("carbon_fiber_wallpaper_1280x960", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
         public static byte[] dicomdictionary {
@@ -150,9 +180,49 @@ namespace TomosurgeryAlpha.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap gunmetal_24a893 {
+            get {
+                object obj = ResourceManager.GetObject("gunmetal_24a893", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap metbase {
+            get {
+                object obj = ResourceManager.GetObject("metbase", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap seashell {
+            get {
+                object obj = ResourceManager.GetObject("seashell", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap Test_Image_Color_Response_0_512x512_No_Noise {
             get {
                 object obj = ResourceManager.GetObject("Test_Image_Color_Response_0_512x512_No_Noise", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap X_Ray_of_a_male_skeleton_DJ_spinning_records_on_a_couple_of_xray_turntables {
+            get {
+                object obj = ResourceManager.GetObject("X_Ray_of_a_male_skeleton_DJ_spinning_records_on_a_couple_of_xray_turntables", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

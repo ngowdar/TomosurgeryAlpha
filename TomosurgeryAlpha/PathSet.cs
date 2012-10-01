@@ -22,7 +22,7 @@ namespace TomosurgeryAlpha
     {
         #region Variables        
         public Boolean DoseModifiable;
-        public string folderpath; //The active directory where slice data will be written.
+        public string folderpath = ActiveDirectory; //The active directory where slice data will be written.
         public DoseKernel DK; //'DoseKernel', the object representing the dose matrix.
         public StructureSet SS; //'SS' represents the binary tumor volume from the DICOM.
         public static float[,] mask;
@@ -37,7 +37,7 @@ namespace TomosurgeryAlpha
         public int TumorVolCount;
         public int CSvolCount;
         public ArrayList RasterPaths; //Collection of objects representing each slice
-        public string ActiveDirectory;
+        public static string ActiveDirectory;
         public int DoseCalculationThickness; //How much of the dose kernel to use in calculation
         public static int DCT; //static version of dosecalcthickness
         public int SliceThickness;
@@ -52,6 +52,9 @@ namespace TomosurgeryAlpha
         public event ProgressChangedEventHandler PathsetWorkerProgressChanged;
         public event RunWorkerCompletedEventHandler PathsetWorkerCompleted;
         public event ProgressChangedEventHandler RasterPathWorkerProgress;
+        public event RunWorkerCompletedEventHandler OptimizationWorkerCompleted;
+        public event ProgressChangedEventHandler OptimizationWorkerProgress;
+        public event RunWorkerCompletedEventHandler SliceweightWorkerCompleted;
         public BackgroundWorker PS_ShotOptimize_worker; // <- called when "Optimize" button is clicked 
         public BackgroundWorker PS_SliceOptimize_worker; 
         public BackgroundWorker PS_CalcDose_worker; //<- called when the Calc/Save/Dose button is clicked.
@@ -102,7 +105,10 @@ namespace TomosurgeryAlpha
             PS_CalcDose_worker.RunWorkerCompleted += PS_CalcDose_worker_RunWorkerCompleted;
             PS_CalcDose_worker.ProgressChanged += PS_CalcDose_worker_ProgressChanged;
             PS_CalcDose_worker.DoWork += PS_CalcDose_worker_DoWork;
+           
         }
+
+        
         #endregion
 
 
@@ -118,7 +124,6 @@ namespace TomosurgeryAlpha
                 ((RasterPath)RasterPaths[i]).OptimizeShotWeights();
                 count++;
                 PS_ShotOptimize_worker.ReportProgress((int)(100 * count / NumSlices));
-
             }
         }
         void PS_ShotOptimize_ProgressChanged(object sender, ProgressChangedEventArgs e)
@@ -149,6 +154,9 @@ namespace TomosurgeryAlpha
         void PS_CalcDose_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             Debug.WriteLine("Shot weighting optimization complete. Now commencing slice weighting...");
+            if (OptimizationWorkerCompleted != null)
+                OptimizationWorkerCompleted.Invoke(null, e);
+
             PS_SliceOptimize_worker.RunWorkerAsync();
 
         }
@@ -162,7 +170,8 @@ namespace TomosurgeryAlpha
         }
         void PS_SliceOptimize_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            Debug.WriteLine("FINISHED WITH 2nd step!!!");
+            if (SliceweightWorkerCompleted != null)
+                SliceweightWorkerCompleted.Invoke(null, e);
         }
         
 
@@ -408,16 +417,16 @@ namespace TomosurgeryAlpha
             //UNDONE: Prepare DDS Tumor matrix 
             float[][,] DDS = PrepareDDS(SS.fj_Tumor);
             float[][,] OriginalDS = ReadDoseSpaceFromFile("OriginalDS.txt");
-            Debug.WriteLine("Sum of OriginalDS[80]: " + Matrix.SumAll(OriginalDS[80]));
+            
 
             while (Error >= .0001 && index <= 10)
             {
                 //Reset the dosespace
                 ClearDosespace();
-                Debug.WriteLine("Before method: " + Matrix.SumAll(DoseSpace));
+                
                 //Re-prepare dosespace with latest iteration of sliceweight
-                PrepareWeighted_DS(SliceWeights, folderpath);
-                Debug.WriteLine("After method: " + Matrix.SumAll(DoseSpace));
+                PrepareWeighted_DS(SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
+                
                 //Evaluate each slice against the DDS slice
                 for (int s = 0; s < NumSlices; s++)
                 {
@@ -502,8 +511,8 @@ namespace TomosurgeryAlpha
                         }
                     }
             }
-            Debug.WriteLine("DDS counts >= 2: " + _debug_tumorcount);
-            Debug.WriteLine("DDS tumor counts: " + TumorVolCount);
+            //Debug.WriteLine("DDS counts >= 2: " + _debug_tumorcount);
+            //Debug.WriteLine("DDS tumor counts: " + TumorVolCount);
             return pDDS;
         }
         
@@ -747,7 +756,7 @@ namespace TomosurgeryAlpha
         /// Called from AssembleDoseSpaceFromFiles() to write the output to a file. Note the header that 
         /// is written first containing the list of dimension order.
         /// </summary>
-        private void WriteDoseSpaceToFile(string filename)
+        public void WriteDoseSpaceToFile(string filename)
         {
             string subfolder = ActiveDirectory;            
             string path = System.IO.Path.Combine(subfolder, filename);
@@ -767,7 +776,7 @@ namespace TomosurgeryAlpha
                         for (int i = 0; i < DoseSpace[0].GetLength(0); i++)
                             bw.WriteLine(DoseSpace[k][i, j]);
             }
-            System.Windows.MessageBox.Show(string.Concat("Dosespace written to: ", path));
+            //System.Windows.MessageBox.Show(string.Concat("Dosespace written to: ", path));
         }
         /// <summary>
         /// Counterpart to WriteDoseSpaceToFile(). Loads in a dosespace and sets it to the main variable

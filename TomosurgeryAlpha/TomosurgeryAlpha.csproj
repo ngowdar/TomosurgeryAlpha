@@ -161,9 +161,18 @@
     <None Include="Resources\dicomdictionary.bin" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\seashell.jpg" />
+    <Resource Include="Resources\X_Ray_of_a_male_skeleton_DJ_spinning_records_on_a_couple_of_xray_turntables.jpg" />
+    <Resource Include="Resources\gunmetal-24a893.jpg" />
+    <Resource Include="Resources\metbase.jpg" />
     <None Include="Resources\Test-Image-Color-Response-0-512x512-No-Noise.bmp" />
     <None Include="Resources\testimg.bmp" />
     <None Include="Resources\BWheatmap3.bmp" />
+    <Resource Include="Resources\469_307_2.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\carbon-fiber-wallpaper-1280x960.png" />
+    <Resource Include="Resources\carbon_fiber_background-wallpaper-2560x1600.jpg" />
     <Content Include="Resources\EvilDicom.dll" />
   </ItemGroup>
   <ItemGroup>

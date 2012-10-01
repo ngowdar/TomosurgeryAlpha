@@ -167,18 +167,54 @@ namespace TomosurgeryAlpha
         }
         void DS_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
-            throw new NotImplementedException();
+            double aspectMultiplier; double[] img;
+            if (PS.DoseSpace != null)
+            {
+                //Calculate an aspect multiplier based on the size of the matrix.
+                double aspectmult = (double)(DS_imgbox.Width / PS.DoseSpace[0].GetLength(0));
+
+                img = new double[3];
+                img[0] = (double)Math.Round(e.GetPosition(this.DS_imgbox).X * aspectmult, 2);
+                img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y * aspectmult, 2);
+                img[2] = GetCurrentSlice();
+                UpdateDSLabels(img);
+            }            
         }
+
+        void UpdateDSLabels(double[] point)
+        {
+            DS_x_lbl.Content = "X: " + point[0];
+            DS_y_lbl.Content += "Y: " + point[1];
+            DS_z_lbl.Content += "Z: " + point[2];
+        }
+
+        void UpdateDDSLabels(double[] point)
+        {
+            DDS_x_lbl.Content = "X: " + point[0];
+            DDS_y_lbl.Content = "Y: " + point[1];
+            DDS_z_lbl.Content = "Z: " + point[2];
+        }
+
         void DDS_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             throw new NotImplementedException();
         }
         void DDS_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
-                DrawPixel(ref wb_DDS,DDS_imgbox, e);
-            else if (e.RightButton == MouseButtonState.Pressed)
-                ErasePixel(ref wb_DDS, DDS_imgbox, e);
+            double[] img;
+            if (SS != null)
+            {
+                img = new double[3];
+                double aspectmult = (double)(SS.f_structurearray.GetLength(0) / DDS_imgbox.Width);
+                img[0] = (double)Math.Round(e.GetPosition(this.DDS_imgbox).X * aspectmult, 2);
+                img[1] = (double)Math.Round(e.GetPosition(this.DDS_imgbox).Y * aspectmult, 2);
+                img[2] = (double)Math.Round(slider2.Value, 2);
+                UpdateDDSLabels(img);
+            }
+            //if (e.LeftButton == MouseButtonState.Pressed)
+            //    DrawPixel(ref wb_DDS,DDS_imgbox, e);
+            //else if (e.RightButton == MouseButtonState.Pressed)
+            //    ErasePixel(ref wb_DDS, DDS_imgbox, e);
         }       
         void DICOM_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
         {
@@ -831,6 +867,7 @@ namespace TomosurgeryAlpha
                 slider2.Minimum = 0;
                 slider2.Maximum = SS.f_structurearray.GetLength(0) - 1;
                 DisplayStructure(slice);
+                DDS_z_lbl.Content = "Z: " + slice;
             }
 
             if (tabControl1.SelectedIndex == 2) //"DS" tab
@@ -840,6 +877,7 @@ namespace TomosurgeryAlpha
                     slider2.Minimum = 0;
                     slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
                     Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+                    DS_z_lbl.Content = slice;
                 }
             }
 
@@ -1008,6 +1046,7 @@ namespace TomosurgeryAlpha
         }
         private void PopulateDataGrid(PathSet ps)
         {
+            dataGrid1.Items.Clear();
             for (int i = 0; i < ps.RasterPaths.Count; i++)
             {
                 RasterPath rp = (RasterPath)ps.RasterPaths[i];                
@@ -1016,7 +1055,7 @@ namespace TomosurgeryAlpha
             }
         }
         private void RefreshDataGrid()
-        {
+        {            
             for (int i = 0; i < dataGrid1.Items.Count; i++)
             {
                 RasterPath rp = (RasterPath)PS.RasterPaths[i];
@@ -1042,6 +1081,22 @@ namespace TomosurgeryAlpha
             PS.PathsetWorkerCompleted += new RunWorkerCompletedEventHandler(PS_PathsetWorkerCompleted);
             PS.PathsetWorkerProgressChanged += new ProgressChangedEventHandler(PS_PathsetWorkerProgressChanged);
             RasterPath.SliceWorkerProgressChanged += new ProgressChangedEventHandler(RasterPath_SliceWorkerProgressChanged);
+            PS.OptimizationWorkerCompleted += PS_OptimizationWorkerCompleted;
+            PS.SliceweightWorkerCompleted += PS_SliceweightWorkerCompleted;
+        }
+
+        void PS_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            MessageBox.Show("Optimization complete. You may run an analysis using the analysis tab, or save/export using the buttons shown.");
+            UpdateTextBlock2("Optimization complete. See analysis tab for details. Save using buttons below.");
+            UpdateStatusBar("Ready.");
+            save_plan_btn.IsEnabled = true;
+            export_shots_btn.IsEnabled = true;
+        }
+
+        void PS_OptimizationWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            UpdateTextBlock2("Temporary doses written. Optimizing slice weights...");
         }
         
         #region Pathset BackgroundWorkers
@@ -1060,7 +1115,8 @@ namespace TomosurgeryAlpha
 
         void PS_PathsetWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            UpdateStatusBar("Optimization complete");
+            UpdateStatusBar("Writing dose file...");
+            UpdateTextBlock2("Finished shot weighting. Now writing dose, please wait...");
             RefreshDataGrid();
             
             //Auto view the first slice in dose form
@@ -1071,9 +1127,9 @@ namespace TomosurgeryAlpha
             PlanOptimized = true;
             Plan_btn.Content = "Re-plan";
             Opt_btn.IsEnabled = false;
-            save_plan_btn.IsEnabled = true;
-            export_shots_btn.IsEnabled = true;
-            CalcSaveDose_btn.IsEnabled = true;
+            //save_plan_btn.IsEnabled = false;
+            //export_shots_btn.IsEnabled = true;
+            //CalcSaveDose_btn.IsEnabled = true;
         }
         #endregion
 
@@ -1139,6 +1195,11 @@ namespace TomosurgeryAlpha
 
         private void LoadTest_menu_Click(object sender, RoutedEventArgs e)
         {
+            LoadDefaultSetup();           
+        }
+
+        private void LoadDefaultSetup()
+        {
             CreateTumorObject(80);
             IsSSLoaded = true;
             slider2.Minimum = 0;
@@ -1146,9 +1207,8 @@ namespace TomosurgeryAlpha
             tabControl1.SelectedIndex = 1;
             slider2.Value = (int)(SS.f_structurearray.GetLength(0) / 2);
             DisplayStructure(SS.f_structurearray.GetLength(0) / 2);
-            AddStructureLoadedToListBox();
-            
-        }        
+            AddStructureLoadedToListBox();  
+        }
 
         private void SetParameterSliderLimits()
         {            
@@ -1377,9 +1437,24 @@ namespace TomosurgeryAlpha
             AdjustCursorSize();
         }
 
+        private void UpdateTextBlock2(string update)
+        {
+            textBlock2.Text += "\n" + update;
+        }
+
+
         private void Opt_btn_Click(object sender, RoutedEventArgs e)
         {
             UpdateStatusBar("Running optimization...this may take some time.");
+
+            if (PathSet.ActiveDirectory == null)
+                SetWorkingDirectory();            
+            PS.PS_ShotOptimize_worker.RunWorkerAsync();
+            UpdateTextBlock2("Optimizing shot weights...please wait.");
+        }
+
+        private void SetWorkingDirectory()
+        {
             string _folderName = "c:\\dinoch";
 
             _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
@@ -1400,9 +1475,12 @@ namespace TomosurgeryAlpha
             {
                 _folderName = dlg1.SelectedPath;
             }
-            PS.ActiveDirectory = _folderName;
-            PS.folderpath = _folderName;
-            PS.PS_ShotOptimize_worker.RunWorkerAsync();
+            PathSet.ActiveDirectory = _folderName;            
+        }
+
+        private void SetWorkingDirectory(string fullpath)
+        {            
+            PathSet.ActiveDirectory = fullpath;            
         }
 
         private void dataGrid1_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1536,6 +1614,11 @@ namespace TomosurgeryAlpha
 
         private void Select4mmDefault_Click(object sender, RoutedEventArgs e)
         {
+            Load4mmDefault();
+        }
+
+        private void Load4mmDefault()
+        {
             DK = new DoseKernel(4);
             plan_dpRB.IsEnabled = true;
             IsDoseLoaded = true;
@@ -1595,6 +1678,56 @@ namespace TomosurgeryAlpha
             Analysis_datagrid.Items.Clear();
         }
 
+        private void save_plan_btn_Click(object sender, RoutedEventArgs e)
+        {
+            PS.WriteDoseSpaceToFile("FinalDoseSpace.txt");
+        }
+
+        private void export_shots_btn_Click(object sender, RoutedEventArgs e)
+        {
+            string subfolder = PathSet.ActiveDirectory;
+            string path = System.IO.Path.Combine(subfolder, "ShotList.txt");
+            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+            using (StreamWriter bw = new StreamWriter(fs))
+            {
+                for (int i = 0; i < PS.RasterPaths.Count; i++)
+                {
+                    double sliceweight = PS.SliceWeights[i];
+                    RasterPath rp = (RasterPath)PS.RasterPaths[i];
+                    for (int shot = 0; shot < rp.shots.GetLength(0); shot++)
+                    {
+                        double weight = rp.weight[shot] * sliceweight;
+                        PointF p = rp.shots[shot];
+                        string sep = ", ";
+                        bw.WriteLine(p.X + sep + p.Y + sep + PS.SlicePositions[i] + sep + weight + ";");
+                    }
+                }
+            }
+            UpdateStatusBar("Shots written to file.");
+        }
+
+        private void MenuItem_Click_1(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void Button_Click_1(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void Button_Click_2(object sender, RoutedEventArgs e)
+        {
+            SetWorkingDirectory("D:\\Master's Project\\September TomoWorking FOlder\\");
+            Load4mmDefault();
+            LoadDefaultSetup();
+        }
+
+        private void Set_Direc_Click(object sender, RoutedEventArgs e)
+        {
+            SetWorkingDirectory();
+        }
+       
         
     }
 }

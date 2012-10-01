@@ -62,9 +62,9 @@ namespace TomosurgeryAlpha
         public Slice info;
         bool horizontal = false; //By default all lines will be vertical.
         bool optimized = false;
-        PointF[][] shot_points; //A jagged array. One array of points for each line.
+        public PointF[][] shot_points; //A jagged array. One array of points for each line.
             //Note that this is meant to be direction independent (horizontal or vertical).
-        PointF[] shots;
+        public PointF[] shots;
         #endregion
 
         #region Constructors

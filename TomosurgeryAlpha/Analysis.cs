@@ -35,9 +35,6 @@ namespace TomosurgeryAlpha
             AIList.Add(ai);
         }
 
-        
-
-        
 
         public static void RunAnalysis(float[][,] dosespace, float[][,] tumor, double rxlevel)
         {
@@ -61,6 +58,14 @@ namespace TomosurgeryAlpha
             AIList.Add(ai);
         }
 
+        private static void FindTumorVolume(PathSet PS)
+        {
+            //UNDONE: A menu-based option to show the volume of the current structure set.
+            //Make sure it uses a binary matrix, then multiply it by the standard reference dose
+            //using element-multiply, and THEN count it. This will the most realistic.
+
+        }
+
         private static void AnalyzeLesionCoverage(float[][,] ds, float[][,] tumor, int startingz)
         {
             
@@ -73,9 +78,9 @@ namespace TomosurgeryAlpha
                     {
                         if (ds[k][i, j] >= RX)
                                totalvolcoveredbyrx++;
-                        if (tumor[k+startingz][i, j] > 0)                                                            
+                        if (tumor[k][i, j] > 0)                                                            
                                 lesionvolume++;
-                        if (tumor[k + startingz][i, j] > 0 && ds[k][i, j] >= RX)
+                        if (tumor[k][i, j] > 0 && ds[k][i, j] >= RX)
                             lesioncoveragebyrx++;
                     }
             }
