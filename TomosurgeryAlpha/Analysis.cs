@@ -15,10 +15,7 @@ namespace TomosurgeryAlpha
 
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
         {
-            double rxdoselevel;            
-            double rtogindex;
-            double lomaxscheib;
-            double vantreits;
+            
             PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;

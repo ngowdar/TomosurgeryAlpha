@@ -1455,27 +1455,55 @@ namespace TomosurgeryAlpha
 
         private void SetWorkingDirectory()
         {
-            string _folderName = "c:\\dinoch";
-
-            _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
-            var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
+            if (LoadConfig() == null)
             {
-                Description = "Select a folder for temporary files and dosefile:",
-                ShowNewFolderButton = true,
-                ShowEditBox = true,
-                //NewStyle = false,
-                SelectedPath = _folderName,
-                ShowFullPathInEditBox = false,
-            };
-            dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
+                string _folderName = "c:\\dinoch";
 
-            var result = dlg1.ShowDialog();
+                _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
+                var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
+                {
+                    Description = "Select a folder for temporary files and dosefile:",
+                    ShowNewFolderButton = true,
+                    ShowEditBox = true,
+                    //NewStyle = false,
+                    SelectedPath = _folderName,
+                    ShowFullPathInEditBox = false,
+                };
+                dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
 
-            if (result == System.Windows.Forms.DialogResult.OK)
-            {
-                _folderName = dlg1.SelectedPath;
+                var result = dlg1.ShowDialog();
+
+                if (result == System.Windows.Forms.DialogResult.OK)
+                {
+                    _folderName = dlg1.SelectedPath;
+                }
+                PathSet.ActiveDirectory = _folderName;
+                string configfile = System.IO.Path.Combine(_folderName, "config.ini");
+                using (FileStream fs = new FileStream(configfile, FileMode.Create, FileAccess.Write))
+                using (StreamWriter bw = new StreamWriter(fs))
+                {
+                    bw.Write(_folderName);
+                }
             }
-            PathSet.ActiveDirectory = _folderName;            
+            else
+                PathSet.ActiveDirectory = LoadConfig();
+
+        }
+
+        private string LoadConfig()
+        {
+            string path = System.IO.Directory.GetCurrentDirectory();
+            path = System.IO.Path.Combine(path, "config.ini");
+            if (System.IO.File.Exists(path))
+            {
+                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                using (StreamReader br = new StreamReader(fs))
+                {
+                    return br.ReadLine();
+                }
+            }
+            else
+                return null;
         }
 
         private void SetWorkingDirectory(string fullpath)
@@ -1718,7 +1746,7 @@ namespace TomosurgeryAlpha
 
         private void Button_Click_2(object sender, RoutedEventArgs e)
         {
-            SetWorkingDirectory("D:\\Master's Project\\September TomoWorking FOlder\\");
+            SetWorkingDirectory();
             Load4mmDefault();
             LoadDefaultSetup();
         }

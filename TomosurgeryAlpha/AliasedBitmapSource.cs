@@ -27,9 +27,7 @@ namespace TomosurgeryAlpha
             this.dpiY = source.VerticalResolution;
         }
 
-        public override event EventHandler DownloadCompleted;
-        public override event EventHandler<ExceptionEventArgs> DownloadFailed;
-        public override event EventHandler<ExceptionEventArgs> DecodeFailed;
+       
 
         protected override Freezable CreateInstanceCore()
         {

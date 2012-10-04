@@ -161,6 +161,10 @@
     <None Include="Resources\dicomdictionary.bin" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Resources\Cloo.dll" />
+    <Content Include="Resources\OpenCLTemplate.dll" />
+    <Content Include="Resources\OpenCLTemplate_2.dll" />
+    <Content Include="Resources\opendicom-sharp.dll" />
     <None Include="Resources\seashell.jpg" />
     <Resource Include="Resources\X_Ray_of_a_male_skeleton_DJ_spinning_records_on_a_couple_of_xray_turntables.jpg" />
     <Resource Include="Resources\gunmetal-24a893.jpg" />
