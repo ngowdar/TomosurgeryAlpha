@@ -30,9 +30,9 @@ namespace TomosurgeryAlpha
         public static int edgepadding = 10;
         public static int tumorflag = 10;
         public static int CSflag = 2;
-        public static float ToleranceDose = 0.2f;
-        public static float RxDose = 0.8f;
-        public static float CSdose = 0.1f;
+        public static float ToleranceDose = 0.1f;
+        public static float RxDose = 0.5f;
+        public static float CSdose = 0.05f;
         public int NumSlices; //Set in step 1
         public int TumorVolCount;
         public int CSvolCount;
@@ -135,11 +135,8 @@ namespace TomosurgeryAlpha
         {
             if (PathsetWorkerCompleted != null)
                 PathsetWorkerCompleted.Invoke(null, e);
-
             //Calculate the slicedoses so far...
             CreateDoseMatrix(DK, folderpath);
-
-            
         }
 
         void PS_CalcDose_worker_DoWork(object sender, DoWorkEventArgs e)
@@ -426,38 +423,39 @@ namespace TomosurgeryAlpha
                 
                 //Re-prepare dosespace with latest iteration of sliceweight
                 PrepareWeighted_DS(SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
-                
-                //Evaluate each slice against the DDS slice
-                for (int s = 0; s < NumSlices; s++)
-                {
-                    double DDS_slicesum = 0;
-                    double DS_slicesum = 0;
-                    int startz = FindStartZ(s);
-                    int endz = FindEndZ(startz);
-                    for (int z = 0; z < DoseCalculationThickness; z++)
+
+                Parallel.For(0, NumSlices, (s) =>
                     {
-                        /* The DDS matrix is element-multiplied by the newest dosespace
-                         * and the sum is added to DDS_slicesum. The DS matrix is also
-                         * multiplied by the latest iteration (squaring it?)
-                         */
-                        float[,] DDS_slice = DDS[startz + z]; Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
-                        float[,] DS_slice = DoseSpace[startz+z]; Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
-                        DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz+z]));
-                        DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz+z]));
-                    }
-                    Debug.Assert(DDS_slicesum != 0);
-                    Debug.Assert(DS_slicesum != 0);
-                    double ratio = DDS_slicesum / DS_slicesum;
-                    SliceWeights[s] = oldweights[s] * ratio;
-                    Debug.WriteLine("Ratio=" + ratio + "; Weight: " + oldweights[s] + "-->" + SliceWeights[s]);
-                }
+                        double DDS_slicesum = 0;
+                        double DS_slicesum = 0;
+                        int startz = FindStartZ(s);
+                        int endz = FindEndZ(startz);
+                        for (int z = 0; z < DoseCalculationThickness; z++)
+                        {
+                            /* The DDS matrix is element-multiplied by the newest dosespace
+                             * and the sum is added to DDS_slicesum. The DS matrix is also
+                             * multiplied by the latest iteration (squaring it?)*/
+                            float[,] DDS_slice = DDS[startz + z]; Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
+                            float[,] DS_slice = DoseSpace[startz + z]; Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
+                            DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz + z]));
+                            DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz + z]));
+                        }
+                        //Debug.Assert(DDS_slicesum != 0);
+                        //Debug.Assert(DS_slicesum != 0);
+                        double ratio = DDS_slicesum / DS_slicesum;
+                        SliceWeights[s] = oldweights[s] * ratio;
+                        //Debug.WriteLine("Ratio=" + ratio + "; Weight: " + oldweights[s] + "-->" + SliceWeights[s]);
+                    });
+
+                //Evaluate each slice against the DDS slice
+                
                 Error = FindError(SliceWeights, oldweights);
 
                 Debug.WriteLine("Iteration: " + index + " Error: " + Error);
 
 
                 Debug.WriteLine("Error:" + Error);
-                double IterationCoverage = FindCoverage(RxDose/2, SS.fj_Tumor);
+                double IterationCoverage = FindCoverage(RxDose, DDS);
                 index++;
 
 
@@ -465,7 +463,7 @@ namespace TomosurgeryAlpha
                 if (index > 2 && IterationCoverage < coverage)
                 {
                     SliceWeights = (double[])oldweights.Clone();
-                    NormalizeDosespace();
+                    //NormalizeDosespace();
                     break;
                 }
                 else
@@ -480,7 +478,7 @@ namespace TomosurgeryAlpha
                 //PS_ CalcDose_worker.ReportProgress(index);
             } // <- end of while loop
         }
-        private float[][,] PrepareDDS(float[][,] dds_slice)
+        public float[][,] PrepareDDS(float[][,] dds_slice)
         {
             float[][,] pDDS = new float[dds_slice.GetLength(0)][,];
             TumorVolCount = 0; CSvolCount = 0;
@@ -566,10 +564,11 @@ namespace TomosurgeryAlpha
         private double FindCoverage(double desired_dose, float[][,] Tumor)
         {
             double Coverage = 0; double tumor = 0;
-            for (int k = 0; k < DoseSpace.GetLength(0); k++)
+            Parallel.For(0, DoseSpace.GetLength(0), (k) =>
+            {
                 for (int j = 0; j < DoseSpace[0].GetLength(1); j++)
                     for (int i = 0; i < DoseSpace[0].GetLength(0); i++)
-                        if (Tumor[k][i, j] > 0) //if inside a tumor voxel
+                        if (Tumor[k][i, j] > ToleranceDose) //if inside a tumor voxel
                         {
                             tumor++;
                             if (DoseSpace[k][i, j] >= desired_dose)
@@ -579,6 +578,8 @@ namespace TomosurgeryAlpha
                         {
                             continue;
                         }
+            });
+
             return (Coverage / tumor);
         }
        

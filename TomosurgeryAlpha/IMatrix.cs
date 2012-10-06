@@ -13,8 +13,10 @@ namespace TomosurgeryAlpha
         public static float[] ScalarMultiply(float[] f, float m)
         {
             float[] F = new float[f.GetLength(0)];
-            for (int i = 0; i < f.GetLength(0); i++)
-                F[i] = f[i] * m;
+            Parallel.For(0, f.GetLength(0), (i) =>
+                {
+                    F[i] = f[i] * m;
+                });
             return F;
         }
 
@@ -260,14 +262,16 @@ namespace TomosurgeryAlpha
         internal static float[,] ThresholdEq(float[,] d, int th)
         {            
                 float[,] t = new float[d.GetLength(0), d.GetLength(1)];
-                for (int i = 0; i < d.GetLength(0); i++)
-                    for (int j = 0; j < d.GetLength(1); j++)
+                Parallel.For(0, d.GetLength(0), (i) =>
                     {
-                        if (d[i, j] >= th)
-                            t[i, j] = 1;
-                        else
-                            t[i, j] = 0;
-                    }
+                        for (int j = 0; j < d.GetLength(1); j++)
+                        {
+                            if (d[i, j] >= th)
+                                t[i, j] = 1;
+                            else t[i, j] = 0;
+                        }
+                    });
+
                 return t;            
         }
 
@@ -339,10 +343,7 @@ namespace TomosurgeryAlpha
         //    return sum;
         //}
 
-        internal static object Subset(float[,] slice, int startx, int starty, int p, int p_2)
-        {
-            throw new NotImplementedException();
-        }
+        
 
         internal static float[,] MultiplyElements(float[,] A, float[,] B)
         {
@@ -373,17 +374,120 @@ namespace TomosurgeryAlpha
             else
             {
                 //Loop through each z-slice and call the 2D version of the function.
-                for (int k = 0; k < A.GetLength(0); k++)
-                    product[k] = MultiplyElements(A[k], B[k]);
+                Parallel.For(0, A.GetLength(0), (k) =>
+                    {
+                        product[k] = MultiplyElements(A[k], B[k]);
+                    });
             }
             return product;
         }
 
-        internal static object Subset(float[] ds, int startx, int starty, int p, int p_2)
+        internal static float[,] Subset(float[,] A, int centerx, int centery, int subsetsize)
         {
-            throw new NotImplementedException();
+            float[,] Window = new float[subsetsize, subsetsize];
+            int halfwindow = (subsetsize - 1) / 2;
+            int startx = centerx - halfwindow; int starty = centery - halfwindow;
+            int endx = centerx + halfwindow; int endy = centery + halfwindow;
+            bool xfits = false; bool yfits = false;
+
+            if (endx >= A.GetLength(0))
+            {
+                endx = (Window.GetLength(0) - 1);
+                xfits = false;
+            }
+            else if (endx < Window.GetLength(0))
+            { xfits = true; }
+
+            if (startx < 0)
+            {
+                startx = 0;
+                xfits = false;
+            }
+            else if (startx >= 0)
+            { xfits = true; }
+
+            if (endy >= A.GetLength(1))
+            {
+                endy = (Window.GetLength(1) - 1);
+                yfits = false;
+            }
+            else if (endy < Window.GetLength(1))
+            { yfits = true; }
+
+            if (starty < 0)
+            {
+                starty = 0;
+                yfits = false;
+            }
+            else if (starty >= 0)
+                yfits = true;
+            Parallel.For(0, Window.GetLength(1), (j) =>
+            {
+                for (int i = 0; i < subsetsize; i++)
+                    Window[i, j] = A[i+startx,j+starty];
+            }); 
+
+            Parallel.For(0, endy - starty, (j) =>
+                {
+                    for (int i = 0; i < endx - startx; i++)
+                        Window[i, j] = A[i + startx, j + starty];
+                }); 
+            return Window;
         }
 
+        internal static float[,] Subset(float[] A, int centerx, int centery, int subsetsize)
+        {
+            float[,] Window = new float[subsetsize, subsetsize];
+            int Asize = (int)Math.Sqrt(A.GetLength(0));
+            int halfwindow = (subsetsize - 1) / 2;
+            int startx = centerx - halfwindow; int starty = centery - halfwindow;
+            int endx = centerx + halfwindow; int endy = centery + halfwindow;
+            bool xfits = false; bool yfits = false;
+
+            if (endx >= Asize)
+            {
+                endx = (Window.GetLength(0) - 1);
+                xfits = false;
+            }
+            else if (endx < Window.GetLength(0))
+            { xfits = true; }
+
+            if (startx < 0)
+            {
+                startx = 0;
+                xfits = false;
+            }
+            else if (startx >= 0)
+            { xfits = true; }
+
+            if (endy >= Asize)
+            {
+                endy = (Window.GetLength(1) - 1);
+                yfits = false;
+            }
+            else if (endy < Window.GetLength(1))
+            { yfits = true; }
+
+            if (starty < 0)
+            {
+                starty = 0;
+                yfits = false;
+            }
+            else if (starty >= 0)
+                yfits = true;
+            Parallel.For(0, Window.GetLength(1), (j) =>
+            {
+                for (int i = 0; i < subsetsize; i++)
+                    Window[i, j] = A[i + startx + (j + starty)*Asize];
+            });
+
+            Parallel.For(0, endy - starty, (j) =>
+            {
+                for (int i = 0; i < endx - startx; i++)
+                    Window[i, j] = A[i + startx + (j + starty)*Asize];
+            });
+            return Window;
+        }
         internal static float[,] MultiplySubset(float[,] A, float[,] b, int centerx, int centery)
         {
             float[,] AA = new float[A.GetLength(0), A.GetLength(1)];
@@ -397,7 +501,7 @@ namespace TomosurgeryAlpha
                 endx = (AA.GetLength(0) - 1);
                 xfits = false;
             }
-            else if (endx < AA.GetLength(0))
+            else if (endx < A.GetLength(0))
             { xfits = true; }
 
             if (startx < 0)
@@ -408,7 +512,7 @@ namespace TomosurgeryAlpha
             else if (startx >= 0)
             { xfits = true; }
 
-            if (endy >= AA.GetLength(1))
+            if (endy >= A.GetLength(1))
             {
                 endy = (AA.GetLength(1) - 1);
                 yfits = false;
@@ -423,27 +527,40 @@ namespace TomosurgeryAlpha
             }
             else if (starty >= 0)
                 yfits = true;
-            for (int i = 0; i < endx - startx; i++)
-                for (int j = 0; j < endy - starty; j++)
-                    AA[i + startx, j + starty] = A[i + startx,j + starty] * b[i, j];
+            
+            //First, fill in all the values in AA, equal to A.
+            Parallel.For(0, AA.GetLength(1), (j) =>
+            {
+                for (int i = 0; i < AA.GetLength(0); i++)
+                    AA[i, j] = A[i, j];
+            });
+            //Then, go back through and replace the subset values with the newly multiplied values.
+            Parallel.For(0, endy - starty, (j) =>
+                {
+                    for (int i = 0; i < endx - startx; i++)
+                        AA[i+startx, j+starty] = A[i + startx, j + starty] * b[i, j];
+                }); 
             return AA;
         }
 
         internal static float[,] MultiplySubset(float[] A, float[,] b, int centerx, int centery, int sizex, int sizey)
         {
             //Check if b will fit inside A
-            float[,] AA = new float[sizex, sizey];
+            int Asize = (int)Math.Sqrt(A.GetLength(0));
+            float[,] window = new float[sizex, sizey];
             int halfB = (b.GetLength(0) - 1) / 2;
-            int startx = centerx - halfB; int starty = centery - halfB;
-            int endx = centerx + halfB; int endy = centery + halfB;
+            int halfsize = sizex / 2;
+            int startx = centerx - halfsize; int starty = centery - halfsize;
+            int endx = centerx + halfsize; int endy = centery + halfsize;
+            int startdose = halfB - halfsize;
             bool xfits = false; bool yfits = false;
 
-            if (endx >= A.GetLength(0))
+            if (endx >= Asize)
             {
-                endx = (AA.GetLength(0) - 1);
+                endx = (window.GetLength(0) - 1);
                 xfits = false;
             }
-            else if (endx < AA.GetLength(0))
+            else if (endx < Asize)
             { xfits = true; }
 
             if (startx < 0)
@@ -454,12 +571,12 @@ namespace TomosurgeryAlpha
             else if (startx >= 0)
             { xfits = true; }
 
-            if (endy >= AA.GetLength(1))
+            if (endy >= Asize)
             {
-                endy = (AA.GetLength(1) - 1);
+                endy = (window.GetLength(1) - 1);
                 yfits = false;
             }
-            else if (endy < AA.GetLength(1))
+            else if (endy < window.GetLength(1))
             { yfits = true; }
 
             if (starty < 0)
@@ -469,18 +586,32 @@ namespace TomosurgeryAlpha
             }
             else if (starty >= 0)
                 yfits = true;
-            for (int i = 0; i < endx - startx; i++)
-                for (int j = 0; j < endy - starty; j++)
-                    AA[i + startx, j + starty] = A[(i + startx)+(j + starty)*sizex] * b[i, j];
-            return AA;
+            //for (int i = 0; i < endx - startx; i++)
+            //    for (int j = 0; j < endy - starty; j++)
+            //        AA[i + startx, j + starty] = A[(i + startx)+(j + starty)*sizex] * b[i, j];
+            Parallel.For(0, sizey, (j) =>
+            {
+                for (int i = 0; i < sizex; i++)
+                    window[i, j] = A[(i+startx) + ((j+starty)* Asize)];
+            });
+
+            Parallel.For(0, endy - starty, (j) =>
+                {
+                    for (int i = 0; i < endx - startx; i++)
+                        window[i, j] = A[(i + startx) + (j + starty) * Asize] * b[startdose+i, startdose+j];
+                });
+
+            return window;
         }
 
         internal static float[] Normalize(float[] img)
         {
             float[] n = new float[img.GetLength(0)];
             float max = img.Max();
-            for (int i = 0; i < img.GetLength(0); i++)
-                n[i] = img[i] / max;
+            Parallel.For(0, img.GetLength(0), (i) =>
+                {
+                    n[i] = img[i] / max;
+                });
             return n;
         }
 

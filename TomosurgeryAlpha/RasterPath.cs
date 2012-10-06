@@ -47,8 +47,9 @@ namespace TomosurgeryAlpha
         public static int X; public static int Y;
         public static bool DoseModifiable = false;
         public static float[,] mask;
-        public int RasterWidth;
-        public int StepSize;
+        public static int RasterWidth;
+        public static int StepSize;
+        public static int ComparisonKernelSize = 40;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -56,6 +57,7 @@ namespace TomosurgeryAlpha
         public int massvol;
         public int[] boundaries;
         float[,] slice;
+        static float[,] DDS_slice;
         public float[,] ModdedSlice; //The "addition" layer for dose inhomogeneity.
         public float[] dosespace;
         public float[] weight;
@@ -70,9 +72,10 @@ namespace TomosurgeryAlpha
         #region Constructors
         public RasterPath(float[,] f)
         {
-            SetParams(20, 20);
+            SetParams(StepSize, RasterWidth);
             slice = f;
             ModdedSlice = f;
+            PrepareDDSFromSlice(f);
             X = f.GetLength(0); Y = f.GetLength(1);
             FindAllShotPoints();            
             InitWeightArray();
@@ -88,11 +91,25 @@ namespace TomosurgeryAlpha
             
         }
 
-        
-#endregion
+        private void PrepareDDSFromSlice(float[,] slice)
+        {
+            DDS_slice = new float[slice.GetLength(0), slice.GetLength(1)];
+            for (int j = 0; j < slice.GetLength(1); j++)
+                for (int i = 0; i < slice.GetLength(0); i++)
+                {
+                    //if (slice[i, j] == 0)
+                      //  DDS_slice[i, j] = PathSet.ToleranceDose;
+                    if (slice[i, j] > 0)
+                        DDS_slice[i, j] = PathSet.RxDose;
+                }
+
+        }
+
+
+        #endregion
 
         #region Background Worker Methods
-        
+
         void RPworker_DoWork(object sender, DoWorkEventArgs e)
         {
             OptimizeShotWeights();
@@ -380,20 +397,28 @@ namespace TomosurgeryAlpha
         private float EvalShotWeightIteration(float[,] dosemidplane, float[] ds, PointF pf)
         {
             float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-            float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+            //float[,] DDStimesP = GetDDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+            float[,] DDStimesP = DDS_slice;
             float dssum = Matrix.SumAll(DStimesP);
             float ddssum = Matrix.SumAll(DDStimesP);
             return (float)(ddssum / dssum);            
         }
 
         private float[] ReoptimizeShotWeights(float[] ds, float[] temp_weight)
-        {            
+        {
+            float[] DS = PrepareDS();
+            WriteFloatArray2BMP(Matrix.Normalize(DS), "wholeDS.bmp");
             for (int shot = 0; shot < shots.GetLength(0); shot++)
             {
                 PointF pf = shots[shot];
-                float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-                float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
-                float dssum = Matrix.SumAll(DStimesP);
+                //float[,] DStimesP = GetMultiplied_DS_Subset(DS, pf.X, pf.Y, dosemidplane);
+                //float[,] DDStimesP = GetMultiplied_DDS_Subset(slice, pf.X, pf.Y, dosemidplane);
+                float[,] DStimesP = Matrix.Subset(DS, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
+                float[,] DDStimesP = Matrix.Subset(DDS_slice, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
+                 
+                WriteFloatArray2BMP(Matrix.Normalize(DStimesP), String.Concat(shot, "_DS.bmp"));
+                WriteFloatArray2BMP(DDStimesP, String.Concat(shot, "_DDS.bmp"));
+                float dssum = Matrix.SumAll(Matrix.Normalize(DStimesP));
                 Debug.Assert(dssum > 0);
                 float ddssum = Matrix.SumAll(DDStimesP);
                 Debug.Assert(ddssum > 0);
@@ -404,6 +429,65 @@ namespace TomosurgeryAlpha
             }
             temp_weight = Normalize(temp_weight);
             return temp_weight;
+        }
+
+        private float[] PrepareDS()
+        {
+            shots = ReturnSinglePoints();            
+            int ds_x; int ds_y;
+            float[] ds = new float[StructureSet.size * StructureSet.size];
+            for (int i = 0; i < ds.GetLength(0); i++)
+                ds[i] = 0f;
+            int index=0;
+            //The first two arrays loop through the midplane
+            for (int j = 0; j < dosemidplane.GetLength(1); j++)
+                for (int i = 0; i < dosemidplane.GetLength(0); i++)
+                {
+                    //This loop calculates the same pixel [i,j] for each shot.
+                    //Parallel.For(0, shots.GetLength(0), k =>
+                    for (int k = 0; k < shots.GetLength(0); k++)
+                    {
+                        //Finds the coordinates relative to dosespace
+                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
+                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
+
+                        //Add the final result
+                        index = ds_x + StructureSet.size * ds_y;
+                        ds[index] += dosemidplane[i, j] * weight[k];
+
+                    }//);
+                }
+            return ds;
+        }
+
+        private void WriteFloatArray2BMP(float[,] temp, string p)
+        {
+            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
+            //float[,] temp = Matrix.Normalize(DStimesP); 
+            int color = 0;
+            Bitmap b = new Bitmap(temp.GetLength(0), temp.GetLength(1));
+            for (int j = 0; j < temp.GetLength(1); j++)
+                for (int i = 0; i < temp.GetLength(0); i++)
+                {
+                    color = (int)(temp[i, j] * 255);
+                    b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                }
+            b.Save(path);
+        }
+        private void WriteFloatArray2BMP(float[] temp, string p)
+        {
+            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
+            //float[,] temp = Matrix.Normalize(DStimesP); 
+            int color = 0;
+            int size = (int)Math.Sqrt(temp.GetLength(0));
+            Bitmap b = new Bitmap(size, size);
+            for (int j = 0; j < size; j++)
+                for (int i = 0; i < size; i++)
+                {
+                    color = (int)(temp[i+(j*size)] * 255);
+                    b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                }
+            b.Save(path);
         }
         public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
         {
@@ -515,7 +599,7 @@ namespace TomosurgeryAlpha
             return start;
         }
 
-        public static float[,] GetMultiplied_DDS_Subset(float[,] slice, float px, float py, float[,] P)
+        public static float[,] GetDDS_Subset(float[,] slice, float px, float py, float[,] P)
         {
             //int startx = (int)px-(P.GetLength(0)-1)/2;
             //int starty = (int)py-(P.GetLength(1)-1)/2;
@@ -524,11 +608,12 @@ namespace TomosurgeryAlpha
             // ADD DDS ADDITIONS HERE!!!
             if (DoseModifiable)
             {
-                float[,] TempMod = Matrix.Add(mask,slice);                
-                output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
+                float[,] TempMod = Matrix.Add(mask,slice);
+                output = Matrix.Subset(DDS_slice, (int)px, (int)py, ComparisonKernelSize);
+                //output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
             }
             else
-                output = Matrix.MultiplySubset(slice, P, (int)px, (int)py);
+                output = Matrix.Subset(DDS_slice, (int)px, (int)py, ComparisonKernelSize);
 
             return output;
         }
@@ -538,7 +623,7 @@ namespace TomosurgeryAlpha
         {
             //int startx = (int)px - (P.GetLength(0) - 1) / 2;
             //int starty = (int)py - (P.GetLength(1) - 1) / 2;
-            float[,] output = Matrix.MultiplySubset(ds, P, (int)px, (int)py, X, Y);
+            float[,] output = Matrix.MultiplySubset(ds, P, (int)px, (int)py, ComparisonKernelSize,ComparisonKernelSize);
             return output;
         }
 
@@ -566,6 +651,7 @@ namespace TomosurgeryAlpha
         /// </summary>
         private float[] IterateShots(float[] ds)
         {
+            ds = new float[ds.GetLength(0)];
             for (int j = 0; j < dosemidplane.GetLength(1); j++)
                 for (int i = 0; i < dosemidplane.GetLength(0); i++)
                     for (int whichshot = 0; whichshot < shots.GetLength(0); whichshot++)
@@ -575,9 +661,9 @@ namespace TomosurgeryAlpha
                         int ds_y = (int)((PointF)shots[whichshot]).Y - ((N - 1) / 2) + j;
 
                         //Add the weighted dose pixel to the indexed location
-                        ds[(ds_y * StructureSet.size) + ds_x] += dosemidplane[i, j] * weight[whichshot];
+                        ds[(ds_y * StructureSet.size) + ds_x] = dosemidplane[i, j] * weight[whichshot];
                     }
-            ds = Normalize(ds);
+            //ds = Normalize(ds);
             return ds;
         }
 
@@ -681,7 +767,7 @@ namespace TomosurgeryAlpha
                 Debug.Assert(temp_weight.Max() > 0);
                 temp_weight = ReoptimizeShotWeights(ds, temp_weight);                                
                 Error = FindError(weight, temp_weight);
-                ds = Normalize(ds);
+                //ds = Normalize(ds);
                 double temp_coverage = CalculateIterationCoverage(0.5f);
 
                 if (temp_coverage < coverage) //Old version was index > 1 && cov < coverage

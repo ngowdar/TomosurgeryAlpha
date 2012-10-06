@@ -1065,8 +1065,10 @@ namespace TomosurgeryAlpha
             }
         }
         private void CreatePathSet()
-        {            
-               PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
+        {
+            RasterPath.StepSize = Convert.ToInt16(txt_stepsize.Text);
+            RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text); 
+            PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
                slider2.Minimum = 0;
@@ -1075,6 +1077,8 @@ namespace TomosurgeryAlpha
                    PS.DK = DK;
                if (SS != null)
                    PS.SS = SS;
+            
+
         }
         private void AttachPSHandlers()
         {
@@ -1382,13 +1386,7 @@ namespace TomosurgeryAlpha
             //UpdateCurrentSlicePaths();
             RefreshDataGrid();
             DisplayPlan();
-        }
-
-       
-
-
-
-        
+        }        
 
         private void SilenceTrackingLabels()
         {
@@ -1479,7 +1477,8 @@ namespace TomosurgeryAlpha
                 }
                 PathSet.ActiveDirectory = _folderName;
                 string configfile = System.IO.Path.Combine(_folderName, "config.ini");
-                using (FileStream fs = new FileStream(configfile, FileMode.Create, FileAccess.Write))
+                string configpath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "config.ini");
+                using (FileStream fs = new FileStream(configpath, FileMode.Create, FileAccess.Write))
                 using (StreamWriter bw = new StreamWriter(fs))
                 {
                     bw.Write(_folderName);
@@ -1676,7 +1675,7 @@ namespace TomosurgeryAlpha
         private void SetUpAnalysis()
         {
             Analysis_datagrid.IsEnabled = true;
-            Analysis.RunAnalysis(PS, SS, 0.5);
+            Analysis.RunAnalysis(PS, SS, PathSet.RxDose);
         }
 
         private List<AnalysisInfo> GetAnalysisInfo()
@@ -1707,11 +1706,36 @@ namespace TomosurgeryAlpha
         }
 
         private void save_plan_btn_Click(object sender, RoutedEventArgs e)
-        {
+        {            
+            //Calculate the slicedoses so far...
+            UpdateStatusBar("Writing the dose to file...this will take a while.");
+            UpdateProgressBar(10);
+            PS.CreateDoseMatrix(DK, PS.folderpath);            
+            UpdateProgressBar(33);
             PS.WriteDoseSpaceToFile("FinalDoseSpace.txt");
+            UpdateProgressBar(50);
+            WriteParametersToFile();
+            UpdateProgressBar(75);
+            ExportShotList();
+            UpdateProgressBar(100);
+            
         }
 
-        private void export_shots_btn_Click(object sender, RoutedEventArgs e)
+        private void WriteParametersToFile()
+        {
+            string subfolder = PathSet.ActiveDirectory;
+            string path = System.IO.Path.Combine(subfolder, "PlanParameters.txt");
+            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+            using (StreamWriter bw = new StreamWriter(fs))
+            {
+                bw.WriteLine("Raster Width: " + txt_rasterwidth.Text);
+                bw.WriteLine("Shot Step Size: " + txt_stepsize.Text);
+                bw.WriteLine("Slice Thickness: " + txt_slicethickness.Text);
+                bw.WriteLine("Prescription dose: " + PathSet.RxDose);
+                bw.WriteLine("Tolerance dose: " + PathSet.ToleranceDose);
+            }
+        }
+        public void ExportShotList()
         {
             string subfolder = PathSet.ActiveDirectory;
             string path = System.IO.Path.Combine(subfolder, "ShotList.txt");
@@ -1731,6 +1755,11 @@ namespace TomosurgeryAlpha
                     }
                 }
             }
+        }
+
+        private void export_shots_btn_Click(object sender, RoutedEventArgs e)
+        {
+            ExportShotList();
             UpdateStatusBar("Shots written to file.");
         }
 

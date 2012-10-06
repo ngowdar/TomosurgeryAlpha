@@ -16,11 +16,15 @@ namespace TomosurgeryAlpha
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
         {
             
-            PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
+            //PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;
             int startingz = PS.SlicePositions[0] - (PS.DoseCalculationThickness / 2);
-            AnalyzeLesionCoverage(PS.DoseSpace,SS.fj_Tumor,startingz);
+            //Debug
+            //float[][,] DDS = PS.PrepareDDS(SS.fj_Tumor);
+            //AnalyzeLesionCoverage(DDS,SS.fj_Tumor,startingz);
+
+            AnalyzeLesionCoverage(PS.DoseSpace, SS.fj_Tumor, startingz);
             ai.RxLevel = RX;
             ai.LesionVolume = lesionvolume;
             ai.Rx_Volume = totalvolcoveredbyrx;
@@ -40,7 +44,7 @@ namespace TomosurgeryAlpha
             double lomaxscheib;
             double vantreits;
             int startingz = 20;
-            dosespace = Matrix.Normalize(dosespace);
+            //dosespace = Matrix.Normalize(dosespace);
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;            
             AnalyzeLesionCoverage(dosespace, tumor, startingz);
