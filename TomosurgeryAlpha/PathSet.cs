@@ -410,10 +410,10 @@ namespace TomosurgeryAlpha
             Debug.Assert(folderpath != null);
             double Error = 1000; int index = 0; double coverage = 0.8;
             SliceWeights = new double[NumSlices];
-            double[] oldweights = new double[NumSlices];
+            double[] temp_weights = new double[NumSlices];
             for (int i = 0; i < SliceWeights.GetLength(0); i++)
             {
-                oldweights[i] = 1.0;
+                temp_weights[i] = 1.0;
                 SliceWeights[i] = 1.0;
             }
             //Start a while loop, and first create an updated DS matrix with the newest weights
@@ -421,68 +421,104 @@ namespace TomosurgeryAlpha
             //UNDONE: Prepare DDS Tumor matrix 
             float[][,] DDS = PrepareDDS(SS.fj_Tumor);
             float[][,] OriginalDS = ReadDoseSpaceFromFile("OriginalDS.txt");
-            
-
-            while (Error >= .0001 && index <= 10)
-            {
-                //Reset the dosespace
+            //Reset the dosespace
                 ClearDosespace();
-                
+
+            while (Error >= .001 || index < 10)
+            {
                 //Re-prepare dosespace with latest iteration of sliceweight
                 PrepareWeighted_DS(SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
+                temp_weights = ReOptimizeSliceWeights(DDS);               
 
-                Parallel.For(0, NumSlices, (s) =>
-                    {
-                        double DDS_slicesum = 0;
-                        double DS_slicesum = 0;
-                        int startz = FindStartZ(s);
-                        int endz = FindEndZ(startz);
-                        for (int z = 0; z < DoseCalculationThickness; z++)
-                        {
-                            /* The DDS matrix is element-multiplied by the newest dosespace
-                             * and the sum is added to DDS_slicesum. The DS matrix is also
-                             * multiplied by the latest iteration (squaring it?)*/
-                            float[,] DDS_slice = DDS[startz + z]; //Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
-                            float[,] DS_slice = DoseSpace[startz + z]; //Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
-                            //DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz + z]));
-                            //DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz + z]));
-                            DDS_slicesum += Matrix.SumAll(DDS_slice);
-                            DS_slicesum += Matrix.SumAll(DS_slice);
-                        }
-                        //Debug.Assert(DDS_slicesum != 0);
-                        //Debug.Assert(DS_slicesum != 0);
-                        double ratio = DDS_slicesum / DS_slicesum;
-                        SliceWeights[s] = oldweights[s] * ratio;
-                        //Debug.WriteLine("Ratio=" + ratio + "; Weight: " + oldweights[s] + "-->" + SliceWeights[s]);
-                    });
-
-                //Evaluate each slice against the DDS slice
-                
-                Error = FindError(SliceWeights, oldweights);
+                //Evaluate each slice against the DDS slice                
+                Error = FindError(SliceWeights, temp_weights);
 
                 Debug.WriteLine("Iteration: " + index + " Error: " + Error);                
                 double IterationCoverage = FindCoverage(RxDose, DDS);
                 index++;
 
-
-                //
-                if (index > 2 && IterationCoverage < coverage)
-                {
-                    SliceWeights = (double[])oldweights.Clone();
-                    //NormalizeDosespace();
+                if (IterationCoverage < coverage)
                     break;
-                }
                 else
                 {
-                    coverage = IterationCoverage;
-                    for (int s = 0; s < NumSlices; s++)
-                    {
-                        //Set the old weight = to the current weight
-                        oldweights[s] = Convert.ToDouble(SliceWeights[s]);
-                    }
-                }
-                //PS_ CalcDose_worker.ReportProgress(index);
+                    coverage = Convert.ToDouble(IterationCoverage);
+                    SliceWeights = (double[])temp_weights.Clone();
+                    index++;
+                }               
             } // <- end of while loop
+
+        }
+
+        private double[] ReOptimizeSliceWeights(float[][,] dds)
+        {
+           double[] tweight = Normalize(SliceWeights);
+
+           Parallel.For(0, NumSlices, (s) =>
+           {
+               double DDS_slicesum = 0;
+               double DS_slicesum = 0;
+               int startz = FindStartZ(s);
+               int endz = FindEndZ(startz);
+               double ratio = CompareSlicedoses(DoseSpace, dds, startz, startz + DoseCalculationThickness);
+               //for (int z = 0; z < DoseCalculationThickness; z++)
+               //{
+               //    /* The DDS matrix is element-multiplied by the newest dosespace
+               //     * and the sum is added to DDS_slicesum. The DS matrix is also
+               //     * multiplied by the latest iteration (squaring it?)*/
+               //    float[,] DDS_slice = DDS[startz + z]; //Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
+               //    float[,] DS_slice = DoseSpace[startz + z]; //Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
+               //    //DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz + z]));
+               //    //DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz + z]));
+               //    DDS_slicesum += Matrix.SumAll(DDS_slice);
+               //    DS_slicesum += Matrix.SumAll(DS_slice);
+               //}
+               //Debug.Assert(DDS_slicesum != 0);
+               //Debug.Assert(DS_slicesum != 0);
+               //double ratio = DDS_slicesum / DS_slicesum;
+               tweight[s] = tweight[s] * ratio;
+               Debug.WriteLine("Ratio=" + ratio + "; Weight: " + SliceWeights[s] + "-->" +tweight[s]);
+           });
+           return tweight;
+        }
+
+        private double[] Normalize(double[] d)
+        {
+           double max = 0;
+            for (int i = 0; i < d.GetLength(0); i++)
+                if (d[i] > max)
+                    max = d[i];
+            for (int j = 0; j < d.GetLength(0); j++)
+                d[j] = (float)(d[j] / max);
+            return d;
+        }
+
+        /// <summary>
+        /// "Card counting" comparison method that uses the same method from the
+        /// shot weighting algorithm, CompareSlices(), but generalizes it to 3
+        /// dimensions
+        /// </summary>
+        /// <param name="ds"></param>
+        /// <param name="dds"></param>
+        /// <param name="startz"></param>
+        /// <param name="endz"></param>
+        /// <returns></returns>
+        private double CompareSlicedoses(float[][,] ds, float[][,] dds, int startz, int endz)
+        {
+            double total_tally = 0;           
+            double ratio = 0;
+            for (int k = 0; k < DoseCalculationThickness; k++)
+            {
+               total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
+            }
+
+            if (total_tally <= 0)
+            {
+                ratio = ((total_tally * (-1)) / (double)(ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness));
+            }
+            else if (total_tally > 0)
+                ratio = (double)(1 + (total_tally / (ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness)));
+
+            return ratio;
         }
         public float[][,] PrepareDDS(float[][,] dds_slice)
         {

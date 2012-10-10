@@ -427,7 +427,7 @@ namespace TomosurgeryAlpha
                 //Debug.Assert(ddssum > 0);
                 //float ratio = (float)(ddssum / dssum);
 
-                double ratio = CompareSlices(DStimesP, DDStimesP);
+                double ratio = CompareSlices(DStimesP, DDStimesP, false);
                 Debug.Assert(ratio > 0);
                 tweight[shot] = (float)(tweight[shot] * ratio);
                 Debug.WriteLine("Old: " + weight[shot] + " * R: " + ratio + " = New: " + tweight[shot]);
@@ -443,7 +443,7 @@ namespace TomosurgeryAlpha
         /// <param name="DStimesP"></param>
         /// <param name="DDStimesP"></param>
         /// <returns></returns>
-        private double CompareSlices(float[,] DStimesP, float[,] DDStimesP)
+        public static double CompareSlices(float[,] DStimesP, float[,] DDStimesP, bool slice)
         {
             double tumortally = 0;
             double nontumortally = 0;
@@ -490,23 +490,27 @@ namespace TomosurgeryAlpha
                     }
                 }
             double totalsum = tumortally + nontumortally;
-            double ratio = 1;
-            if (totalsum <= 0)
+            if (slice)
+                return totalsum;
+            else
             {
-                ratio = ((totalsum * (-1)) / (double)(tumorpixels + nontumorpixels)); //i.e. ratio should be between 0 and 1.
-                //and if the total sum is negative and high, the ratio should approach zero (i.e. don't need no more dose.
-                if (ratio < 0)
+                double ratio = 1;
+                if (totalsum <= 0)
                 {
-                    Debug.Assert(ratio > 0);
-                    ratio = 0;
+                    ratio = ((totalsum * (-1)) / (double)(tumorpixels + nontumorpixels)); //i.e. ratio should be between 0 and 1.
+                    //and if the total sum is negative and high, the ratio should approach zero (i.e. don't need no more dose.
+                    if (ratio < 0)
+                    {
+                        Debug.Assert(ratio > 0);
+                        ratio = 0;
+                    }
+
                 }
+                else if (totalsum > 0)
+                    ratio = (double)(totalsum + tumorpixels + nontumorpixels) / (double)(tumorpixels + nontumorpixels); //ratio is over 1
 
+                return ratio;
             }
-            else if (totalsum > 0)
-                ratio = (double)(totalsum + tumorpixels + nontumorpixels) / (double)(tumorpixels + nontumorpixels); //ratio is over 1
-            
-            return ratio;
-
         }
 
         public float[] PrepareDS(float[] ds)
@@ -835,7 +839,7 @@ namespace TomosurgeryAlpha
         public void OptimizeShotWeights()
         {
             shots = ReturnSinglePoints();
-            double Error = 1000; double coverage = 0.4;
+            double Error = 1000; double coverage = 0.8;
             int index = 0;
             float[] temp_weight = new float[weight.GetLength(0)];
             for (int i = 0; i < shots.GetLength(0); i++)
