@@ -95,6 +95,7 @@
                     <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,87,0,0" x:Name="DS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,100,0,0" x:Name="DS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
+                    <CheckBox x:Name="ViewIso_chkbox" Content="Show Coverage" HorizontalAlignment="Left" Margin="522,417,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
                 </Grid>
             </TabItem>
             <TabItem Header="Plan View" Name="PlanViewtab" GotFocus="PlanViewtab_GotFocus" FontFamily="Euphemia" FontSize="14">
@@ -160,6 +161,7 @@
 
                 </Grid>
             </TabItem>
+            <CheckBox Content="CheckBox" Margin="541,446,0,64"/>
         </TabControl>
         <Slider Height="354" HorizontalAlignment="Left" Margin="646,29,0,0" Name="slider2" VerticalAlignment="Top" Width="29" Orientation="Vertical" ValueChanged="slider2_ValueChanged" IsSnapToTickEnabled="True" SmallChange="1" Foreground="#FF252323" />
         <Menu Height="23" HorizontalAlignment="Left" Name="menu1" VerticalAlignment="Top" Width="1012">

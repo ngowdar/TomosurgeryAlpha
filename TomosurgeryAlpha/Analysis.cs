@@ -9,6 +9,7 @@ namespace TomosurgeryAlpha
     {
         public static List<AnalysisInfo> AIList = new List<AnalysisInfo>();        
         static double RX;
+        static double TolDose;
         static double lesionvolume;
         static double totalvolcoveredbyrx;
         static double lesioncoveragebyrx;
@@ -67,9 +68,9 @@ namespace TomosurgeryAlpha
 
         }
 
-        private static void AnalyzeLesionCoverage(float[][,] ds, float[][,] tumor, int startingz)
+        private static void AnalyzeLesionCoverage(float[][,] dosespace, float[][,] tumor, int startingz)
         {
-            
+            float[][,] ds = Matrix.Normalize(dosespace);
             lesionvolume = 0; totalvolcoveredbyrx = 0; lesioncoveragebyrx = 0;
             
             for (int k = 0; k < ds.GetLength(0); k++)
@@ -78,11 +79,16 @@ namespace TomosurgeryAlpha
                     for (int i = 0; i < ds[0].GetLength(0); i++)
                     {
                         if (ds[k][i, j] >= RX)
-                               totalvolcoveredbyrx++;
-                        if (tumor[k][i, j] > 0)                                                            
+                        {
+                            totalvolcoveredbyrx++;
+                            if (tumor[k][i, j] > (RX * 0.2))
+                            {
+                                lesioncoveragebyrx++;
                                 lesionvolume++;
-                        if (tumor[k][i, j] > 0 && ds[k][i, j] >= RX)
-                            lesioncoveragebyrx++;
+                            }
+                        }
+                        else if (ds[k][i, j] < RX && tumor[k][i, j] > (RX * 0.2))
+                            lesionvolume++;                        
                     }
             }
         }

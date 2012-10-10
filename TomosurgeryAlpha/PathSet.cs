@@ -27,7 +27,8 @@ namespace TomosurgeryAlpha
         public StructureSet SS; //'SS' represents the binary tumor volume from the DICOM.
         public static float[,] mask;
         public static int N;
-        public static int edgepadding = 10;
+        public static int shot_edgepadding;
+        public static int line_edgepadding;
         public static int tumorflag = 10;
         public static int CSflag = 2;
         public static float ToleranceDose = 0.1f;
@@ -40,8 +41,9 @@ namespace TomosurgeryAlpha
         public static string ActiveDirectory;
         public int DoseCalculationThickness; //How much of the dose kernel to use in calculation
         public static int DCT; //static version of dosecalcthickness
-        public int SliceThickness;
-        public int RasterWidth;
+        public static int StepSize;
+        public static int RasterWidth;        
+        public int SliceThickness;        
         public int TolThickness;
         public float[][,] volume; //Presumably the structure set binary volume?
         public float[][,] DoseSpace; //The actual final dosespace matrix containing the real dose.
@@ -66,14 +68,18 @@ namespace TomosurgeryAlpha
         #region Constructors
         public PathSet(float[][,] f, int sthick, int tolthick, DoseKernel dk, StructureSet ss)
         {
+            shot_edgepadding = (int)Math.Round(StepSize * 0.4);
+            line_edgepadding = (int)Math.Round(RasterWidth * 0.4);
             X = f[0].GetLength(0); Y = f[0].GetLength(1); Z = f.GetLength(0);
             DK = dk; SS = ss;
             N = dk.dose.GetLength(0);
             boundaries = FindBoundaries(f);
+            
             SliceThickness = sthick;
             DoseCalculationThickness = SliceThickness * 2;
             TolThickness = tolthick;
             CalculateNumSlices();
+            
             RasterPaths = new ArrayList();
             for (int i = 0; i < NumSlices; i++)
             {
@@ -86,6 +92,7 @@ namespace TomosurgeryAlpha
         public PathSet(string dosespace_path)
         {
             DoseSpace = ReadDoseSpaceFromFile(dosespace_path);
+            
         }
         private void AttachHandlers()
         {
@@ -435,10 +442,12 @@ namespace TomosurgeryAlpha
                             /* The DDS matrix is element-multiplied by the newest dosespace
                              * and the sum is added to DDS_slicesum. The DS matrix is also
                              * multiplied by the latest iteration (squaring it?)*/
-                            float[,] DDS_slice = DDS[startz + z]; Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
-                            float[,] DS_slice = DoseSpace[startz + z]; Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
-                            DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz + z]));
-                            DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz + z]));
+                            float[,] DDS_slice = DDS[startz + z]; //Debug.WriteLine("Sum of DDS: " + Matrix.SumAll(DDS_slice));
+                            float[,] DS_slice = DoseSpace[startz + z]; //Debug.WriteLine("Sum of DS: " + Matrix.SumAll(DS_slice));
+                            //DDS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DDS_slice, OriginalDS[startz + z]));
+                            //DS_slicesum += Matrix.SumAll(Matrix.MultiplyElements(DS_slice, OriginalDS[startz + z]));
+                            DDS_slicesum += Matrix.SumAll(DDS_slice);
+                            DS_slicesum += Matrix.SumAll(DS_slice);
                         }
                         //Debug.Assert(DDS_slicesum != 0);
                         //Debug.Assert(DS_slicesum != 0);
@@ -451,10 +460,7 @@ namespace TomosurgeryAlpha
                 
                 Error = FindError(SliceWeights, oldweights);
 
-                Debug.WriteLine("Iteration: " + index + " Error: " + Error);
-
-
-                Debug.WriteLine("Error:" + Error);
+                Debug.WriteLine("Iteration: " + index + " Error: " + Error);                
                 double IterationCoverage = FindCoverage(RxDose, DDS);
                 index++;
 
@@ -690,7 +696,7 @@ namespace TomosurgeryAlpha
                 int current_z = TranslateZBy + z;
                 if (output_ds[current_z] == null)
                     output_ds[current_z] = Matrix.Zeroes(volume[0].GetLength(0),volume[0].GetLength(1));               
-                output_ds[current_z] = Matrix.Add(DoseSpace[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));                
+                output_ds[current_z] = Matrix.Add(output_ds[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));                
             }
             return output_ds;
         }
@@ -736,7 +742,7 @@ namespace TomosurgeryAlpha
                 DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
             }
             //Normalize Dosespace
-            NormalizeDosespace();
+            //NormalizeDosespace();
 
             //Write dosespace to file.
             WriteDoseSpaceToFile("OriginalDS.txt");

@@ -663,12 +663,19 @@ namespace TomosurgeryAlpha
                 for (int i = 0; i < temp.GetLength(0); i++)
                     temp[i, j] = img[i + startx, j + starty];
 
-            Display2DFloat(Matrix.Normalize(temp));
+            Display2DFloat(temp);
         }
 
         private void Display2DFloat(float[,] f)
         {
             //f = Matrix.Normalize(f);
+            bool viewiso = false;
+            if (ViewIso_chkbox.IsChecked == true)
+                viewiso = true;
+            int maxvalue = 255; //change if increase range
+            double default_rx_dose = 0.5;
+
+            int iso = (int)Math.Round(maxvalue*default_rx_dose);
             wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
             DS_imgbox.Source = wb_DS;
             wb_DS.Lock();
@@ -684,12 +691,20 @@ namespace TomosurgeryAlpha
                         pBackBuffer += i * 4;
                         int value; int alpha;
                         alpha = (int)Math.Round((f[i,j]) * 255);
-                        //int color_data = red_colormap[alph] << 16; // R
-                        //color_data |= green_colormap[alph] << 8;   // G
-                        //color_data |= blue_colormap[alph] << 0;   // B
-                        int color_data = alpha << 16;
-                        color_data |= alpha << 8;
-                        color_data |= alpha << 0;
+                        int color_data = 0;
+                        if (viewiso == true)                        
+                            if (alpha > iso)
+                            {
+                                color_data = alpha << 16;
+                                color_data |= 0 << 8;
+                                color_data |= 0 << 0;
+                            }                        
+                        else
+                        {
+                            color_data = alpha << 16;
+                            color_data |= alpha << 8;
+                            color_data |= alpha << 0;
+                        }
 
                         // Assign the color data to the pixel.
                         *((int*)pBackBuffer) = color_data;
@@ -1091,6 +1106,7 @@ namespace TomosurgeryAlpha
 
         void PS_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
+            PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             MessageBox.Show("Optimization complete. You may run an analysis using the analysis tab, or save/export using the buttons shown.");
             UpdateTextBlock2("Optimization complete. See analysis tab for details. Save using buttons below.");
             UpdateStatusBar("Ready.");
@@ -1420,6 +1436,8 @@ namespace TomosurgeryAlpha
 
         private void plan_btn_Click(object sender, RoutedEventArgs e)
         {
+            PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
+            PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
             if (PlanOptimized)
             {
                 redwarn_lbl.Content = "";
@@ -1783,6 +1801,11 @@ namespace TomosurgeryAlpha
         private void Set_Direc_Click(object sender, RoutedEventArgs e)
         {
             SetWorkingDirectory();
+        }
+
+        private void ViewIso_chkbox_Checked(object sender, RoutedEventArgs e)
+        {
+            Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
         }
        
         
