@@ -9,6 +9,8 @@ using System.Text;
 using System.Drawing;
 using System.IO;
 using System.Diagnostics;
+using OpenCLTemplate;
+using Cloo;
 
 namespace TomosurgeryAlpha
 {
@@ -57,9 +59,10 @@ namespace TomosurgeryAlpha
         public event RunWorkerCompletedEventHandler OptimizationWorkerCompleted;
         public event ProgressChangedEventHandler OptimizationWorkerProgress;
         public event RunWorkerCompletedEventHandler SliceweightWorkerCompleted;
-        public BackgroundWorker PS_ShotOptimize_worker; // <- called when "Optimize" button is clicked 
-        public BackgroundWorker PS_SliceOptimize_worker; 
-        public BackgroundWorker PS_CalcDose_worker; //<- called when the Calc/Save/Dose button is clicked.
+        public event ProgressChangedEventHandler SliceweightWorkerProgress;
+        public BackgroundWorker PS_1_ShotOptimize_worker; // <- called when "Optimize" button is clicked 
+        public BackgroundWorker PS_3_SliceWeightOpt_worker; 
+        public BackgroundWorker PS_2_CalcDose_worker; //<- called when the Calc/Save/Dose button is clicked.
         #endregion
 
 
@@ -68,8 +71,7 @@ namespace TomosurgeryAlpha
         #region Constructors
         public PathSet(float[][,] f, int sthick, int tolthick, DoseKernel dk, StructureSet ss)
         {
-            shot_edgepadding = (int)Math.Round(StepSize * 0.4);
-            line_edgepadding = (int)Math.Round(RasterWidth * 0.4);
+            
             X = f[0].GetLength(0); Y = f[0].GetLength(1); Z = f.GetLength(0);
             DK = dk; SS = ss;
             N = dk.dose.GetLength(0);
@@ -97,21 +99,21 @@ namespace TomosurgeryAlpha
         private void AttachHandlers()
         {
 
-            PS_ShotOptimize_worker = new BackgroundWorker();
-            PS_ShotOptimize_worker.WorkerReportsProgress = true;
-            PS_ShotOptimize_worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(PS_ShotOptimize_RunWorkerCompleted);
-            PS_ShotOptimize_worker.ProgressChanged += new ProgressChangedEventHandler(PS_ShotOptimize_ProgressChanged);
-            PS_ShotOptimize_worker.DoWork += new DoWorkEventHandler(PS_ShotOptimize_DoWork);
-            PS_SliceOptimize_worker = new BackgroundWorker();
-            PS_SliceOptimize_worker.WorkerReportsProgress = true;
-            PS_SliceOptimize_worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(PS_SliceOptimize_worker_RunWorkerCompleted);
-            PS_SliceOptimize_worker.ProgressChanged += PS_SliceOptimize_worker_ProgressChanged;
-            PS_SliceOptimize_worker.DoWork += PS_SliceOptimize_worker_DoWork;
-            PS_CalcDose_worker = new BackgroundWorker();
-            PS_CalcDose_worker.WorkerReportsProgress = true;
-            PS_CalcDose_worker.RunWorkerCompleted += PS_CalcDose_worker_RunWorkerCompleted;
-            PS_CalcDose_worker.ProgressChanged += PS_CalcDose_worker_ProgressChanged;
-            PS_CalcDose_worker.DoWork += PS_CalcDose_worker_DoWork;
+            PS_1_ShotOptimize_worker = new BackgroundWorker();
+            PS_1_ShotOptimize_worker.WorkerReportsProgress = true;
+            PS_1_ShotOptimize_worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(PS_1_ShotOptimize_RunWorkerCompleted);
+            PS_1_ShotOptimize_worker.ProgressChanged += new ProgressChangedEventHandler(PS_1_ShotOptimize_ProgressChanged);
+            PS_1_ShotOptimize_worker.DoWork += new DoWorkEventHandler(PS_1_ShotOptimize_DoWork);
+            PS_3_SliceWeightOpt_worker = new BackgroundWorker();
+            PS_3_SliceWeightOpt_worker.WorkerReportsProgress = true;
+            PS_3_SliceWeightOpt_worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(PS_3_SliceOptimize_worker_RunWorkerCompleted);
+            PS_3_SliceWeightOpt_worker.ProgressChanged += PS_3_SliceOptimize_worker_ProgressChanged;
+            PS_3_SliceWeightOpt_worker.DoWork += PS_3_SliceOptimize_worker_DoWork;
+            PS_2_CalcDose_worker = new BackgroundWorker();
+            PS_2_CalcDose_worker.WorkerReportsProgress = true;
+            PS_2_CalcDose_worker.RunWorkerCompleted += PS_2_CalcDose_worker_RunWorkerCompleted;
+            PS_2_CalcDose_worker.ProgressChanged += PS_2_CalcDose_worker_ProgressChanged;
+            PS_2_CalcDose_worker.DoWork += PS_2_CalcDose_worker_DoWork;
            
         }
 
@@ -120,8 +122,8 @@ namespace TomosurgeryAlpha
 
 
         #region All Background Worker methods
-
-        void PS_ShotOptimize_DoWork(object sender, DoWorkEventArgs e)
+        #region PS_1 Shot Optimization Background worker methods
+        void PS_1_ShotOptimize_DoWork(object sender, DoWorkEventArgs e)
         {
             double count = 0;
             for (int i = 0; i < NumSlices; i++)
@@ -130,49 +132,56 @@ namespace TomosurgeryAlpha
                 Debug.WriteLine("SLICE " + Convert.ToString(i) + ":");
                 ((RasterPath)RasterPaths[i]).OptimizeShotWeights();
                 count++;
-                PS_ShotOptimize_worker.ReportProgress((int)(100 * count / NumSlices));
+                PS_1_ShotOptimize_worker.ReportProgress((int)(100 * count / NumSlices));
             }
         }
-        void PS_ShotOptimize_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        void PS_1_ShotOptimize_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             if (PathsetWorkerProgressChanged != null)
                 PathsetWorkerProgressChanged.Invoke(null, e);
         }
-        void PS_ShotOptimize_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_1_ShotOptimize_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             if (PathsetWorkerCompleted != null)
                 PathsetWorkerCompleted.Invoke(null, e);
             //Calculate the slicedoses so far...
-            CreateDoseMatrix(DK, folderpath);
+            CreateDoseMatrix(DK, folderpath); //<- This calls second background worker "PS_Two"
         }
+        #endregion
 
-        void PS_CalcDose_worker_DoWork(object sender, DoWorkEventArgs e)
+        void PS_2_CalcDose_worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            CalculateAndWriteSliceDoses(DK, folderpath);
+            CalculateAndWriteSliceDoses(DK, folderpath);            
             AssembleDoseSpaceFromFiles();
+            //PS_2_CalcDose_worker.ReportProgress(50);
         }
-        void PS_CalcDose_worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        void PS_2_CalcDose_worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            throw new NotImplementedException();
+            if (OptimizationWorkerProgress != null)
+                OptimizationWorkerProgress.Invoke(null, e);
         }
-        void PS_CalcDose_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_2_CalcDose_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             Debug.WriteLine("Shot weighting optimization complete. Now commencing slice weighting...");
             if (OptimizationWorkerCompleted != null)
                 OptimizationWorkerCompleted.Invoke(null, e);
 
-            PS_SliceOptimize_worker.RunWorkerAsync();
+            PS_3_SliceWeightOpt_worker.RunWorkerAsync();
 
         }
-        void PS_SliceOptimize_worker_DoWork(object sender, DoWorkEventArgs e)
+        void PS_3_SliceOptimize_worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            //PathsetWorkerProgressChanged += Opt_PathSet_PathsetWorkerProgressChanged;
             OptimizeSliceWeights();
         }
-        void PS_SliceOptimize_worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+
+        
+        void PS_3_SliceOptimize_worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            throw new NotImplementedException();
+            if (SliceweightWorkerProgress != null)
+                SliceweightWorkerProgress.Invoke(null, e);
         }
-        void PS_SliceOptimize_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_3_SliceOptimize_worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             if (SliceweightWorkerCompleted != null)
                 SliceweightWorkerCompleted.Invoke(null, e);
@@ -207,12 +216,15 @@ namespace TomosurgeryAlpha
             System.IO.Directory.CreateDirectory(subfolder);
             ActiveDirectory = subfolder;
             this.folderpath = subfolder;
+            int progress = 0;
             for (int s = 0; s < NumSlices; s++)
             {
                 string filename = string.Concat("slice_", s);
                 path = System.IO.Path.Combine(subfolder, filename);
                 RasterPath rp = (RasterPath)RasterPaths[s];
                 rp.CalculateAndSaveSliceDose(dk, DoseCalculationThickness, path);
+                progress = (int)Math.Round((double)(50 / NumSlices));
+                PS_2_CalcDose_worker.ReportProgress(progress);
             }
             //TODO: Need to have some kind of confirmation event?
         }
@@ -226,7 +238,7 @@ namespace TomosurgeryAlpha
         {
             this.folderpath = path;
             this.DK = dk;
-            PS_CalcDose_worker.RunWorkerAsync();
+            PS_2_CalcDose_worker.RunWorkerAsync();
 
         }
        
@@ -408,7 +420,7 @@ namespace TomosurgeryAlpha
         {
             //folderpath = ActiveDirectory;
             Debug.Assert(folderpath != null);
-            double Error = 1000; int index = 0; double coverage = 0.8;
+            double Error = 1000; int index = 0; double coverage = 0.6;
             SliceWeights = new double[NumSlices];
             double[] temp_weights = new double[NumSlices];
             for (int i = 0; i < SliceWeights.GetLength(0); i++)
@@ -428,6 +440,7 @@ namespace TomosurgeryAlpha
             {
                 //Re-prepare dosespace with latest iteration of sliceweight
                 PrepareWeighted_DS(SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
+                //DoseSpace = PrepareWeighted_DS_Dynamic(SliceWeights, OriginalDS);
                 temp_weights = ReOptimizeSliceWeights(DDS);               
 
                 //Evaluate each slice against the DDS slice                
@@ -444,14 +457,35 @@ namespace TomosurgeryAlpha
                     coverage = Convert.ToDouble(IterationCoverage);
                     SliceWeights = (double[])temp_weights.Clone();
                     index++;
-                }               
+                }
+                PS_3_SliceWeightOpt_worker.ReportProgress(index * 10);
             } // <- end of while loop
+            PS_3_SliceWeightOpt_worker.ReportProgress(100);
 
+        }
+
+        private float[][,] PrepareWeighted_DS_Dynamic(double[] SliceWeights, float[][,] ods)
+        {
+            Parallel.For(0, NumSlices, (z) =>
+                {
+                    int startz = FindStartZ(z);
+                    int endz = FindEndZ(startz);
+                    for (int k = 0; k < DoseCalculationThickness; k++)
+                    {
+                        if (GPU.GPUenabled)                        
+                            ods[k + startz] = GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]);
+                        else
+                            ods[k + startz] = Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]);
+                    }
+                            
+                });
+            return ods;
         }
 
         private double[] ReOptimizeSliceWeights(float[][,] dds)
         {
            double[] tweight = Normalize(SliceWeights);
+           int count = 0;
 
            Parallel.For(0, NumSlices, (s) =>
            {
@@ -477,7 +511,9 @@ namespace TomosurgeryAlpha
                //double ratio = DDS_slicesum / DS_slicesum;
                tweight[s] = tweight[s] * ratio;
                Debug.WriteLine("Ratio=" + ratio + "; Weight: " + SliceWeights[s] + "-->" +tweight[s]);
+               count++;
            });
+
            return tweight;
         }
 
@@ -506,10 +542,10 @@ namespace TomosurgeryAlpha
         {
             double total_tally = 0;           
             double ratio = 0;
-            for (int k = 0; k < DoseCalculationThickness; k++)
-            {
-               total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
-            }
+            Parallel.For(0, DoseCalculationThickness, (k) =>
+                {
+                    total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
+                });            
 
             if (total_tally <= 0)
             {
@@ -564,19 +600,39 @@ namespace TomosurgeryAlpha
         /// <param name="weights"></param>
         /// <param name="subfolder"></param>
         private void PrepareWeighted_DS(double[] weights, string subfolder)
-        {
-            for (int s = 0; s < NumSlices; s++)
+        {   
+            if (GPU.GPUenabled)
             {
-                string filename = String.Concat("slice_", s);
-                string path = System.IO.Path.Combine(subfolder, filename);
-                float[] slicedose = ReadSliceDoseFromFile(path);
-                //Debug.WriteLine(slicedose.Sum());
-                slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                
-                DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);                
+                int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
+                float[] weighted_slicedose = new float[NumSlices * DoseCalculationThickness * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1)];
+                for (int s = 0; s < NumSlices; s++)
+                {
+                    int TranslateZBy = SlicePositions[s] - (DoseCalculationThickness / 2);
+                    string filename = String.Concat("slice_", s);
+                    string path = System.IO.Path.Combine(subfolder, filename);
+                    float[] slicedose = ReadSliceDoseFromFile(path);
+                    for (int i = 0; i < slicedose.GetLength(0); i++)
+                        weighted_slicedose[(s * DoseCalculationThickness * x * y) + i] = slicedose[i] * (float)weights[s];
+                }
+                int whichz = SlicePositions[0] - (DoseCalculationThickness / 2);
+
+                DoseSpace = GPU.AddToDoseSpace(weighted_slicedose, DoseSpace, whichz, 1.0f);
+            }
+            else
+            {
+                Parallel.For(0, NumSlices, (s) =>
+                    {
+                        string filename = String.Concat("slice_", s);
+                        string path = System.IO.Path.Combine(subfolder, filename);
+                        float[] slicedose = ReadSliceDoseFromFile(path);
+                        //Debug.WriteLine(slicedose.Sum());
+                        slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
+                        DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
+                    });
             }
         }
 
-        
+
 
         private int FindStartZ(int s)
         {
@@ -723,18 +779,26 @@ namespace TomosurgeryAlpha
         public float[][,] WriteSliceDoseToDoseSpace(float[] slicedose, float[][,] output_ds, int which_slice)
         {            
             int TranslateZBy = SlicePositions[which_slice] - (DoseCalculationThickness/2); // <- NEED TO CHANGE APPROPRIATELY
-            int startz = SlicePositions[which_slice] - DoseCalculationThickness/2;
+            //int startz = SlicePositions[which_slice] - DoseCalculationThickness/2;
 
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
             //Then change slicethickness in for loop limit to another variable based on size.
-            for (int z = 0; z < DoseCalculationThickness; z++)
+
+            if (GPU.GPUenabled)
+               return GPU.AddToDoseSpace(slicedose, output_ds, TranslateZBy, 1.0f);
+            else
             {
-                int current_z = TranslateZBy + z;
-                if (output_ds[current_z] == null)
-                    output_ds[current_z] = Matrix.Zeroes(volume[0].GetLength(0),volume[0].GetLength(1));               
-                output_ds[current_z] = Matrix.Add(output_ds[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));                
+                Parallel.For(0, DoseCalculationThickness, (z) =>
+                    {
+                        int current_z = TranslateZBy + z;
+                        if (output_ds[current_z] == null)
+                            output_ds[current_z] = Matrix.Zeroes(volume[0].GetLength(0), volume[0].GetLength(1));
+                        output_ds[current_z] = Matrix.Add(output_ds[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));
+                    });
+                return output_ds;
             }
-            return output_ds;
+
+            
         }
         /// <summary>
         /// Given a path, loads in the associated slicedose 1D float matrix. Called by AssembleFinalDoseMatrix()

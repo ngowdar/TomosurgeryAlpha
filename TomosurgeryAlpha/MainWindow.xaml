@@ -5,7 +5,7 @@
     <Window.Background>
         <ImageBrush ImageSource="Resources/carbon-fiber-wallpaper-1280x960.png"/>
     </Window.Background>
-    <Grid>
+    <Grid Margin="-1,0,1,0">
         <Grid.Background>
             <ImageBrush ImageSource="Resources/gunmetal-24a893.jpg" Stretch="UniformToFill"/>
         </Grid.Background>
@@ -194,7 +194,7 @@
         <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="655,514,0,0" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
         <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="678,539,0,0" Name="label3" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
         <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="643,566,0,0" Name="label4" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
-        <ListBox Height="61" HorizontalAlignment="Left" Margin="657,451,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" Foreground="#FFFBD78A" Background="#FF040404" BorderBrush="#FFB3B3B4" FontFamily="Droid Sans Mono" FontSize="10" />
+        <ListBox Height="40" HorizontalAlignment="Left" Margin="657,451,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" Foreground="#FFFBD78A" Background="#FF040404" BorderBrush="#FFB3B3B4" FontFamily="Droid Sans Mono" FontSize="10" />
         <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="653,431,0,0" Name="label17" VerticalAlignment="Top" FontFamily="Droid Sans" FontSize="14" Foreground="#FFE1E2FF" FontStyle="Italic" />
         <ProgressBar Height="17" HorizontalAlignment="Left" Margin="673,236,0,0" Name="progressBar1" VerticalAlignment="Top" Width="313" />
         <StatusBar Height="23" HorizontalAlignment="Left" Margin="0,620,0,0" Name="statusBar1" VerticalAlignment="Top" Width="998">
@@ -243,8 +243,12 @@
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="140" SelectionChanged="listBox2_SelectionChanged" Foreground="#FFFF3030" BorderBrush="#FF292929" Background="#FF292929" FontFamily="Droid Sans Mono" FontSize="10" />
         <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,337,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" FontFamily="Glegoo" FontSize="14" Click="export_shots_btn_Click" />
         <Button Content="Save Plan" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="673,337,0,0" Name="save_plan_btn" VerticalAlignment="Top" Width="162" FontFamily="Glegoo" FontSize="14" Click="save_plan_btn_Click" />
-        <Label Content="" Height="28" HorizontalAlignment="Left" Margin="646,587,0,0" Name="redwarn_lbl" VerticalAlignment="Top" Width="326" FontStyle="Italic" Foreground="#FFD81E1E" FontWeight="Bold" IsEnabled="False" Visibility="Visible" />
+        <Label Content="" Height="28" HorizontalAlignment="Left" Margin="233,587,0,0" Name="redwarn_lbl" VerticalAlignment="Top" Width="326" FontStyle="Italic" Foreground="#FFD81E1E" FontWeight="Bold" IsEnabled="False" Visibility="Visible" />
         <Label Content="Slices" Height="28" HorizontalAlignment="Left" Margin="673,29,0,0" Name="label18" VerticalAlignment="Top" FontFamily="Cambria Math" Foreground="#FFCCCCCC" />
         <Label Content="Shots" FontFamily="Cambria Math" Height="28" HorizontalAlignment="Left" Margin="862,29,0,0" Name="label19" VerticalAlignment="Top" Foreground="#FFCCCCCC" />
+        <TextBox Height="23" HorizontalAlignment="Left" Margin="922,595,0,0" x:Name="txt_edgepadding" VerticalAlignment="Top" Width="24" Text="10" TextChanged="txt_slicethickness_TextChanged" FontSize="14" FontFamily="Consolas" />
+        <Slider Height="21" HorizontalAlignment="Left" Margin="742,595,0,0" x:Name="slider_slicethickness_Copy" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
+        <Label Content="Edge Padding" Height="28" HorizontalAlignment="Left" Margin="644,592,0,0" x:Name="label4_Copy" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
+        <CheckBox x:Name="GPU_chkbox" Content="Use GPU" HorizontalAlignment="Left" Margin="564,587,0,0" VerticalAlignment="Top" Width="74" Foreground="#FFF1512D" FontSize="14" Checked="GPU_chkbox_Checked" Unchecked="GPU_chkbox_Unchecked"/>
     </Grid>
 </Window>

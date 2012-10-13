@@ -66,7 +66,7 @@ namespace TomosurgeryAlpha
         #region UI Update Methods
         private void UpdateTextBlock(string s)
         {
-            textBlock2.Text += s + "\n";
+            textBlock2.Text = s + "\n";
         }
 
         private void UpdateStatusBar(string s)
@@ -1097,14 +1097,26 @@ namespace TomosurgeryAlpha
         }
         private void AttachPSHandlers()
         {
-            PS.PathsetWorkerCompleted += new RunWorkerCompletedEventHandler(PS_PathsetWorkerCompleted);
-            PS.PathsetWorkerProgressChanged += new ProgressChangedEventHandler(PS_PathsetWorkerProgressChanged);
+            PS.PathsetWorkerCompleted += new RunWorkerCompletedEventHandler(PS_1_PathsetWorkerCompleted);
+            PS.PathsetWorkerProgressChanged += new ProgressChangedEventHandler(PS_1_PathsetWorkerProgressChanged);
             RasterPath.SliceWorkerProgressChanged += new ProgressChangedEventHandler(RasterPath_SliceWorkerProgressChanged);
-            PS.OptimizationWorkerCompleted += PS_OptimizationWorkerCompleted;
-            PS.SliceweightWorkerCompleted += PS_SliceweightWorkerCompleted;
+            PS.OptimizationWorkerCompleted += PS_2_OptimizationWorkerCompleted;
+            PS.OptimizationWorkerProgress += PS_2_OptimizationProgress;
+            PS.SliceweightWorkerProgress += PS_3_SliceweightWorkerProgress;
+            PS.SliceweightWorkerCompleted += PS_3_SliceweightWorkerCompleted;
         }
 
-        void PS_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_3_SliceweightWorkerProgress(object sender, ProgressChangedEventArgs e)
+        {
+            slider2.Value = e.ProgressPercentage;
+        }
+
+        private void PS_2_OptimizationProgress(object sender, ProgressChangedEventArgs e)
+        {
+            slider2.Value = e.ProgressPercentage;
+        }
+
+        void PS_3_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             MessageBox.Show("Optimization complete. You may run an analysis using the analysis tab, or save/export using the buttons shown.");
@@ -1114,7 +1126,7 @@ namespace TomosurgeryAlpha
             export_shots_btn.IsEnabled = true;
         }
 
-        void PS_OptimizationWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_2_OptimizationWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             UpdateTextBlock2("Temporary doses written. Optimizing slice weights...");
         }
@@ -1126,14 +1138,14 @@ namespace TomosurgeryAlpha
         }
 
 
-        void PS_PathsetWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
+        void PS_1_PathsetWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             UpdateProgressBar((double)e.ProgressPercentage);
-            UpdateStatusBar("Calculating optimal shot weights...please wait");
+            UpdateStatusBar("Calculating optimal shot weights and slice weights...please wait");
             //UpdateTextBlock("Progress: " + e.ProgressPercentage);
         }
 
-        void PS_PathsetWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        void PS_1_PathsetWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             UpdateStatusBar("Writing dose file...");
             UpdateTextBlock2("Finished shot weighting. Now writing dose, please wait...");
@@ -1438,6 +1450,8 @@ namespace TomosurgeryAlpha
         {
             PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
             PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
+            PathSet.line_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
+            PathSet.shot_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
             if (PlanOptimized)
             {
                 redwarn_lbl.Content = "";
@@ -1465,7 +1479,7 @@ namespace TomosurgeryAlpha
 
             if (PathSet.ActiveDirectory == null)
                 SetWorkingDirectory();            
-            PS.PS_ShotOptimize_worker.RunWorkerAsync();
+            PS.PS_1_ShotOptimize_worker.RunWorkerAsync();
             UpdateTextBlock2("Optimizing shot weights...please wait.");
         }
 
@@ -1806,6 +1820,16 @@ namespace TomosurgeryAlpha
         private void ViewIso_chkbox_Checked(object sender, RoutedEventArgs e)
         {
             Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+        }
+
+        private void GPU_chkbox_Checked(object sender, RoutedEventArgs e)
+        {
+            GPU.GPUenabled = true;
+        }
+
+        private void GPU_chkbox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            GPU.GPUenabled = false;
         }
        
         

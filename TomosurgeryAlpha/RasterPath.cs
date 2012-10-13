@@ -49,7 +49,7 @@ namespace TomosurgeryAlpha
         public static float[,] mask;
         public static int RasterWidth;
         public static int StepSize;
-        public static int ComparisonKernelSize = 80;
+        public static int ComparisonKernelSize = 120;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -450,9 +450,9 @@ namespace TomosurgeryAlpha
 
             //Default threshholds
             float rx = PathSet.RxDose;
-            float tolerance_dose = 0.8f;
+            float tolerance_dose = 0.95f;
             float background_dose = 0.2f;
-            float tol_background_dose = 0.3f;
+            float tol_background_dose = 0.35f;
             int tumorpixels = 0; int nontumorpixels = 0;
 
             for (int j = 0; j < DStimesP.GetLength(1); j++)
@@ -470,23 +470,39 @@ namespace TomosurgeryAlpha
                      
                      
                      */
+                    //if (DDStimesP[i, j] >= rx) //i.e. tumor pixel
+                    //{
+                    //    tumorpixels++;
+                    //    if (value < rx)
+                    //        tumortally += 1; //Optimum so far: 1
+                    //    else if (value > tolerance_dose)
+                    //        tumortally -= 0.8;
+
+                    //}
+                    //else //i.e. a nontumor pixel
+                    //{
+                    //    nontumorpixels++;
+                    //    if (value >= rx)
+                    //        nontumortally -= 1;
+                    //    else if (value > tol_background_dose)
+                    //        nontumortally -= 0.4;
+                    //}
                     if (DDStimesP[i, j] >= rx) //i.e. tumor pixel
                     {
                         tumorpixels++;
                         if (value < rx)
-                            tumortally += 1;
+                            tumortally += 2*(rx-value); //Optimum so far: 1
                         else if (value > tolerance_dose)
-                            tumortally -= 1;
-                        else
-                            tumortally -= 0.5;
+                            tumortally -= 2*(tolerance_dose-value);
+
                     }
                     else //i.e. a nontumor pixel
                     {
                         nontumorpixels++;
                         if (value >= rx)
-                            nontumortally -= 1;
-                        else if (value > 0.3)
-                            nontumortally -= 0.5;
+                            nontumortally -= 2*(rx - value);
+                        else if (value > tol_background_dose)
+                            nontumortally -= 2*(tol_background_dose - value);
                     }
                 }
             double totalsum = tumortally + nontumortally;
@@ -539,7 +555,7 @@ namespace TomosurgeryAlpha
 
                     }//);
                 }
-            ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), 0.5f); //Make the highest value equal to 0.6 to allow for more growth.
+            ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), 0.8f); //Make the highest value equal to 0.6 to allow for more growth.
             return ds;
         }
 
@@ -580,26 +596,29 @@ namespace TomosurgeryAlpha
             int xmid = xsize / 2; int ymid = ysize / 2; int zmid = dosecalcthickness / 2;
             int StartingDoseSlice = ((N - 1) / 2) - zmid;
             float[] slicedose = new float[xsize * ysize * dosecalcthickness];
-            for (int k = 0; k < dosecalcthickness; k++)
-                for (int j = 0; j < N; j++)
-                    for (int i = 0; i < N; i++)
-                        for (int w = 0; w < shots.GetLength(0); w++)
-                        {
-                            PointF shot = shots[w];
-                            PointF center = new PointF((N - 1) / 2, (N - 1) / 2);                            
-                            PointF firstdosepixel = FindFirstExistingDosePixel(shot);
-                            PointF lastdosepixel = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
-                            if (i < firstdosepixel.X || j < firstdosepixel.Y) //if the current dose pixel doesn't exist for the shot, continue
-                                continue;
-                            else if (i > lastdosepixel.X || j > lastdosepixel.Y)
-                                continue;
-                            else
+            Parallel.For(0, dosecalcthickness, (k) =>
+                {
+                    for (int j = 0; j < N; j++)
+                        for (int i = 0; i < N; i++)
+                            Parallel.For(0, shots.GetLength(0), (w) =>
                             {
-                                if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
-                                    slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice+k) * weight[w];
-                            }
-                        }                    
-            float f = dk.ReturnSpecificDoseValue(80, 80, 80);
+                                PointF shot = shots[w];
+                                PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
+                                PointF firstdosepixel = FindFirstExistingDosePixel(shot);
+                                PointF lastdosepixel = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
+                                if (i < firstdosepixel.X || j < firstdosepixel.Y) //if the current dose pixel doesn't exist for the shot, continue
+                                    return;
+                                else if (i > lastdosepixel.X || j > lastdosepixel.Y)
+                                    return;
+                                else
+                                {
+                                    if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
+                                        slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
+                                }
+                            });
+                });           
+                                         
+            //float f = dk.ReturnSpecificDoseValue(80, 80, 80);
             WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
         }
 
@@ -839,7 +858,7 @@ namespace TomosurgeryAlpha
         public void OptimizeShotWeights()
         {
             shots = ReturnSinglePoints();
-            double Error = 1000; double coverage = 0.8;
+            double Error = 1000; double coverage = 0.6;
             int index = 0;
             float[] temp_weight = new float[weight.GetLength(0)];
             for (int i = 0; i < shots.GetLength(0); i++)

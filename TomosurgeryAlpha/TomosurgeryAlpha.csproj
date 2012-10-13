@@ -60,6 +60,10 @@
     <Reference Include="ActiproSoftware.Gauge.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
     <Reference Include="ActiproSoftware.Shared.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
     <Reference Include="ActiproSoftware.Views.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
+    <Reference Include="Cloo, Version=0.9.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Resources\Cloo.dll</HintPath>
+    </Reference>
     <Reference Include="OpenCLTemplate">
       <HintPath>..\..\..\..\..\Downloads\OpenCLTemplate\OpenCLTemplate\OpenCLTemplate.dll</HintPath>
       <EmbedInteropTypes>False</EmbedInteropTypes>
@@ -92,12 +96,14 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Analysis.cs" />
+    <Compile Include="CLSourceCode.cs" />
     <Compile Include="Coordinates.cs" />
     <Compile Include="DoseKernel.cs" />
     <Compile Include="FolderBrowserDialogEx.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="GPUdose.cs" />
+    <Compile Include="GPUMethods.cs" />
     <Compile Include="LinMatrix.cs" />
     <Compile Include="PathSet.cs" />
     <Compile Include="RasterPath.cs" />
