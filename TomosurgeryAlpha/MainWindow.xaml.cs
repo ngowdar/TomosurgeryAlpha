@@ -1122,7 +1122,8 @@ namespace TomosurgeryAlpha
 
         void PS_3_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
+            //PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
+            PS.RetrieveFinalizedDoseSpace();            
             MessageBox.Show("Optimization complete. You may run an analysis using the analysis tab, or save/export using the buttons shown.");
             UpdateTextBlock2("Optimization complete. See analysis tab for details. Save using buttons below.");
             UpdateStatusBar("Ready.");

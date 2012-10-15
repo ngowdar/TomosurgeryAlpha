@@ -48,9 +48,11 @@ namespace TomosurgeryAlpha
         public int SliceThickness;        
         public int TolThickness;
         public float[][,] volume; //Presumably the structure set binary volume?
+        public float[][,] DDS;
         public float[][,] DoseSpace; //The actual final dosespace matrix containing the real dose.
         public int[] SlicePositions; //The centered z-indexes of each slice location
         public double[] SliceWeights; //Weights, from 0 to 1, of each slice. Calculated from Step 2.
+        public double[] SliceCoverage;
         public int[] boundaries; //6-term sequence (xstart, xend, ystart...etc.)
         public int X; public int Y; public int Z;
         public event ProgressChangedEventHandler PathsetWorkerProgressChanged;
@@ -421,38 +423,63 @@ namespace TomosurgeryAlpha
         {
             //folderpath = ActiveDirectory;
             Debug.Assert(folderpath != null);
-            double Error = 1000; int index = 0; double coverage = 0.6;
+            double Error = 1000; int index = 0; double coverage = 0.8;
+
+            //Initialize the sliceweight matrices (temp_weights and SliceWeights)
             SliceWeights = new double[NumSlices];
             double[] temp_weights = new double[NumSlices];
             for (int i = 0; i < SliceWeights.GetLength(0); i++)
             {
-                temp_weights[i] = 1.0;
-                SliceWeights[i] = 1.0;
+                //Set an initial weight discrepancy if the slice is the first or last
+                if (i == 0 || i == (SliceWeights.GetLength(0) - 1))
+                    SliceWeights[i] = 0.3;
+                else
+                    SliceWeights[i] = 0.2;
+                //temp_weights[i] = 1.0;                
             }
+
             //Start a while loop, and first create an updated DS matrix with the newest weights
 
             //UNDONE: Prepare DDS Tumor matrix 
-            float[][,] DDS = PrepareDDS(SS.fj_Tumor);
-            float[][,] OriginalDS = ReadDoseSpaceFromFile("OriginalDS.txt");
+            DDS = PrepareDDS(SS.fj_Tumor);
+            //float[][,] OriginalDS = ReadDoseSpaceFromFile("OriginalDS.txt");
+
+
             //Reset the dosespace
-                ClearDosespace();
+            //ClearDosespace();
+            DoseSpace = PrepareWeighted_DS(SliceWeights, folderpath, DDS);
+            double[] initial_cov = FindTotalCoverage(0.5, DoseSpace, DDS, SliceWeights);
+            //{ TumorVol, RxVolume, LesionRx, Uncovered };
+            
 
-            while (Error >= .001 || index < 10)
+
+            double old_error = 0;
+            while (Error >= .05 && index < 5)
             {
-                //Re-prepare dosespace with latest iteration of sliceweight
-                PrepareWeighted_DS(SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
-                //DoseSpace = PrepareWeighted_DS_Dynamic(SliceWeights, OriginalDS);
-                temp_weights = ReOptimizeSliceWeights(DDS);               
-
-                //Evaluate each slice against the DDS slice                
+                
+                temp_weights = ReOptimizeSliceWeights(DDS);
+                old_error = Convert.ToDouble(Error);
                 Error = FindError(SliceWeights, temp_weights);
-
                 Debug.WriteLine("Iteration: " + index + " Error: " + Error);                
-                double IterationCoverage = FindCoverage(RxDose, DDS);
-                index++;
+                //Re-prepare dosespace with latest iteration of sliceweight
+                ReviseWeighted_DS(temp_weights, SliceWeights, folderpath); //TODO: This method is time-consuming, make this GPU?
+                //DoseSpace = PrepareWeighted_DS_Dynamic(SliceWeights, OriginalDS);
+                //DoseSpace = Matrix.Normalize(DoseSpace);            
+                double[] result = FindTotalCoverage(RxDose, DoseSpace, DDS, temp_weights);
+                double IterationCoverage = result[2] / result[0];
+                //index++;
 
-                if (IterationCoverage < coverage)
+                if (index > 2 && IterationCoverage < coverage)
+                {
+                    string r = "CAUTION: Coverage is Decreasing!!! " + coverage + " --> " + IterationCoverage;
+                    Debug.WriteLine(r);
+                }
+                if (index > 2 && old_error < Error)
+                {
+                    string r = "WARNING: Error is increasing (" + old_error + " --> " + Error + "). Terminating...";
+                    Debug.WriteLine(r);
                     break;
+                }
                 else
                 {
                     coverage = Convert.ToDouble(IterationCoverage);
@@ -462,7 +489,77 @@ namespace TomosurgeryAlpha
                 PS_3_SliceWeightOpt_worker.ReportProgress(index * 10);
             } // <- end of while loop
             PS_3_SliceWeightOpt_worker.ReportProgress(100);
+        }
 
+        private void ReviseWeighted_DS(double[] recent_weights, double[] old_weights, string folderpath)
+        {
+            if (GPU.GPUenabled)
+            {
+                //int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
+                //float[] weighted_slicedose = new float[NumSlices * DoseCalculationThickness * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1)];
+                //for (int s = 0; s < NumSlices; s++)
+                //{
+                //    int TranslateZBy = SlicePositions[s] - (DoseCalculationThickness / 2);
+                //    string filename = String.Concat("slice_", s);
+                //    string path = System.IO.Path.Combine(subfolder, filename);
+                //    float[] slicedose = ReadSliceDoseFromFile(path);
+                //    for (int i = 0; i < slicedose.GetLength(0); i++)
+                //        weighted_slicedose[(s * DoseCalculationThickness * x * y) + i] += slicedose[i] * (float)temp_weights[s];
+                //}
+                //int whichz = SlicePositions[0] - (DoseCalculationThickness / 2);
+
+                //DoseSpace = GPU.AddToDoseSpace(weighted_slicedose, DoseSpace, whichz, 1.0f);
+            }
+            else
+            {
+                Parallel.For(0, NumSlices, (s) =>
+                {
+                    float[] slicedose = LoadSliceDose(s, folderpath);
+                    //Debug.WriteLine(slicedose.Sum());
+                    //slicedose = Matrix.ScalarMultiply(slicedose, (float)(recent_weights[s]-old_weights[s]));
+                    DoseSpace = ReviseSliceWeightContribution(slicedose, old_weights[s], recent_weights[s], s); //TODO: Make a method that subtracts the old_weight contribuiton and adds the new one.
+                    //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
+                });
+            }
+        }
+
+        /// <summary>
+        /// Helper method for ReviseWeighted_DS(), which takes both old and new sliceweights, removes the old contribuiton and adds the new one.
+        /// </summary>
+        /// <param name="slicedose"></param>
+        /// <param name="old_weights"></param>
+        /// <param name="recent_weights"></param>
+        /// <param name="which_slice"></param>
+        /// <returns></returns>
+        private float[][,] ReviseSliceWeightContribution(float[] slicedose, double old_weight, double recent_weight, int which_slice)
+        {
+            int TranslateZBy = SlicePositions[which_slice] - (DoseCalculationThickness / 2); // <- NEED TO CHANGE APPROPRIATELY
+            //Check if this is correct ^
+
+            //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
+            //Then change slicethickness in for loop limit to another variable based on size.
+
+            if (GPU.GPUenabled)
+                return GPU.AddToDoseSpace(slicedose, DoseSpace, TranslateZBy, 1.0f);
+            else
+            {
+                Parallel.For(0, DoseCalculationThickness, (z) =>
+                {
+                    float[,] incremental_slice = GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1));
+                    int current_z = TranslateZBy + z;
+                    for (int j = 0; j < incremental_slice.GetLength(1); j++)
+                        for (int i = 0; i < incremental_slice.GetLength(0); i++)
+                        {
+                            float current = DoseSpace[current_z][i, j];
+                            float subtract = (float)(incremental_slice[i, j] * old_weight);
+                            float add = (float)(incremental_slice[i,j] * recent_weight);
+                            current = current - subtract + add;
+                            DoseSpace[current_z][i, j] = current;
+                            Debug.Assert(DoseSpace[current_z][i, j] >= 0);
+                        }                    
+                });
+                return DoseSpace;
+            }
         }
 
         private float[][,] PrepareWeighted_DS_Dynamic(double[] SliceWeights, float[][,] ods)
@@ -474,9 +571,9 @@ namespace TomosurgeryAlpha
                     for (int k = 0; k < DoseCalculationThickness; k++)
                     {
                         if (GPU.GPUenabled)                        
-                            ods[k + startz] = GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]);
+                            ods[k + startz] = Matrix.Add(ods[k+startz], GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
                         else
-                            ods[k + startz] = Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]);
+                            ods[k + startz] = Matrix.Add(ods[k+startz], Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
                     }
                             
                 });
@@ -485,16 +582,19 @@ namespace TomosurgeryAlpha
 
         private double[] ReOptimizeSliceWeights(float[][,] dds)
         {
-           double[] tweight = (double[])Normalize(SliceWeights).Clone();
+           double[] tweight = (double[])SliceWeights.Clone();
            int count = 0;
 
-           Parallel.For(0, NumSlices, (s) =>
+           for (int s = 0; s < NumSlices; s++)
            {
-               double DDS_slicesum = 0;
-               double DS_slicesum = 0;
-               int startz = FindStartZ(s);
-               int endz = FindEndZ(startz);
-               double ratio = CompareSlicedoses(DoseSpace, dds, startz, startz + DoseCalculationThickness);
+               float[][,] ds_slab = GrabSlab(DoseSpace, 30, SlicePositions[s]);
+               float[][,] dds_slab = GrabSlab(dds, 30, SlicePositions[s]);
+               double DDS_slicesum = Matrix.SumAll(dds_slab);
+               double DS_slicesum = Matrix.SumAll(ds_slab);
+               //int startz = FindStartZ(s); //Just takes starting z - DoseCalculationThickness / 2
+               //int endz = FindEndZ(startz);
+               //double ratio = CompareSlicedoses(DoseSpace, dds, startz, startz + DoseCalculationThickness);
+               //double ratio = CompareSliceSums(DoseSpace, dds, startz, endz);
                //for (int z = 0; z < DoseCalculationThickness; z++)
                //{
                //    /* The DDS matrix is element-multiplied by the newest dosespace
@@ -509,13 +609,45 @@ namespace TomosurgeryAlpha
                //}
                //Debug.Assert(DDS_slicesum != 0);
                //Debug.Assert(DS_slicesum != 0);
-               //double ratio = DDS_slicesum / DS_slicesum;
-               tweight[s] = tweight[s] * ratio;
-               Debug.WriteLine("Ratio=" + ratio + "; Weight: " + SliceWeights[s] + "-->" +tweight[s]);
+               double ratio = DDS_slicesum / DS_slicesum;
+               tweight[s] = SliceWeights[s] * ratio;
+               Debug.WriteLine("Ratio=" + ratio + "; Weight: " + SliceWeights[s] + "-->" + tweight[s]);
+               Debug.WriteLine("DDS / DS sum: " + DDS_slicesum + " / " + DS_slicesum);
                count++;
-           });
-
+           }
+           //tweight = Normalize(tweight);
            return tweight;
+        }
+
+        private double CompareSliceSums(float[][,] DoseSpace, float[][,] dds, int startz, int endz)
+        {
+            double ds_sum = 0;
+            double dds_sum = 0;
+            if (GPU.GPUenabled) //TODO: Write GPU SumAll method.
+            {
+                for (int k = 0; k < (endz - startz); k++)
+                {
+                    //float[,] ds_slice = DoseSpace[i + startz];
+                    //float[,] dds_slice = dds[i + startz];
+                    //ds_sum += GPU.SumAll(ds_slice);
+                    //dds_sum += GPU.SumAll(dds_slice);
+                    float[,] ds_slice = DoseSpace[k + startz];
+                    float[,] dds_slice = dds[k + startz];
+                    ds_sum += Matrix.SumAll(ds_slice);
+                    dds_sum += Matrix.SumAll(dds_slice);
+                }
+            }
+            else
+            {
+                Parallel.For(0, endz - startz, (i) =>
+                    {
+                        float[,] ds_slice = DoseSpace[i + startz];
+                        float[,] dds_slice = dds[i + startz];
+                        ds_sum += Matrix.SumAll(ds_slice);
+                        dds_sum += Matrix.SumAll(dds_slice);
+                    });
+            }
+            return (double)(dds_sum / ds_sum);
         }
 
         private double[] Normalize(double[] d)
@@ -583,19 +715,14 @@ namespace TomosurgeryAlpha
                         Debug.Assert(dds_slice[k][i, j] < 2);
                         if (dds_slice[k][i, j] == 0)
                             pDDS[k][i, j] = ToleranceDose;
-                        else if (dds_slice[k][i, j] == CSflag)
-                        {
-                            CSvolCount++;
-                            pDDS[k][i, j] = CSdose;
-                        }
-                        else
+                        //else if (dds_slice[k][i, j] == CSflag)
+                        //{
+                        //    CSvolCount++;
+                        //    pDDS[k][i, j] = CSdose;
+                        //}
+                        else if (dds_slice[k][i,j] > 0)
                         {
                             TumorVolCount++;
-                            if (dds_slice[k][i, j] >= 2)
-                            {
-                                Debug.WriteLine(dds_slice[k][i, j]);
-                                _debug_tumorcount++;
-                            }
                             pDDS[k][i, j] = RxDose;
                         }
                     }
@@ -604,48 +731,81 @@ namespace TomosurgeryAlpha
             //Debug.WriteLine("DDS tumor counts: " + TumorVolCount);
             return pDDS;
         }
-        
-        
+
+        public float[][,] RetrieveFinalizedDoseSpace()
+        {                        
+            DoseSpace = PrepareWeighted_DS(SliceWeights, folderpath, DDS);
+            FindTotalCoverage(0.5, DoseSpace, DDS, SliceWeights);
+            return DoseSpace;
+        }
+
         /// <summary>
-        /// Called from Step 2, uses the most recent round of optimized weights to read in each initial slice
-        /// dose file (found in 'subfolder' path), multiply it by its respective weight, then add it to slicedose.
+        /// Initializes the DS matrix using a preliminary weight set and the original slicedoses.
         /// </summary>
         /// <param name="weights"></param>
         /// <param name="subfolder"></param>
-        private void PrepareWeighted_DS(double[] weights, string subfolder)
-        {   
+        private float[][,] PrepareWeighted_DS(double[] weights, string subfolder, float[][,] DDS)
+        {
+            float[][,] weighted_slicedoses = new float[DoseSpace.GetLength(0)][,];
+            int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
+            int z = DoseSpace.GetLength(0);
+            for (int k = 0; k < weighted_slicedoses.GetLength(0); k++)
+                weighted_slicedoses[k] = Matrix.Zeroes(x,y);
+
             if (GPU.GPUenabled)
             {
-                int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
-                float[] weighted_slicedose = new float[NumSlices * DoseCalculationThickness * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1)];
-                for (int s = 0; s < NumSlices; s++)
-                {
-                    int TranslateZBy = SlicePositions[s] - (DoseCalculationThickness / 2);
-                    string filename = String.Concat("slice_", s);
-                    string path = System.IO.Path.Combine(subfolder, filename);
-                    float[] slicedose = ReadSliceDoseFromFile(path);
-                    for (int i = 0; i < slicedose.GetLength(0); i++)
-                        weighted_slicedose[(s * DoseCalculationThickness * x * y) + i] = slicedose[i] * (float)weights[s];
-                }
-                int whichz = SlicePositions[0] - (DoseCalculationThickness / 2);
+                //TODO: Make GPU function here work!
+                //int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
 
-                DoseSpace = GPU.AddToDoseSpace(weighted_slicedose, DoseSpace, whichz, 1.0f);
+                //for (int s = 0; s < NumSlices; s++)
+                //{
+                //    int TranslateZBy = SlicePositions[s] - (DoseCalculationThickness / 2);
+                //    string filename = String.Concat("slice_", s);
+                //    string path = System.IO.Path.Combine(subfolder, filename);
+                //    float[] slicedose = ReadSliceDoseFromFile(path);                   
+
+                //    for (int i = 0; i < slicedose.GetLength(0); i++)
+                //        weighted_slicedoses[(s * DoseCalculationThickness * x * y) + i] = slicedose[i] * (float)weights[s];
+                //}
+                //int whichz = SlicePositions[0] - (DoseCalculationThickness / 2);
+
+                //DoseSpace = GPU.AddToDoseSpace(weighted_slicedoses, DoseSpace, whichz, 1.0f);
+                return weighted_slicedoses;
             }
             else
             {
-                Parallel.For(0, NumSlices, (s) =>
-                    {
-                        string filename = String.Concat("slice_", s);
-                        string path = System.IO.Path.Combine(subfolder, filename);
-                        float[] slicedose = ReadSliceDoseFromFile(path);
-                        //Debug.WriteLine(slicedose.Sum());
-                        slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
-                        DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
-                    });
+
+                for (int s = 0; s < NumSlices; s++)
+                {                    
+                    int whichz = SlicePositions[s] - (DoseCalculationThickness / 2);
+                    float[] slicedose = LoadSliceDose(s, subfolder);
+                    FindSliceDoseCoverage(Matrix.ScalarMultiply(slicedose,(float)SliceWeights[s]), s, 0.5, DDS);
+                    //Debug.WriteLineIf(slicedose.GetLength(0) != weighted_slicedoses.GetLength(0)*x*y, "slicedose not equal to weighted_slicedose in PrepareWeighted_DS()!!!!!");
+                    //Debug.WriteLine(slicedose.Sum());
+                    Parallel.For(0, DoseCalculationThickness, (k) =>
+                        {
+                            for (int j = 0; j < y; j++)
+                                for (int i = 0; i < x; i++)
+                                {
+
+                                    weighted_slicedoses[whichz + k][i, j] += slicedose[(k * x * y) + (j * x) + i] * (float)weights[s];
+
+                                }
+                        });
+                }
+                //Just took these out 10/15/2012, put back in if above doesn't work.
+                //slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
+                //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
+                return weighted_slicedoses;
             }
         }
 
-
+        private float[] LoadSliceDose(int which_slice, string subfolder)
+        {
+            string filename = String.Concat("slice_", which_slice);
+            string path = System.IO.Path.Combine(subfolder, filename);
+            return Matrix.Normalize(ReadSliceDoseFromFile(path));
+        }
 
         private int FindStartZ(int s)
         {
@@ -656,7 +816,7 @@ namespace TomosurgeryAlpha
         }
         private int FindEndZ(int startz)
         {
-            int end = startz + (DoseCalculationThickness/2);
+            int end = startz + DoseCalculationThickness;
             if (end >= DoseSpace.GetLength(0))
                 end = DoseSpace.GetLength(0)-1;
             return end;
@@ -669,31 +829,89 @@ namespace TomosurgeryAlpha
         /// Finds fraction of tumor that is covered by the desired dose. Called from the OptimizeSliceWeights()
         /// function of Step 2.
         /// </summary>
-        /// <param name="desired_dose"></param>
+        /// <param name="iso"></param>
         /// <param name="Tumor"></param>
         /// <returns></returns>
-        private double FindCoverage(double desired_dose, float[][,] Tumor)
+        public double[] FindTotalCoverage(double iso, float[][,] ds, float[][,] Tumor, double[] recent_weight)
         {
-            double Coverage = 0; double tumor = 0;
-            Parallel.For(0, DoseSpace.GetLength(0), (k) =>
-            {
-                for (int j = 0; j < DoseSpace[0].GetLength(1); j++)
-                    for (int i = 0; i < DoseSpace[0].GetLength(0); i++)
-                        if (Tumor[k][i, j] > ToleranceDose) //if inside a tumor voxel
+            double Coverage = 0; double TumorVol = 0; double LesionRx = 0; double RxVolume = 0;
+            float dose; float dds_value; double Uncovered = 0;
+            for (int k = 0; k < ds.GetLength(0); k++)
+            {                
+                for (int j = 0; j < ds[0].GetLength(1); j++)
+                    for (int i = 0; i < ds[0].GetLength(0); i++)
+                    {
+                        dose = ds[k][i, j];
+                        dds_value = Tumor[k][i, j];
+                        if (dds_value > ToleranceDose) //i.e. a tumor pixel
                         {
-                            tumor++;
-                            if (DoseSpace[k][i, j] >= desired_dose)
-                                Coverage++;
+                            TumorVol++;
+                            if (dose < iso)
+                                Uncovered++;
+                            else if (dose >= iso)
+                            { RxVolume++; LesionRx++; }
                         }
-                        else
+                        else //i.e. a non-tumor pixel
                         {
-                            continue;
+                            if (dose >= RxDose)
+                                RxVolume++;
                         }
-            });
+                    }                        
+                    
+            }
 
-            return (Coverage / tumor);
+            // (isovolume / tumor);
+            double LesionRxoverTumorVol = LesionRx / TumorVol;
+            double LesionRxoverRxVol = LesionRx / RxVolume;
+            double Underdosed = (Uncovered / TumorVol) * 100;
+            string weights = "SliceWeights: " + recent_weight[0];
+            for (int i = 1; i < recent_weight.GetLength(0); i++)
+                weights += ", " + recent_weight[i];
+            Debug.WriteLine("**********Combined Coverage**************");
+            Debug.WriteLine(weights);
+            Debug.WriteLine("LesionRx/TumorVol: " + LesionRxoverTumorVol);
+            Debug.WriteLine("LesionRx/RxVol: " + LesionRxoverRxVol);
+            Debug.WriteLine("Percentage underdosed: " + Underdosed);
+            return new double[4] { TumorVol, RxVolume, LesionRx, Uncovered };
         }
-       
+
+        private void FindSliceDoseCoverage(float[] sd, int which_slice, double iso, float[][,] DDS)
+        {
+            double Coverage = 0; double TumorVol = 0; double LesionRx = 0; double RxVolume = 0;
+            float dose; float dds_value; double Uncovered = 0;
+            int x = DDS[0].GetLength(0); int y = DDS[0].GetLength(1); int z = DoseCalculationThickness;
+            int startz = SlicePositions[which_slice] - (DoseCalculationThickness/2);
+            for (int k = 0; k < z; k++)
+                for (int j = 0; j < y; j++)
+                    for (int i = 0; i < x; i++)
+                    {
+                        dose = sd[(k * x * y) + (j * x) + i];
+                        dds_value = DDS[k + startz][i, j];
+                        if (dds_value > ToleranceDose) //i.e. a tumor pixel
+                        {
+                            TumorVol++;
+                            if (dose < iso)
+                                Uncovered++;
+                            else if (dose >= iso)
+                            { RxVolume++; LesionRx++; }
+                        }
+                        else //i.e. a non-tumor pixel
+                        {
+                            if (dose >= RxDose)
+                                RxVolume++;
+                        }
+                    }
+            double LesionRxoverTumorVol = LesionRx / TumorVol;
+            double LesionRxoverRxVol = LesionRx / RxVolume;
+            double Underdosed = (Uncovered / TumorVol) * 100;
+            Debug.WriteLine("SLICE " + which_slice);
+            Debug.WriteLine("==============================");
+            Debug.WriteLine("LesionRx/TumorVol: " + LesionRxoverTumorVol);
+            Debug.WriteLine("LesionRx/RxVol: " + LesionRxoverRxVol);
+            Debug.WriteLine("Percentage underdosed: " + Underdosed);
+            
+        }
+
 
         private void ClearDosespace()
         {
@@ -848,10 +1066,8 @@ namespace TomosurgeryAlpha
             for (int i = 0; i < z; i++)
                 DoseSpace[i] = Matrix.Zeroes(x, y);
             for (int s = 0; s < NumSlices; s++)
-            {
-                string filename = String.Concat("slice_", s);
-                string path = System.IO.Path.Combine(subfolder, filename);
-                float[] slicedose = ReadSliceDoseFromFile(path);
+            {                
+                float[] slicedose = LoadSliceDose(s, subfolder);
                 DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
             }
             //Normalize Dosespace

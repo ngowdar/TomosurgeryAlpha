@@ -422,24 +422,110 @@ namespace TomosurgeryAlpha
         
         #region Shot Optimization methods (Step 1)
           #region Helper methods for OptimizeShotWeight (Step 1)
+       
+
+
+        /// <summary>
+        /// Called from RPworker, which is called from within a slice loop in PathSet. 
+        /// This method comprises the meat of Step 1 (shot-based) optimization, which
+        /// finds shot weights within a single slice. Writes final result to the float[] ds matrix
+        /// and calculates coverage too.
+        /// </summary>        
+        public void OptimizeShotWeights()
+        {
+            shots = ReturnSinglePoints();
+            double Error = 1000; double coverage = 1;
+            int index = 0;
+            float[] temp_weight = new float[weight.GetLength(0)];
+            weight = InitWeightArray(1, 0.7f);
+            float[] ds = new float[slice.GetLength(0) * slice.GetLength(1)];
+            for (int i = 0; i < ds.GetLength(0); i++)
+                ds[i] = 0.0f;
+            dosemidplane = Matrix.Normalize(dosemidplane);
+            ds = PrepareDS(ds, weight, 1.0f);
+            ds = Normalize(ds);
+
+            double[] m = CalculateIterationCoverage(ds, 0.5f); //TODO: Take this out.            
+            WriteFloatArray2BMP(ds, "starting_ds.bmp");
+            double old_error;
+            while (Error >= .01 && index < 25)
+            {
+                WriteFloatArray2BMP(ds, string.Concat(index, "_ds.bmp"));
+                temp_weight = ReoptimizeShotWeights(ds);
+                old_error = Convert.ToDouble(Error);
+                Error = FindError(weight, temp_weight);
+
+                Debug.Assert(ds.Max() > 0);
+                Debug.Assert(temp_weight.Max() > 0);
+
+                ds = ReviseDS(ds, weight, temp_weight);
+                ds = Normalize(ds);
+
+                double[] measurements = CalculateIterationCoverage(ds, 0.5f);
+                //1st value = tumor voxel total
+                //2nd value = isovolume voxel total
+                //3rd value = both tumor & >iso voxel total
+                //4th value = pixels underdosed
+
+                double temp_coverage = measurements[2] / measurements[0];
+
+                //TODO: Take this out (below)
+                double isovol_tumor_ratio = measurements[1] / measurements[0];
+                WriteFloatArray2BMP(slice, string.Concat(index, "_slice.bmp"));
+                WriteFloatArray2BMP(ds, string.Concat(index, "_ds.bmp"));
+
+                if (index > 2 && temp_coverage < coverage) //Old version was index > 1 && cov < coverage
+                {
+                    string r = "CAUTION: Coverage is Decreasing!!! " + temp_coverage + " --> " + coverage;
+                    Debug.WriteLine(r);
+                }
+                if (index > 10 && old_error < Error)
+                {
+                    string r = "WARNING: Error is increasing (" + old_error + " --> " + Error + "). Terminating...";
+                    Debug.WriteLine(r);
+                    break;
+                }
+                else
+                {
+                    coverage = Convert.ToDouble(temp_coverage);
+                    weight = (float[])temp_weight.Clone();
+                    string report = "Err: " + Error + "; Iter: " + index + "; Cov: " + coverage + ";";
+                    Debug.WriteLine(report);
+                    Debug.Write(weight);
+                    index++;
+                    SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, null));
+                    //RPworker.ReportProgress(2 * index);
+                }
+            } //END of WHILE LOOP
+
+            this.coverage = coverage;
+            //dosespace = ds;
+            optimized = true;
+        }
+
         private double FindError(float[] weight, float[] w)
         {
             double diff = 0;
             for (int i = 0; i < w.GetLength(0); i++)
             {
-                diff += Math.Pow(Math.Abs((weight[i] - w[i])),2);
+                diff += Math.Pow(Math.Abs((weight[i] - w[i])), 2);
             }
             return Math.Sqrt(diff);
         }
 
-        private float EvalShotWeightIteration(float[,] dosemidplane, float[] ds, PointF pf)
+        private double EvalShotWeightIteration(float[] ds, PointF pf)
         {
-            float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-            //float[,] DDStimesP = GetDDS_Subset(slice, pf.X, pf.Y, dosemidplane);
-            float[,] DDStimesP = DDS_slice;
+            float[,] DStimesP = Matrix.Subset(ds, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
+            float[,] DDStimesP = Matrix.Subset(DDS_slice, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
+            
+            //WriteFloatArray2BMP(DStimesP, String.Concat(s, "_DS.bmp"));
+            //WriteFloatArray2BMP(DDStimesP, String.Concat(s, "_DDS.bmp"));
             float dssum = Matrix.SumAll(DStimesP);
             float ddssum = Matrix.SumAll(DDStimesP);
-            return (float)(ddssum / dssum);            
+            
+            double ratio =  (double)(ddssum / dssum);
+            Debug.Assert(ratio > 0);
+            return ratio;
         }
 
         private float[] ReoptimizeShotWeights(float[] ds)
@@ -450,32 +536,94 @@ namespace TomosurgeryAlpha
             for (int shot = 0; shot < shots.GetLength(0); shot++)
             {
                 PointF pf = shots[shot];
-                //float[,] DStimesP = GetMultiplied_DS_Subset(ds, pf.X, pf.Y, dosemidplane);
-                //float[,] DDStimesP = GetDDS_Subset(slice, pf.X, pf.Y, dosemidplane);
-                float[,] DStimesP = Matrix.Subset(ds, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
-                float[,] DDStimesP = Matrix.Subset(DDS_slice, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
-                string s = "i_" + WhichSlice + "_" + shot;
-                WriteFloatArray2BMP(DStimesP, String.Concat(s, "_DS.bmp"));
-                WriteFloatArray2BMP(DDStimesP, String.Concat(s, "_DDS.bmp"));
-                //float dssum = Matrix.SumAll(Matrix.Normalize(DStimesP));
-                float dssum = Matrix.SumAll(DStimesP);
-                //Debug.Assert(dssum > 0);
-                float ddssum = Matrix.SumAll(DDStimesP);
-                //Debug.Assert(ddssum > 0);
-                float ratio = (float)(ddssum / dssum);
-
-                //double[] temp_r = CompareSlices(DStimesP, DDStimesP, false);
-                //double ratio = temp_r[0];
-                Debug.Assert(ratio > 0);
-                tweight[shot] = (float)(weight[shot] * ratio);
                 
+                //double[] temp_r = CompareSlices(DStimesP, DDStimesP, false); //This was the elaborate rule-based algorithm                
+                double ratio = EvalShotWeightIteration(ds, pf); //This comparison function just adds the DDS and DS and compares for a simple ratio.
+                
+                tweight[shot] = (float)(weight[shot] * ratio); // old weight multiplied by newest ratio.                
                 Debug.WriteLine("Old: " + weight[shot] + " * R: " + ratio + " = New: " + tweight[shot]);
             }
             tweight = Normalize(tweight);
             return tweight;
         }
 
-        
+
+        /// <summary>
+        /// Prepares the DS matrix with the most recent shot weights. Optional normalization value
+        /// to make the max value less than 1 if necessary.
+        /// </summary>
+        /// <param name="ds"></param>
+        /// <param name="weight"></param>
+        /// <param name="NormalizeValue"></param>
+        /// <returns></returns>
+        public float[] PrepareDS(float[] ds, float[] weight, float NormalizeValue)
+        {
+            shots = ReturnSinglePoints();
+            int ds_x; int ds_y;
+            //float[] ds = new float[StructureSet.size * StructureSet.size];
+            //for (int i = 0; i < ds.GetLength(0); i++)
+            //    ds[i] = 0f;
+            int index = 0;
+            //The first two arrays loop through the midplane
+            for (int j = 0; j < doseN; j++)
+                for (int i = 0; i < doseN; i++)
+                {
+                    //This loop calculates the same pixel [i,j] for each shot.
+                    //Parallel.For(0, shots.GetLength(0), k =>
+                    for (int k = 0; k < shots.GetLength(0); k++)
+                    {
+                        //Finds the coordinates relative to dosespace
+                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
+                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
+
+                        //Add the final result
+                        index = ds_x + (StructureSet.size * ds_y);
+                        ds[index] += dosemidplane[i, j] * weight[k];
+
+                    }//);
+                }
+            //ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), NormalizeValue); //Make the highest value equal to 0.6 to allow for more growth.
+            return ds;
+        }
+
+        public float[] ReviseDS(float[] ds, float[] old_weight, float[] recent_weight)
+        {
+            shots = ReturnSinglePoints();
+            int ds_x; int ds_y;
+
+            int index = 0;
+            //The first two arrays loop through the midplane
+            for (int j = 0; j < doseN; j++)
+                for (int i = 0; i < doseN; i++)
+                {
+                    //This loop calculates the same pixel [i,j] for each shot.
+                    //Parallel.For(0, shots.GetLength(0), k =>
+                    for (int k = 0; k < shots.GetLength(0); k++)
+                    {
+                        //Finds the coordinates relative to dosespace
+                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
+                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
+
+                        //Finds appropriate index in ds
+                        index = ds_x + (StructureSet.size * ds_y);
+
+                        /*Each pixel may have dose contributions from multiple shots. Therefore, we cannot apply a global 
+                         * weight change by setting the pixel = to the newest weight. We also cannot simply add the new weight,
+                         * because this wouldn't alter the weight that is already applied. 
+                         * 
+                         * Therefore, the old weighted contribution must be removed (leaving any other dose contributions intact)
+                         * and then the recent weight applied. In other words, only the incremental weight difference is applied (+ or -)*/
+                        ds[index] += (dosemidplane[i, j] * (recent_weight[k] - old_weight[k]));
+                        if (ds[index] < 0)
+                            ds[index] = (dosemidplane[i, j] * recent_weight[k]);
+
+
+
+                    }//);
+                }
+            //ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), NormalizeValue); //Make the highest value equal to 0.6 to allow for more growth.
+            return ds;
+        }
 
         /// <summary>
         /// Method to compare the shot-weighting iteration DStimesP to the desired version, DDStimesP. 
@@ -606,82 +754,6 @@ namespace TomosurgeryAlpha
             }
         }
 
-        /// <summary>
-        /// Prepares the DS matrix with the most recent shot weights. Optional normalization value
-        /// to make the max value less than 1 if necessary.
-        /// </summary>
-        /// <param name="ds"></param>
-        /// <param name="weight"></param>
-        /// <param name="NormalizeValue"></param>
-        /// <returns></returns>
-        public float[] PrepareDS(float[] ds, float[] weight, float NormalizeValue)
-        {
-            shots = ReturnSinglePoints();            
-            int ds_x; int ds_y;
-            //float[] ds = new float[StructureSet.size * StructureSet.size];
-            //for (int i = 0; i < ds.GetLength(0); i++)
-            //    ds[i] = 0f;
-            int index=0;
-            //The first two arrays loop through the midplane
-            for (int j = 0; j < doseN; j++)
-                for (int i = 0; i < doseN; i++)
-                {
-                    //This loop calculates the same pixel [i,j] for each shot.
-                    //Parallel.For(0, shots.GetLength(0), k =>
-                    for (int k = 0; k < shots.GetLength(0); k++)
-                    {
-                        //Finds the coordinates relative to dosespace
-                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
-                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
-
-                        //Add the final result
-                        index = ds_x + (StructureSet.size * ds_y);
-                        ds[index] += dosemidplane[i, j] * weight[k];
-
-                    }//);
-                }
-            //ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), NormalizeValue); //Make the highest value equal to 0.6 to allow for more growth.
-            return ds;
-        }
-
-        public float[] ReviseDS(float[] ds, float[] old_weight, float[] recent_weight)
-        {
-            shots = ReturnSinglePoints();
-            int ds_x; int ds_y;
-            
-            int index = 0;
-            //The first two arrays loop through the midplane
-            for (int j = 0; j < doseN; j++)
-                for (int i = 0; i < doseN; i++)
-                {
-                    //This loop calculates the same pixel [i,j] for each shot.
-                    //Parallel.For(0, shots.GetLength(0), k =>
-                    for (int k = 0; k < shots.GetLength(0); k++)
-                    {
-                        //Finds the coordinates relative to dosespace
-                        ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
-                        ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
-
-                        //Finds appropriate index in ds
-                        index = ds_x + (StructureSet.size * ds_y);
-
-                        /*Each pixel may have dose contributions from multiple shots. Therefore, we cannot apply a global 
-                         * weight change by setting the pixel = to the newest weight. We also cannot simply add the new weight,
-                         * because this wouldn't alter the weight that is already applied. 
-                         * 
-                         * Therefore, the old weighted contribution must be removed (leaving any other dose contributions intact)
-                         * and then the recent weight applied. In other words, only the incremental weight difference is applied (+ or -)*/
-                        ds[index] += (dosemidplane[i, j] * (recent_weight[k] - old_weight[k]));
-                        if (ds[index] < 0)
-                            ds[index] = (dosemidplane[i, j] * recent_weight[k]);
-                        
-                            
-
-                    }//);
-                }
-            //ds = Matrix.ScalarMultiply(Matrix.Normalize(ds), NormalizeValue); //Make the highest value equal to 0.6 to allow for more growth.
-            return ds;
-        }
 
         private void WriteFloatArray2BMP(float[,] temp, string p)
         {
@@ -979,84 +1051,6 @@ namespace TomosurgeryAlpha
             return new double[4]{tumor, isovolume, both, uncovered};
         }
         #endregion
-        
-        /// <summary>
-        /// Called from RPworker, which is called from within a slice loop in PathSet. 
-        /// This method comprises the meat of Step 1 (shot-based) optimization, which
-        /// finds shot weights within a single slice. Writes final result to the float[] ds matrix
-        /// and calculates coverage too.
-        /// </summary>        
-        public void OptimizeShotWeights()
-        {
-            shots = ReturnSinglePoints();
-            double Error = 1000; double coverage = 1;
-            int index = 0;
-            float[] temp_weight = new float[weight.GetLength(0)];
-            weight = InitWeightArray(1, 0.7f);       
-            float[] ds = new float[slice.GetLength(0)*slice.GetLength(1)];
-            for (int i = 0; i < ds.GetLength(0); i++)
-                ds[i] = 0.0f;
-            dosemidplane = Matrix.Normalize(dosemidplane);
-            ds = PrepareDS(ds, weight, 1.0f);
-            ds = Normalize(ds);
-           
-            double[] m = CalculateIterationCoverage(ds, 0.5f); //TODO: Take this out.            
-            WriteFloatArray2BMP(ds, "starting_ds.bmp");
-            double old_error;
-            while (Error >= .01 && index < 25)
-            {
-                WriteFloatArray2BMP(ds, string.Concat(index, "_ds.bmp"));
-                temp_weight = ReoptimizeShotWeights(ds);
-                old_error = Convert.ToDouble(Error);
-                Error = FindError(weight, temp_weight);
-                
-                Debug.Assert(ds.Max() > 0);                
-                Debug.Assert(temp_weight.Max() > 0);
-
-                ds = ReviseDS(ds, weight, temp_weight);
-                ds = Normalize(ds);
-                
-                double[] measurements = CalculateIterationCoverage(ds, 0.5f);
-                //1st value = tumor voxel total
-                //2nd value = isovolume voxel total
-                //3rd value = both tumor & >iso voxel total
-                //4th value = pixels underdosed
-                
-                double temp_coverage = measurements[2] / measurements[0];
-                
-                //TODO: Take this out (below)
-                double isovol_tumor_ratio = measurements[1] / measurements[0];
-                WriteFloatArray2BMP(slice, string.Concat(index, "_slice.bmp"));
-                WriteFloatArray2BMP(ds, string.Concat(index, "_ds.bmp"));
-
-                if (index > 2 && temp_coverage < coverage) //Old version was index > 1 && cov < coverage
-                {
-                    string r = "CAUTION: Coverage is Decreasing!!! " + temp_coverage + " --> " + coverage;
-                    Debug.WriteLine(r);
-                }
-                if (index > 10 && old_error < Error)
-                {
-                    string r = "WARNING: Error is increasing (" + old_error + " --> " + Error + "). Terminating...";
-                    Debug.WriteLine(r);
-                    break;
-                }
-                else
-                {
-                    coverage = Convert.ToDouble(temp_coverage);
-                    weight = (float[])temp_weight.Clone();
-                    string report = "Err: " + Error + "; Iter: " + index + "; Cov: " + coverage + ";";
-                    Debug.WriteLine(report);
-                    Debug.Write(weight);
-                    index++;
-                    SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, null));
-                    //RPworker.ReportProgress(2 * index);
-                }
-            } //END of WHILE LOOP
-           
-            this.coverage = coverage;
-            //dosespace = ds;
-            optimized = true;
-        }
         
         /// <summary>
         /// Create a Slice struct unique to this slice that contains info

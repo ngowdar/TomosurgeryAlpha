@@ -39,5 +39,7 @@ __global    float * start_z
  }
 
 ";
+
+ 
     }
 }
