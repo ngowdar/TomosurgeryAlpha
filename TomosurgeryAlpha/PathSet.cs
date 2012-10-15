@@ -86,6 +86,7 @@ namespace TomosurgeryAlpha
             for (int i = 0; i < NumSlices; i++)
             {
                 RasterPath rp = new RasterPath(CompressSection(f, SlicePositions[i], SliceThickness / 2));
+                rp.WhichSlice = i;
                 RasterPaths.Add(rp);
             }            
             volume = f;
@@ -484,7 +485,7 @@ namespace TomosurgeryAlpha
 
         private double[] ReOptimizeSliceWeights(float[][,] dds)
         {
-           double[] tweight = Normalize(SliceWeights);
+           double[] tweight = (double[])Normalize(SliceWeights).Clone();
            int count = 0;
 
            Parallel.For(0, NumSlices, (s) =>
@@ -542,17 +543,29 @@ namespace TomosurgeryAlpha
         {
             double total_tally = 0;           
             double ratio = 0;
+            double LesionVol = 0;
+            double TotalRx = 0;
+            double LesionRx = 0;
+            double underdosed = 0;
+            double overdosed = 0;
             Parallel.For(0, DoseCalculationThickness, (k) =>
                 {
-                    total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
+                    //total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
+                    double[] d = RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
+                    LesionVol += d[0];
+                    TotalRx += d[1];
+                    LesionRx += d[2];
+                    underdosed += d[3];
+                    overdosed += d[4];
                 });            
 
-            if (total_tally <= 0)
-            {
-                ratio = ((total_tally * (-1)) / (double)(ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness));
-            }
-            else if (total_tally > 0)
-                ratio = (double)(1 + (total_tally / (ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness)));
+            //if (total_tally <= 0)
+            //{
+            //    ratio = ((total_tally * (-1)) / (double)(ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness));
+            //}
+            //else if (total_tally > 0)
+            //    ratio = (double)(1 + (total_tally / (ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness)));
+            ratio = (LesionVol + underdosed) / (TotalRx + overdosed);
 
             return ratio;
         }

@@ -384,18 +384,18 @@ namespace TomosurgeryAlpha
 
         internal static float[,] Subset(float[,] A, int centerx, int centery, int subsetsize)
         {
-            float[,] Window = new float[subsetsize, subsetsize];
-            int halfwindow = (subsetsize - 1) / 2;
+            float[,] Window;
+            int halfwindow = (subsetsize / 2);
             int startx = centerx - halfwindow; int starty = centery - halfwindow;
             int endx = centerx + halfwindow; int endy = centery + halfwindow;
             bool xfits = false; bool yfits = false;
 
             if (endx >= A.GetLength(0))
             {
-                endx = (Window.GetLength(0) - 1);
+                endx = A.GetLength(0)-1;
                 xfits = false;
             }
-            else if (endx < Window.GetLength(0))
+            else if (endx < A.GetLength(0))
             { xfits = true; }
 
             if (startx < 0)
@@ -408,10 +408,10 @@ namespace TomosurgeryAlpha
 
             if (endy >= A.GetLength(1))
             {
-                endy = (Window.GetLength(1) - 1);
+                endy = (A.GetLength(1) - 1);
                 yfits = false;
             }
-            else if (endy < Window.GetLength(1))
+            else if (endy < A.GetLength(1))
             { yfits = true; }
 
             if (starty < 0)
@@ -421,11 +421,13 @@ namespace TomosurgeryAlpha
             }
             else if (starty >= 0)
                 yfits = true;
-            Parallel.For(0, Window.GetLength(1), (j) =>
-            {
-                for (int i = 0; i < subsetsize; i++)
-                    Window[i, j] = A[i+startx,j+starty];
-            }); 
+
+            Window = new float[endx - startx, endy - starty];
+            //Parallel.For(0, Window.GetLength(1), (j) =>
+            //{
+            //    for (int i = 0; i < subsetsize; i++)
+            //        Window[i, j] = A[i+startx,j+starty];
+            //}); 
 
             Parallel.For(0, endy - starty, (j) =>
                 {
@@ -437,19 +439,19 @@ namespace TomosurgeryAlpha
 
         internal static float[,] Subset(float[] A, int centerx, int centery, int subsetsize)
         {
-            float[,] Window = new float[subsetsize, subsetsize];
+            float[,] Window;
             int Asize = (int)Math.Sqrt(A.GetLength(0));
-            int halfwindow = (subsetsize - 1) / 2;
+            int halfwindow = (subsetsize / 2);
             int startx = centerx - halfwindow; int starty = centery - halfwindow;
             int endx = centerx + halfwindow; int endy = centery + halfwindow;
             bool xfits = false; bool yfits = false;
 
             if (endx >= Asize)
             {
-                endx = (Window.GetLength(0) - 1);
+                endx = (Asize - 1);
                 xfits = false;
             }
-            else if (endx < Window.GetLength(0))
+            else if (endx < Asize)
             { xfits = true; }
 
             if (startx < 0)
@@ -462,10 +464,10 @@ namespace TomosurgeryAlpha
 
             if (endy >= Asize)
             {
-                endy = (Window.GetLength(1) - 1);
+                endy = (Asize - 1);
                 yfits = false;
             }
-            else if (endy < Window.GetLength(1))
+            else if (endy < Asize)
             { yfits = true; }
 
             if (starty < 0)
@@ -475,12 +477,12 @@ namespace TomosurgeryAlpha
             }
             else if (starty >= 0)
                 yfits = true;
-            Parallel.For(0, Window.GetLength(1), (j) =>
-            {
-                for (int i = 0; i < subsetsize; i++)
-                    Window[i, j] = A[i + startx + (j + starty)*Asize];
-            });
-
+            //Parallel.For(0, Window.GetLength(1), (j) =>
+            //{
+            //    for (int i = 0; i < subsetsize; i++)
+            //        Window[i, j] = A[i + startx + (j + starty)*Asize];
+            //});
+            Window = new float[endx - startx, endy - starty];
             Parallel.For(0, endy - starty, (j) =>
             {
                 for (int i = 0; i < endx - startx; i++)

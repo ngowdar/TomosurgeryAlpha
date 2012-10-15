@@ -643,11 +643,12 @@ namespace TomosurgeryAlpha
         }
 
         private void DisplayWindowCenteredAboutPoint(float[,] img, PointF p)
-        {   
-            int startx = (int)p.X - (N - 1) / 2;
-            int starty = (int)p.Y - (N - 1) / 2;
-            int endx = (int)p.X + (N - 1) / 2;
-            int endy = (int)p.Y + (N - 1) / 2;
+        {
+            int imgsize = img.GetLength(0);
+            int startx = (int)p.X - (imgsize / 2);
+            int starty = (int)p.Y - (imgsize / 2);
+            int endx = (int)p.X + (imgsize / 2);
+            int endy = (int)p.Y + (imgsize / 2);
 
             if (startx < 0)
                 startx = 0;
@@ -809,9 +810,12 @@ namespace TomosurgeryAlpha
         private void DisplaySingleShotDS(PointF p)
         {
             RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
-            float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
-            f = Matrix.Normalize(f);
-            DisplayWindowCenteredAboutPoint(f, p);
+            //float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
+            float[,] f = Matrix.Subset(rp.dosespace, (int)p.X, (int)p.Y, N);
+            //f = Matrix.Normalize(f);
+            //DisplayWindowCenteredAboutPoint(f, p);
+            Display2DFloat(f);
+
             
         }
         #endregion

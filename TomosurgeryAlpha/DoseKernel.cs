@@ -281,7 +281,7 @@ namespace TomosurgeryAlpha
                         z += dose[k][j * N + i];
                     dmp[i, j] = z;
                 }
-            RasterPath.dosemidplane = dmp;
+            RasterPath.dosemidplane = Matrix.Normalize(dmp);
         }
 
     }
