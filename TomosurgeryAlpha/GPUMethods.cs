@@ -60,13 +60,14 @@ namespace TomosurgeryAlpha
         }
         private static float[][,] BackTo3D(float[] result_linear, int size, int size2, int size3)
         {
-            float[][,] result = new float[size3][,];
-            for (int k = 0; k < size3; k++)
+            int z = result_linear.GetLength(0) / (size*size2);
+            float[][,] result = new float[z][,];
+            for (int k = 0; k < z; k++)
             {
                 float[,] slice = new float[size, size2];
                 for (int j = 0; j < size2; j++)
                     for (int i = 0; i < size; i++)
-                        slice[i, j] = result_linear[k*size*size2+ j * size + i];
+                        slice[i, j] = result_linear[(k * size * size2) + (j * size) + i];
                 result[k] = slice;
             }
             
@@ -138,52 +139,50 @@ namespace TomosurgeryAlpha
             }
 
         }
-        
-        public static float[][,] AddToDoseSpace(float[] slicedose, float[][,] output_ds, int which_z, float weight)
-        {
-            //int TranslateZBy = SlicePositions[which_slice] - (DoseCalculationThickness / 2); // <- NEED TO CHANGE APPROPRIATELY
-            //int startz = SlicePositions[which_slice] - DoseCalculationThickness/2;
 
-            //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
-            //Then change slicethickness in for loop limit to another variable based on size.
-            //Parallel.For(0, DoseCalculationThickness, (z) =>
-            //{
-            //    int current_z = which_z + z;
-            //    if (output_ds[current_z] == null)
-            //        output_ds[current_z] = Matrix.Zeroes(volume[0].GetLength(0), volume[0].GetLength(1));
-            //    output_ds[current_z] = Matrix.Add(output_ds[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));
-            //});
+       
 
+
+        public static float[][,] PrepareDoseSpace(float[] output_ds, int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
+        {            
+            float[] slicedose;
+            string filename = "";
             if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.Unknown)
                 CLCalc.InitCL();
             if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.UsingCL)
             {
                 CL_Sourcecode src = new CL_Sourcecode();
-                CLCalc.Program.Compile(new string[] { src.Add3DFloat }); //puts the code into the kernel
-                CLCalc.Program.Kernel Add_kernel = new CLCalc.Program.Kernel("Add");
+                CLCalc.Program.Compile(new string[] { src.AddSliceDose2DoseSpace }); //puts the code into the kernel
 
+                for (int s = 0; s < SlicePositions.GetLength(0); s++)
+                {
+                    //TODO: put in loop for grabbing the slicedose, including folder path.
+                    filename = String.Concat("slice_", s);
+                    string path = System.IO.Path.Combine(folderpath, filename);
+                    slicedose = Matrix.Normalize(PathSet.ReadSliceDoseFromFile(path));
 
-                //Convert parameter variables into 1D arrays
-                float[] A_linear = ConvertTo1D(output_ds);
-                float[] size = new float[3] { output_ds[0].GetLength(0), output_ds[0].GetLength(1), output_ds.GetLength(0) };
-                float[] which_z_linear = new float[1] { which_z };
-                float[] weight_linear = new float[1] { weight };
-                //float[] result_linear = (float[])A_linear.Clone();
+                    //TODO: put in the incremental weight (or do it twice)
+                        //Just make a new weight array that is the difference (recent - old)
+                    CLCalc.Program.Kernel AddSliceDose_kernel = new CLCalc.Program.Kernel("AddSliceDose2DoseSpace");
+                    
+                    //Convert parameter variables into 1D arrays                 
+                    float position = (float)SlicePositions[s] - (DCT / 2);                    
+                    float[] param = new float[4] { position, (float)weights[s], size[0], s };                    
 
-                //Add variables to the OpenCL program
-                CLCalc.Program.Variable dev_A_matrix = new CLCalc.Program.Variable(A_linear);
-                CLCalc.Program.Variable dev_slicedose = new CLCalc.Program.Variable(slicedose);
-                CLCalc.Program.Variable dev_weight = new CLCalc.Program.Variable(weight_linear);
-                CLCalc.Program.Variable dev_size = new CLCalc.Program.Variable(size);
-                CLCalc.Program.Variable dev_whichz = new CLCalc.Program.Variable(which_z_linear);
-                //CLCalc.Program.Variable dev_result = new CLCalc.Program.Variable(result_linear);
-                CLCalc.Program.Variable[] args = new CLCalc.Program.Variable[5] { dev_A_matrix, dev_slicedose, dev_weight, dev_size, dev_whichz };
+                    //Add variables to the OpenCL program
+                    CLCalc.Program.Variable dev_wDS = new CLCalc.Program.Variable(output_ds);
+                    CLCalc.Program.Variable dev_slicedose = new CLCalc.Program.Variable(slicedose);                    
+                    CLCalc.Program.Variable dev_params = new CLCalc.Program.Variable(param);
+                    
+                    //CLCalc.Program.Variable dev_result = new CLCalc.Program.Variable(result_linear);
+                    CLCalc.Program.Variable[] args = new CLCalc.Program.Variable[3] { dev_wDS, dev_slicedose, dev_params};
 
-                //Run the program
-                if (Add_kernel != null)
-                    Add_kernel.Execute(args, slicedose.GetLength(0));
-                dev_A_matrix.ReadFromDeviceTo(A_linear);
-                return BackTo3D(A_linear, (int)size[0],(int)size[1],(int)size[2]);
+                    //Run the program
+                    if (AddSliceDose_kernel != null)
+                        AddSliceDose_kernel.Execute(args, slicedose.GetLength(0));
+                    dev_wDS.ReadFromDeviceTo(output_ds);                    
+                }
+                return BackTo3D(output_ds, size[0], size[1], size[2]);
             }
             else
             {

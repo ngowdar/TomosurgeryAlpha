@@ -40,6 +40,23 @@ __global    float * start_z
 
 ";
 
- 
+        public string AddSliceDose2DoseSpace = @"
+__kernel void
+AddSliceDose2DoseSpace(
+__global	float * weightedDS,
+__global	float * slicedose,
+__global    float * params)
+ {
+ 	//Vector element index, number of workers = slicedose size.
+ 	int id = get_global_id(0); 	
+    int startz = (int)params[0];
+    float weight = params[1];
+    int size = (int)params[2];
+    int slicenum = (int)params[3];
+ 	
+ 	
+    weightedDS[(startz*size*size)+id] += slicedose[id]*weight;
+  }
+";
     }
 }

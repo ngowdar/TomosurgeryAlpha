@@ -49,7 +49,7 @@ namespace TomosurgeryAlpha
         public static float[,] mask;
         public static int RasterWidth;
         public static int StepSize;
-        public static int ComparisonKernelSize = 30;
+        public static int ComparisonKernelSize =30;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -789,6 +789,8 @@ namespace TomosurgeryAlpha
 
         public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
         {
+            Stopwatch s = new Stopwatch();
+            s.Start();
             PointF[] startingpoints = GetStartingPoints(shots);
             N = dk.DKI.Size;
             int xsize = slice.GetLength(0); int ysize = slice.GetLength(1);
@@ -815,10 +817,13 @@ namespace TomosurgeryAlpha
                                         slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
                                 }
                             });
-                });           
-                                         
+                });
+            s.Stop(); Debug.WriteLine("Calculate and save doses takes: " + s.ElapsedMilliseconds);
+            s.Reset(); s.Start();
             //float f = dk.ReturnSpecificDoseValue(80, 80, 80);
             WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
+            s.Stop(); Debug.WriteLine("WriteToFile() takes: " + s.ElapsedMilliseconds);
+
         }
 
         public PointF FindFirstExistingDosePixel(PointF shot)
