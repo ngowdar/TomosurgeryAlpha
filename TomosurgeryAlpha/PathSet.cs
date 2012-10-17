@@ -36,7 +36,7 @@ namespace TomosurgeryAlpha
         public static float ToleranceDose = 0.1f;
         public static float RxDose = 0.5f;
         public static float CSdose = 0.05f;
-        public int NumSlices; //Set in step 1
+        public static int NumSlices; //Set in step 1
         public int TumorVolCount;
         public int CSvolCount;
         public ArrayList RasterPaths; //Collection of objects representing each slice
@@ -96,8 +96,8 @@ namespace TomosurgeryAlpha
         }
         public PathSet(string dosespace_path)
         {
-            DoseSpace = ReadDoseSpaceFromFile(dosespace_path);
-            
+            int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1); int z = DoseSpace.GetLength(0);
+            DoseSpace = GPU.BackTo3D(ReadDoseSpaceFromFile(dosespace_path),x,y,z);            
         }
         private void AttachHandlers()
         {
@@ -493,8 +493,8 @@ namespace TomosurgeryAlpha
 
         private void ReviseWeighted_DS(double[] recent_weights, double[] old_weights, string folderpath)
         {
-           // if (GPU.GPUenabled)
-            ////{
+           if (GPU.GPUenabled)
+            {
                 Stopwatch gputimer = new Stopwatch();
                 gputimer.Start();
                 int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1); int z = DoseSpace.GetLength(0);
@@ -506,18 +506,18 @@ namespace TomosurgeryAlpha
                 gputimer.Stop();
                 Debug.WriteLine("ReviseWeighted_DS takes " + gputimer.Elapsed);
                 //TODO: Uncoment below==============
-            //}
-            //else
-            //{
-            //    Parallel.For(0, NumSlices, (s) =>
-            //    {
-            //        float[] slicedose = LoadSliceDose(s, folderpath);
-            //        //Debug.WriteLine(slicedose.Sum());
-            //        //slicedose = Matrix.ScalarMultiply(slicedose, (float)(recent_weights[s]-old_weights[s]));
-            //        DoseSpace = ReviseSliceWeightContribution(slicedose, old_weights[s], recent_weights[s], s); //TODO: Make a method that subtracts the old_weight contribuiton and adds the new one.
-            //        //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
-            //    });
-            //}
+            }
+           else
+           {
+               Parallel.For(0, NumSlices, (s) =>
+               {
+                   float[] slicedose = LoadSliceDose(s, folderpath);
+                   //Debug.WriteLine(slicedose.Sum());
+                   //slicedose = Matrix.ScalarMultiply(slicedose, (float)(recent_weights[s]-old_weights[s]));
+                   DoseSpace = ReviseSliceWeightContribution(slicedose, old_weights[s], recent_weights[s], s); //TODO: Make a method that subtracts the old_weight contribuiton and adds the new one.
+                   //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
+               });
+           }
                 //==========================================
         }
 
@@ -566,19 +566,31 @@ namespace TomosurgeryAlpha
 
         private float[][,] PrepareWeighted_DS_Dynamic(double[] SliceWeights, float[][,] ods)
         {
-            Parallel.For(0, NumSlices, (z) =>
+            if (GPU.GPUenabled)
+            {
+                for (int z = 0; z < NumSlices; z++)
                 {
                     int startz = FindStartZ(z);
                     int endz = FindEndZ(startz);
                     for (int k = 0; k < DoseCalculationThickness; k++)
                     {
-                        if (GPU.GPUenabled)                        
-                            ods[k + startz] = Matrix.Add(ods[k+startz], GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
-                        else
-                            ods[k + startz] = Matrix.Add(ods[k+startz], Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
+                        ods[k + startz] = Matrix.Add(ods[k + startz], GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
                     }
-                            
-                });
+                }
+            }
+            else
+            {
+                Parallel.For(0, NumSlices, (z) =>
+                    {
+                        int startz = FindStartZ(z);
+                        int endz = FindEndZ(startz);
+                        for (int k = 0; k < DoseCalculationThickness; k++)
+                        {
+                            ods[k + startz] = Matrix.Add(ods[k + startz], Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
+                        }
+
+                    });
+            }
             return ods;
         }
 
@@ -625,30 +637,14 @@ namespace TomosurgeryAlpha
         {
             double ds_sum = 0;
             double dds_sum = 0;
-            if (GPU.GPUenabled) //TODO: Write GPU SumAll method.
-            {
-                for (int k = 0; k < (endz - startz); k++)
+
+            Parallel.For(0, endz - startz, (i) =>
                 {
-                    //float[,] ds_slice = DoseSpace[i + startz];
-                    //float[,] dds_slice = dds[i + startz];
-                    //ds_sum += GPU.SumAll(ds_slice);
-                    //dds_sum += GPU.SumAll(dds_slice);
-                    float[,] ds_slice = DoseSpace[k + startz];
-                    float[,] dds_slice = dds[k + startz];
+                    float[,] ds_slice = DoseSpace[i + startz];
+                    float[,] dds_slice = dds[i + startz];
                     ds_sum += Matrix.SumAll(ds_slice);
                     dds_sum += Matrix.SumAll(dds_slice);
-                }
-            }
-            else
-            {
-                Parallel.For(0, endz - startz, (i) =>
-                    {
-                        float[,] ds_slice = DoseSpace[i + startz];
-                        float[,] dds_slice = dds[i + startz];
-                        ds_sum += Matrix.SumAll(ds_slice);
-                        dds_sum += Matrix.SumAll(dds_slice);
-                    });
-            }
+                });
             return (double)(dds_sum / ds_sum);
         }
 
@@ -749,18 +745,22 @@ namespace TomosurgeryAlpha
         private float[][,] PrepareWeighted_DS(double[] weights, string subfolder, float[][,] DDS)
         {
             float[][,] weighted_slicedoses = new float[DoseSpace.GetLength(0)][,];
+            float[][,] GPUsd = new float[DoseSpace.GetLength(0)][,];
             int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
             int z = DoseSpace.GetLength(0);
             for (int k = 0; k < weighted_slicedoses.GetLength(0); k++)
                 weighted_slicedoses[k] = Matrix.Zeroes(x,y);
-
+            PathSet.DCT = DoseCalculationThickness;
             //if (GPU.GPUenabled)
             //{
                 Stopwatch gputime = new Stopwatch();
                 gputime.Start();
                 float[] wSD = new float[x * y * z];
+                for (int i = 0; i < wSD.GetLength(0); i++)
+                    wSD[i] = 0.0f;
                 
-                weighted_slicedoses = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DoseCalculationThickness, subfolder);
+                //wSD = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DoseCalculationThickness, subfolder);
+                wSD = GPU.WeightOriginalDS(SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
                 gputime.Stop();
                 Debug.WriteLine("GPU PrepareWeighted_DS time: " + gputime.Elapsed);
                 //return weighted_slicedoses;
@@ -790,6 +790,8 @@ namespace TomosurgeryAlpha
                 //slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
                 //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
                 cputimer.Stop(); Debug.WriteLine("CPU time for PrepareWeightedDS: " + cputimer.Elapsed);
+                Debug.WriteLine("CPU_sum: " + Matrix.SumAll(weighted_slicedoses));
+                Debug.WriteLine("GPU_sum: " + wSD.Sum());
                 return weighted_slicedoses;
             //}
         }
@@ -1115,9 +1117,9 @@ namespace TomosurgeryAlpha
         /// when given a path.
         /// </summary>
         /// <param name="path"></param>
-        public float[][,] ReadDoseSpaceFromFile(string filename)
+        public static float[] ReadDoseSpaceFromFile(string filename)
         {
-            float[][,] ds;
+            float[] ds;
             string subfolder = ActiveDirectory;
             string path = System.IO.Path.Combine(subfolder, filename);
             using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
@@ -1128,14 +1130,10 @@ namespace TomosurgeryAlpha
                 br.ReadLine();
                 NumSlices = Convert.ToInt16(br.ReadLine());
                 br.ReadLine();
-                ds = new float[z][,];
-                for (int k = 0; k < z; k++)
-                {
-                    float[,] slice = new float[x, y];
-                    for (int j = 0; j < y; j++)
-                        for (int i = 0; i < x; i++)
-                            slice[i, j] = Convert.ToSingle(br.ReadLine());
-                    ds[k] = slice;
+                ds = new float[z*x*y];
+                for (int k = 0; k < ds.GetLength(0); k++)
+                {   
+                    ds[k] = Convert.ToSingle(br.ReadLine());                    
                 }
             }
             return ds;

@@ -58,7 +58,7 @@ namespace TomosurgeryAlpha
                     result[i, j] = result_linear[j * size + i];
             return result;
         }
-        private static float[][,] BackTo3D(float[] result_linear, int size, int size2, int size3)
+        public static float[][,] BackTo3D(float[] result_linear, int size, int size2, int size3)
         {
             int z = result_linear.GetLength(0) / (size*size2);
             float[][,] result = new float[z][,];
@@ -83,7 +83,7 @@ namespace TomosurgeryAlpha
                     result[j * size + i] = (float)A[i, j];
             return result;
         }
-        private static float[] ConvertTo1D(float[][,] A)
+        public static float[] ConvertTo1D(float[][,] A)
         {
             int size = A[0].GetLength(0); int size2 = A[0].GetLength(1); int size3 = A.GetLength(0);
             float[] result = new float[size * size2 * size3];
@@ -140,10 +140,56 @@ namespace TomosurgeryAlpha
 
         }
 
-       
+        public static float[] WeightOriginalDS(int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
+        {
+            
+            string filename = "OriginalDS.txt";
+            string path = System.IO.Path.Combine(folderpath, filename);
+            float[] originalds = Matrix.Normalize(PathSet.ReadDoseSpaceFromFile(path));
+            Debug.WriteLine("oDS sum: " + originalds.Sum());
+            Debug.WriteLine("oDS sum normalized: " + Matrix.Normalize(originalds).Sum());
+            float[] wDS = new float[originalds.GetLength(0)];
+
+            if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.Unknown)
+                CLCalc.InitCL();
+            if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.UsingCL)
+            {
+                CL_Sourcecode src = new CL_Sourcecode();
+                CLCalc.Program.Compile(new string[] { src.WeightOriginalDS }); //puts the code into the kernel               
+                CLCalc.Program.Kernel AddSliceDose_kernel = new CLCalc.Program.Kernel("AddWeight2OriginalDS");
+
+                //Convert parameter variables into 1D arrays 
+                float[] positions = new float[SlicePositions.GetLength(0)];
+                float[] w = new float[SlicePositions.GetLength(0)];
+                for (int n = 0; n < SlicePositions.GetLength(0); n++)
+                {
+                    positions[n] = (float)SlicePositions[n];
+                    w[n] = (float)weights[n];
+                }                
+                float[] param = new float[3] { SlicePositions.GetLength(0), size[0], PathSet.DCT };
+
+                //Add variables to the OpenCL program
+                CLCalc.Program.Variable dev_wDS = new CLCalc.Program.Variable(wDS);
+                CLCalc.Program.Variable dev_oDS = new CLCalc.Program.Variable(originalds);
+                CLCalc.Program.Variable dev_positions = new CLCalc.Program.Variable(positions);
+                CLCalc.Program.Variable dev_weights = new CLCalc.Program.Variable(w);
+                CLCalc.Program.Variable dev_param = new CLCalc.Program.Variable(param);
+
+                //CLCalc.Program.Variable dev_result = new CLCalc.Program.Variable(result_linear);
+                CLCalc.Program.Variable[] args = new CLCalc.Program.Variable[5] { dev_wDS, dev_oDS, dev_positions, dev_weights, dev_param };
+
+                //Run the program
+                if (AddSliceDose_kernel != null)
+                    AddSliceDose_kernel.Execute(args, new int[2]{PathSet.DCT, size[0]});
+                dev_wDS.ReadFromDeviceTo(wDS);
+            }     
+            return wDS;
+            
+
+        }
 
 
-        public static float[][,] PrepareDoseSpace(float[] output_ds, int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
+        public static float[] PrepareDoseSpace(float[] output_ds, int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
         {            
             float[] slicedose;
             string filename = "";
@@ -156,13 +202,13 @@ namespace TomosurgeryAlpha
 
                 for (int s = 0; s < SlicePositions.GetLength(0); s++)
                 {
-                    //TODO: put in loop for grabbing the slicedose, including folder path.
+                    
                     filename = String.Concat("slice_", s);
                     string path = System.IO.Path.Combine(folderpath, filename);
                     slicedose = Matrix.Normalize(PathSet.ReadSliceDoseFromFile(path));
 
-                    //TODO: put in the incremental weight (or do it twice)
-                        //Just make a new weight array that is the difference (recent - old)
+                    
+                    
                     CLCalc.Program.Kernel AddSliceDose_kernel = new CLCalc.Program.Kernel("AddSliceDose2DoseSpace");
                     
                     //Convert parameter variables into 1D arrays                 
@@ -182,7 +228,7 @@ namespace TomosurgeryAlpha
                         AddSliceDose_kernel.Execute(args, slicedose.GetLength(0));
                     dev_wDS.ReadFromDeviceTo(output_ds);                    
                 }
-                return BackTo3D(output_ds, size[0], size[1], size[2]);
+                return output_ds;
             }
             else
             {

@@ -58,5 +58,44 @@ __global    float * params)
     weightedDS[(startz*size*size)+id] += slicedose[id]*weight;
   }
 ";
+        //NOT FINISHED YET.
+        public string WeightOriginalDS = @"
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+
+__kernel void
+AddWeight2OriginalDS(
+__global    float * wDS,
+__global    float * originalDS,
+__global    float * positions,
+__global    float * weights,
+__global    float * params) //size, dosecalculationthickness
+ {
+ 	//Vector element index, number of workers = slicedose size.
+ 	int id_z = get_global_id(0); 	//represents which slice of size:dosecalculationthickness
+    int id_x= get_global_id(1); //represents one row of 241 elements
+    int startz;
+    float weight;
+    int index;
+    int numslices = (int)params[0];
+    int size = (int)params[1];
+    int dosecalcthick = (int)params[2];
+ 	
+ 	//Loop through slices, and then loop through the length of one slicedose array
+    for (int s = 0; s < numslices; s++)
+    {
+        startz = positions[s] - (dosecalcthick / 2);
+        weight = weights[s];
+        index = ((startz+id_z)*size*size) + (id_x*size);
+
+//each worker handles a single row (241 elements), 
+for (int x = 0; x < size; x++)
+{
+        wDS[index+x] += weight*originalDS[index+x];
+}
+        
+    }    
+  }
+";
     }
 }

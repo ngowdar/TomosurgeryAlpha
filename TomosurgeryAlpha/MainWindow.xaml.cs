@@ -905,7 +905,7 @@ namespace TomosurgeryAlpha
                 if (PS != null)
                 {
                     slider2.Minimum = 0;
-                    slider2.Maximum = PS.NumSlices - 1;
+                    slider2.Maximum = PathSet.NumSlices - 1;
                     DisplayPlan();
                 }
             }
@@ -1091,7 +1091,7 @@ namespace TomosurgeryAlpha
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
                slider2.Minimum = 0;
-               slider2.Maximum = PS.NumSlices - 1;
+               slider2.Maximum = PathSet.NumSlices - 1;
                if (DK != null)
                    PS.DK = DK;
                if (SS != null)
@@ -1411,7 +1411,7 @@ namespace TomosurgeryAlpha
         {
             if (HasPreviewBeenCreated)
             {
-                for (int i = 0; i < PS.NumSlices; i++)
+                for (int i = 0; i < PathSet.NumSlices; i++)
                     ((RasterPath)PS.RasterPaths[i]).Calculate2DDoseSpace(DK.midplane);                                
             }
             else
