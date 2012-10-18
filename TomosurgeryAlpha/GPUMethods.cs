@@ -60,8 +60,12 @@ namespace TomosurgeryAlpha
         }
         public static float[][,] BackTo3D(float[] result_linear, int size, int size2, int size3)
         {
-            int z = result_linear.GetLength(0) / (size*size2);
+            int z = result_linear.GetLength(0) / (size*size2);            
+                
             float[][,] result = new float[z][,];
+            for (int i = 0; i < z; i++)
+                result[i] = Matrix.Zeroes(size, size2);
+
             for (int k = 0; k < z; k++)
             {
                 float[,] slice = new float[size, size2];

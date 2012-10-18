@@ -101,6 +101,78 @@ namespace TomosurgeryAlpha
             DDS_imgbox.MouseLeftButtonDown += new MouseButtonEventHandler(DDS_imgbox_MouseLeftButtonDown);
             DDS_imgbox.MouseRightButtonDown += new MouseButtonEventHandler(DDS_imgbox_MouseRightButtonDown);
         }
+
+        public void LOAD_CONFIG_FILE(string path)
+        {
+            /* STANDARD CONFIG FORMAT
+             * 
+             * This is the line order:
+             * ===========================
+             * tumorpath
+             * headerpath
+             * shotsize (this is a number: 4, 8, 16)
+             * rasterwidth
+             * stepsize
+             * slicethickness
+             * dosecalculationthickness
+             * workingdirectory
+             * 
+             */
+            string tumorpath;
+            string headerpath;
+            int which_size;
+            string rasterwidth;
+            string stepsize;
+            string slicethickness;
+            int dosecalculationthickness;
+            string workdir;
+
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            using (StreamReader br = new StreamReader(fs))
+            {
+                tumorpath = br.ReadLine();
+                headerpath = br.ReadLine();
+                which_size = Convert.ToInt16(br.ReadLine());
+                rasterwidth = br.ReadLine();
+                stepsize = br.ReadLine();
+                slicethickness = br.ReadLine();
+                dosecalculationthickness = Convert.ToInt16(br.ReadLine());
+                workdir = br.ReadLine();
+            }
+            txt_rasterwidth.Text = rasterwidth;
+            txt_slicethickness.Text = slicethickness;
+            txt_stepsize.Text = stepsize;
+            PathSet.DCT = dosecalculationthickness;
+            
+
+            
+            //SET WORKING DIRECTORY
+            SetWorkingDirectory(workdir);
+
+            //LOAD DOSE KERNEL
+            if (which_size == 4)
+                Load4mmDefault();
+            else
+            {
+                MessageBox.Show("You haven't created the Load8mmDefault and Load16mmDefault functions yet. Using 4mm for now");
+                Load4mmDefault();
+            }            
+
+            //LOAD STRUCTURE
+            SS = new StructureSet(headerpath, tumorpath);
+            if (SS.f_structurearray != null)
+            {
+                IsSSLoaded = true;
+                slider2.Minimum = 0;
+                slider2.Maximum = SS.f_structurearray.GetLength(0);
+                tabControl1.SelectedIndex = 1;
+                slider2.Value = (int)(SS.f_structurearray.GetLength(0) / 2);
+                DisplayStructure(SS.f_structurearray.GetLength(0) / 2);
+                AddStructureLoadedToListBox();
+                Plan_btn.IsEnabled = true;
+            }            
+        }
+
         public int GetCurrentSlice()
         {
             int value;
@@ -465,27 +537,27 @@ namespace TomosurgeryAlpha
                 dp = true;
             }
             //float max = img.Max();
-            int size = (int)Math.Sqrt(img.GetLength(0));
+            int sizex = StructureSet.BIG_dim[0]; int sizey = StructureSet.BIG_dim[1];
             Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
             //AdjustCursorSize();
             img = Matrix.Normalize(img);
             //float sum = img.Sum();
-            wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);            
+            wb_Plan = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);            
             plan_imgbox.Source = wb_Plan;
             wb_Plan.Lock();
 
             unsafe
             {
                 //First draw the structure slice as a background
-                for (int y = 0; y < size; y++)
-                    for (int x = 0; x < size; x++)
+                for (int y = 0; y < sizey; y++)
+                    for (int x = 0; x < sizex; x++)
                     {
 
                         int pBackBuffer = (int)wb_Plan.BackBuffer;
                         pBackBuffer += y * wb_Plan.BackBufferStride;
                         pBackBuffer += x * 4;
                         int value; int alpha;                        
-                        alpha = (int)Math.Round((img[x + y * size])*255);
+                        alpha = (int)Math.Round((img[x + y * sizex])*255);
                         if (!dp)
                         {
                             if (alpha > 0)
@@ -525,7 +597,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, size, size));
+                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, sizex, sizey));
             }
             catch (Exception ex)
             {
@@ -543,21 +615,23 @@ namespace TomosurgeryAlpha
         private void DisplayStructure(int slice)
         {
             float[] structureimg = SS.f_structurearray[slice];
-            int size = (int)Math.Sqrt(structureimg.GetLength(0));
-            wb_DDS = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);
+            int sizex = StructureSet.BIG_dim[0];
+            int sizey = StructureSet.BIG_dim[1];
+            
+            wb_DDS = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);
             int max = (int)structureimg.Max();
             DDS_imgbox.Source = wb_DDS;
             wb_DDS.Lock();
             unsafe
             {
-                for (int y = 0; y < size; y++)
-                    for (int x = 0; x < size; x++)
+                for (int y = 0; y < sizey; y++)
+                    for (int x = 0; x < sizex; x++)
                     {
 
                         int pBackBuffer = (int)wb_DDS.BackBuffer;
                         pBackBuffer += y * wb_DDS.BackBufferStride;
                         pBackBuffer += x * 4;
-                        int value = (int)structureimg[x + y * size];
+                        int value = (int)structureimg[x + y * sizex];
                         int alpha;
 
                         if (value > 0)
@@ -579,7 +653,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_DDS.AddDirtyRect(new Int32Rect(0, 0, size, size));
+                wb_DDS.AddDirtyRect(new Int32Rect(0, 0, sizex, sizey));
             }
             catch (Exception ex)
             {
@@ -944,12 +1018,19 @@ namespace TomosurgeryAlpha
 
                 if (SS.f_structurearray != null)
                 {
+                    IsSSLoaded = true;
                     slider2.Minimum = 0;
                     slider2.Maximum = SS.f_structurearray.GetLength(0);
-                    tabControl1.SelectedIndex = 1;                    
+                    tabControl1.SelectedIndex = 1;
+                    slider2.Value = (int)(SS.f_structurearray.GetLength(0) / 2);
+                    DisplayStructure(SS.f_structurearray.GetLength(0) / 2);
+                    AddStructureLoadedToListBox();
+                    Plan_btn.IsEnabled = true;
                 }
-                AddStructureLoadedToListBox();
-                Plan_btn.IsEnabled = true;
+                else
+                    MessageBox.Show("Structure didn't load properly...");
+                
+                
             }
         }
 
@@ -1086,7 +1167,9 @@ namespace TomosurgeryAlpha
         private void CreatePathSet()
         {
             RasterPath.StepSize = Convert.ToInt16(txt_stepsize.Text);
-            RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text); 
+            RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
+            double sum1 = Matrix.SumAll(SS.fj_Tumor);
+            double sum2 = SS.f_structurearray[130].Sum();
             PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
@@ -1177,6 +1260,7 @@ namespace TomosurgeryAlpha
             N = 161;
             int length = radius + N;
             StructureSet.size = length;
+            StructureSet.SS_dim = new int[3] { length, length, length };
             
             float[][] tumor = new float[length][];
             float[] slice; float dist;
@@ -1443,7 +1527,7 @@ namespace TomosurgeryAlpha
             planlines_lbl.Content = "Lines: " + ((RasterPath)GetCurrentSliceRP()).NumOfLines;
             planshots_lbl.Content = "Shots: " + ((RasterPath)GetCurrentSliceRP()).NumOfLines;
             planslice_lbl.Content = "Slice #: " + (GetCurrentSlice() + 1);
-            plansize_lbl.Content = "Size: " + StructureSet.size + " x " + StructureSet.size;
+            plansize_lbl.Content = "Size: " + StructureSet.BIG_dim[0] + " x " + StructureSet.BIG_dim[1];
         }
 
         private void PlanViewtab_GotFocus(object sender, RoutedEventArgs e)
@@ -1835,6 +1919,17 @@ namespace TomosurgeryAlpha
         private void GPU_chkbox_Unchecked(object sender, RoutedEventArgs e)
         {
             GPU.GPUenabled = false;
+        }
+
+        private void LoadConfig_Menu_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog loadconfig = new Microsoft.Win32.OpenFileDialog();
+            loadconfig.Title = "Select the config file";
+            loadconfig.Filter = "Text files (.txt)|*.txt";
+            if (loadconfig.ShowDialog() != false)
+            {
+                LOAD_CONFIG_FILE(loadconfig.FileName);
+            }
         }
        
         

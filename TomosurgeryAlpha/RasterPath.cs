@@ -394,7 +394,7 @@ namespace TomosurgeryAlpha
             if (!optimized)
                 InitWeightArray(1, 0.7f);
             int ds_x; int ds_y;
-            dosespace = new float[StructureSet.size * StructureSet.size];
+            dosespace = new float[StructureSet.BIG_dim[0] * StructureSet.BIG_dim[1]];
             int index;
             //The first two arrays loop through the midplane
             for (int j = 0; j < dosemidplane.GetLength(1); j++)                            
@@ -409,7 +409,7 @@ namespace TomosurgeryAlpha
                         ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
 
                         //Add the final result
-                        index = ds_x + StructureSet.size * ds_y;
+                        index = ds_x + StructureSet.BIG_dim[0] * ds_y;
                         dosespace[index] += dosemidplane[i, j] * weight[k];
                     
                     }//);
@@ -577,7 +577,7 @@ namespace TomosurgeryAlpha
                         ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
 
                         //Add the final result
-                        index = ds_x + (StructureSet.size * ds_y);
+                        index = ds_x + (StructureSet.BIG_dim[0] * ds_y);
                         ds[index] += dosemidplane[i, j] * weight[k];
 
                     }//);
@@ -605,7 +605,7 @@ namespace TomosurgeryAlpha
                         ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
 
                         //Finds appropriate index in ds
-                        index = ds_x + (StructureSet.size * ds_y);
+                        index = ds_x + (StructureSet.BIG_dim[0] * ds_y);
 
                         /*Each pixel may have dose contributions from multiple shots. Therefore, we cannot apply a global 
                          * weight change by setting the pixel = to the newest weight. We also cannot simply add the new weight,
@@ -805,17 +805,17 @@ namespace TomosurgeryAlpha
                             {
                                 PointF shot = shots[w];
                                 PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
-                                PointF firstdosepixel = FindFirstExistingDosePixel(shot);
-                                PointF lastdosepixel = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
-                                if (i < firstdosepixel.X || j < firstdosepixel.Y) //if the current dose pixel doesn't exist for the shot, continue
-                                    return;
-                                else if (i > lastdosepixel.X || j > lastdosepixel.Y)
-                                    return;
-                                else
-                                {
+                                PointF FDP = FindFirstExistingDosePixel(shot);
+                                PointF LDP = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
+                                //if ((FDP.X-i) < 0 || (FDP.Y-j) < 0) //if the current dose pixel doesn't exist for the shot, continue
+                                //    return;
+                                //else 
+                                //if ((LDP.X+i) > xsize || (LDP.Y+j) > ysize)
+                                //    return;
+                                //
                                     if (dk.ReturnSpecificDoseValue(i, j, k) * weight[w] > 0)
-                                        slicedose[k * xsize * ysize + ((int)shot.Y - (int)center.Y + j) * xsize + ((int)shot.X - (int)center.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
-                                }
+                                        slicedose[(k * xsize * ysize) + (((int)FDP.Y + j) * xsize) + ((int)FDP.X + i)] += dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
+                                //
                             });
                 });
             s.Stop(); Debug.WriteLine("Calculate and save doses takes: " + s.ElapsedMilliseconds);
@@ -971,7 +971,7 @@ namespace TomosurgeryAlpha
                         int ds_y = (int)((PointF)shots[whichshot]).Y - ((N - 1) / 2) + j;
 
                         //Add the weighted dose pixel to the indexed location
-                        ds[(ds_y * StructureSet.size) + ds_x] = dosemidplane[i, j] * norm_weight[whichshot];
+                        ds[(ds_y * StructureSet.BIG_dim[0]) + ds_x] = dosemidplane[i, j] * norm_weight[whichshot];
                     }
             //ds = Normalize(ds);
             

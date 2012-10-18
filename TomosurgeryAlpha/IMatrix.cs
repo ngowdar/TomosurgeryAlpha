@@ -220,14 +220,45 @@ namespace TomosurgeryAlpha
             
         }
 
-        public static float[][,] EnlargeAndCenter(float[][,] dd, int enlargement, int startx, int starty, int startz)
-        {
-            LinMatrix m = new LinMatrix(dd);
-            m.SetSizeofM(m.X + enlargement, m.Y + enlargement, m.Z + enlargement);
-            //m.Add(m.Convertto1D(dd), enlargement / 2, enlargement / 2, enlargement / 2, dd[0].GetLength(0), dd[1].GetLength(1));
-            m.Add_NoGPU(m.Convertto1D(dd), enlargement / 2, enlargement / 2, enlargement / 2, dd[0].GetLength(0), dd[1].GetLength(1));
+        //public static float[][,] EnlargeAndCenter(float[][,] dd, int enlargement, int startx, int starty, int startz)
+        //{
+        //    LinMatrix m = new LinMatrix(dd);
+        //    m.SetSizeofM(m.X + enlargement, m.Y + enlargement, m.Z + enlargement);
+        //    //m.Add(m.Convertto1D(dd), enlargement / 2, enlargement / 2, enlargement / 2, dd[0].GetLength(0), dd[1].GetLength(1));
+        //    m.Add_NoGPU(m.Convertto1D(dd), enlargement / 2, enlargement / 2, enlargement / 2, dd[0].GetLength(0), dd[1].GetLength(1));
             
-            return m.ConvertToJagged();
+        //    return m.ConvertToJagged();
+        //}
+
+        public static float[] Grab1DSlice(float[] d, int x, int y, int z)
+        {
+            float[] slice = new float[x*y];
+            for (int j = 0; j < y; j++)
+                for (int i = 0; i < x; i++)
+                    slice[z*(x*y)+(j*x) + i] = d[z*(x*y) + (j*x) + i];
+            return slice;
+        }
+
+        //Added 10/17/2012
+        public static float[][,] EnlargeAndCenter(float[] dd, int padsize, int sizex, int sizey, int sizez)
+        {
+            float[][,] output = new float[sizez+(2*padsize)][,];
+            //Set everything to zeroes.
+            for (int i = 0; i < output.GetLength(0); i++)
+                output[i] = Matrix.Zeroes(sizex + (2 * padsize), sizey + (2 * padsize));
+
+            //Starting at z=padsize, start filling shit in.
+            for (int k = 0; k < sizez; k++)
+            {
+                float[,] s = new float[sizex+padsize+padsize,sizey+padsize+padsize];
+                for (int j = 0; j < sizey; j++)
+                    for (int i = 0; i < sizex; i++)
+                    {
+                        s[padsize + i, padsize + j] = dd[(k * sizex * sizey) + (j * sizex) + i];
+                    }
+                output[k + padsize] = s;
+            }
+            return output;
         }
 
         public static float[,] Add(float[,] A, float[,] B)

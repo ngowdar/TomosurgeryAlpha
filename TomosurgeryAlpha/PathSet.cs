@@ -80,7 +80,7 @@ namespace TomosurgeryAlpha
             boundaries = FindBoundaries(f);
             
             SliceThickness = sthick;
-            DoseCalculationThickness = SliceThickness * 2;
+            DCT = SliceThickness * 2;
             TolThickness = tolthick;
             CalculateNumSlices();
             
@@ -225,7 +225,7 @@ namespace TomosurgeryAlpha
                 string filename = string.Concat("slice_", s);
                 path = System.IO.Path.Combine(subfolder, filename);
                 RasterPath rp = (RasterPath)RasterPaths[s];
-                rp.CalculateAndSaveSliceDose(dk, DoseCalculationThickness, path);
+                rp.CalculateAndSaveSliceDose(dk, DCT, path);
                 progress = (int)Math.Round((double)(50 / NumSlices));
                 PS_2_CalcDose_worker.ReportProgress(progress);
             }
@@ -253,7 +253,7 @@ namespace TomosurgeryAlpha
         /// <param name="xsize"></param>
         /// <param name="ysize"></param>
         /// <returns></returns>
-        private float[,] GrabSlice(float[] input, int which, int xsize, int ysize)
+        public static float[,] GrabSlice(float[] input, int which, int xsize, int ysize)
         {
             float[,] result = new float[xsize, ysize];
             for (int j = 0; j < ysize; j++)
@@ -319,8 +319,8 @@ namespace TomosurgeryAlpha
         }
         public int[] FindBoundaries(float[][,] f)
         {
-            int[] boundaries = new int[6];
-
+            int[] boundaries = new int[6]; //xstart, xend, ystart, yend, zstart, zend
+            double dsum = (double)Matrix.SumAll(f);
             //Z boundaries
             Boolean z1 = false; Boolean z2 = false;
             for (int k = 0; k < Z; k++)
@@ -328,6 +328,7 @@ namespace TomosurgeryAlpha
                 float[,] temp = f[k];
                 float sum = Matrix.SumAll(temp);
                 if (sum > 0)
+                {
                     if (z1 == false)
                     {
                         boundaries[4] = k;
@@ -335,6 +336,7 @@ namespace TomosurgeryAlpha
                     }
                     else
                         boundaries[5] = k;
+                }
 
 
                 //X boundaries
@@ -342,12 +344,12 @@ namespace TomosurgeryAlpha
                 for (int i = 0; i < X; i++)
                     for (int j = 0; j < Y; j++)
                     {
-                        if (!x1 && temp[i, j] >= 0)
+                        if (!x1 && temp[i, j] > 0)
                         {
                             x1 = true;
                             boundaries[0] = i;
                         }
-                        if (!x2 && temp[X - i - 1, j] >= 0)
+                        if (!x2 && temp[X - i - 1, j] > 0)
                         {
                             x2 = true;
                             boundaries[1] = X - i;
@@ -361,7 +363,7 @@ namespace TomosurgeryAlpha
                 for (int j = 0; j < Y; j++)
                     for (int i = 0; i < X; i++)
                     {
-                        if (!y1 && temp[i, j] >= 0)
+                        if (!y1 && temp[i, j] > 0)
                         {
                             y1 = true;
                             boundaries[2] = j;
@@ -498,11 +500,11 @@ namespace TomosurgeryAlpha
                 Stopwatch gputimer = new Stopwatch();
                 gputimer.Start();
                 int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1); int z = DoseSpace.GetLength(0);
-                float[] weighted_slicedose = new float[NumSlices * DoseCalculationThickness * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1)];
+                float[] weighted_slicedose = new float[NumSlices * DCT * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1)];
                 double[] inc_weight = new double[old_weights.GetLength(0)];
                 for (int i = 0; i < inc_weight.GetLength(0); i++)
                     inc_weight[i] = (recent_weights[i] - old_weights[i]);
-                GPU.PrepareDoseSpace(weighted_slicedose, SlicePositions, inc_weight, new int[3] { x, y, z }, DoseCalculationThickness, folderpath);
+                GPU.PrepareDoseSpace(weighted_slicedose, SlicePositions, inc_weight, new int[3] { x, y, z }, DCT, folderpath);
                 gputimer.Stop();
                 Debug.WriteLine("ReviseWeighted_DS takes " + gputimer.Elapsed);
                 //TODO: Uncoment below==============
@@ -531,7 +533,7 @@ namespace TomosurgeryAlpha
         /// <returns></returns>
         private float[][,] ReviseSliceWeightContribution(float[] slicedose, double old_weight, double recent_weight, int which_slice)
         {
-            int TranslateZBy = SlicePositions[which_slice] - (DoseCalculationThickness / 2); // <- NEED TO CHANGE APPROPRIATELY
+            int TranslateZBy = SlicePositions[which_slice] - (DCT / 2); // <- NEED TO CHANGE APPROPRIATELY
             //Check if this is correct ^
 
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
@@ -545,7 +547,7 @@ namespace TomosurgeryAlpha
             //}
             //else
             //{
-                Parallel.For(0, DoseCalculationThickness, (z) =>
+                Parallel.For(0, DCT, (z) =>
                 {
                     float[,] incremental_slice = GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1));
                     int current_z = TranslateZBy + z;
@@ -572,7 +574,7 @@ namespace TomosurgeryAlpha
                 {
                     int startz = FindStartZ(z);
                     int endz = FindEndZ(startz);
-                    for (int k = 0; k < DoseCalculationThickness; k++)
+                    for (int k = 0; k < DCT; k++)
                     {
                         ods[k + startz] = Matrix.Add(ods[k + startz], GPU.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
                     }
@@ -584,7 +586,7 @@ namespace TomosurgeryAlpha
                     {
                         int startz = FindStartZ(z);
                         int endz = FindEndZ(startz);
-                        for (int k = 0; k < DoseCalculationThickness; k++)
+                        for (int k = 0; k < DCT; k++)
                         {
                             ods[k + startz] = Matrix.Add(ods[k + startz], Matrix.ScalarMultiply(ods[k + startz], (float)SliceWeights[z]));
                         }
@@ -605,11 +607,11 @@ namespace TomosurgeryAlpha
                float[][,] dds_slab = GrabSlab(dds, 30, SlicePositions[s]);
                double DDS_slicesum = Matrix.SumAll(dds_slab);
                double DS_slicesum = Matrix.SumAll(ds_slab);
-               //int startz = FindStartZ(s); //Just takes starting z - DoseCalculationThickness / 2
+               //int startz = FindStartZ(s); //Just takes starting z - DCT / 2
                //int endz = FindEndZ(startz);
-               //double ratio = CompareSlicedoses(DoseSpace, dds, startz, startz + DoseCalculationThickness);
+               //double ratio = CompareSlicedoses(DoseSpace, dds, startz, startz + DCT);
                //double ratio = CompareSliceSums(DoseSpace, dds, startz, endz);
-               //for (int z = 0; z < DoseCalculationThickness; z++)
+               //for (int z = 0; z < DCT; z++)
                //{
                //    /* The DDS matrix is element-multiplied by the newest dosespace
                //     * and the sum is added to DDS_slicesum. The DS matrix is also
@@ -678,7 +680,7 @@ namespace TomosurgeryAlpha
             double LesionRx = 0;
             double underdosed = 0;
             double overdosed = 0;
-            Parallel.For(0, DoseCalculationThickness, (k) =>
+            Parallel.For(0, DCT, (k) =>
                 {
                     //total_tally += RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
                     double[] d = RasterPath.CompareSlices(ds[k + startz], dds[k + startz], true);
@@ -691,10 +693,10 @@ namespace TomosurgeryAlpha
 
             //if (total_tally <= 0)
             //{
-            //    ratio = ((total_tally * (-1)) / (double)(ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness));
+            //    ratio = ((total_tally * (-1)) / (double)(ds[0].GetLength(0) * ds[0].GetLength(1) * DCT));
             //}
             //else if (total_tally > 0)
-            //    ratio = (double)(1 + (total_tally / (ds[0].GetLength(0) * ds[0].GetLength(1) * DoseCalculationThickness)));
+            //    ratio = (double)(1 + (total_tally / (ds[0].GetLength(0) * ds[0].GetLength(1) * DCT)));
             ratio = (LesionVol + underdosed) / (TotalRx + overdosed);
 
             return ratio;
@@ -750,39 +752,40 @@ namespace TomosurgeryAlpha
             int z = DoseSpace.GetLength(0);
             for (int k = 0; k < weighted_slicedoses.GetLength(0); k++)
                 weighted_slicedoses[k] = Matrix.Zeroes(x,y);
-            PathSet.DCT = DoseCalculationThickness;
-            //if (GPU.GPUenabled)
-            //{
+            PathSet.DCT = DCT;
+            if (GPU.GPUenabled)
+            {
                 Stopwatch gputime = new Stopwatch();
                 gputime.Start();
                 float[] wSD = new float[x * y * z];
                 for (int i = 0; i < wSD.GetLength(0); i++)
                     wSD[i] = 0.0f;
                 
-                //wSD = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DoseCalculationThickness, subfolder);
+                //wSD = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
                 wSD = GPU.WeightOriginalDS(SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
                 gputime.Stop();
                 Debug.WriteLine("GPU PrepareWeighted_DS time: " + gputime.Elapsed);
-                //return weighted_slicedoses;
-                
-            //}
-            //else
-            //{
+                GPUsd = GPU.BackTo3D(wSD,x,y,z);
+                return GPUsd;
+             
+            }
+            else
+            {
                 Stopwatch cputimer = new Stopwatch();
                 cputimer.Start();
                 for (int s = 0; s < NumSlices; s++)
                 {                    
-                    int whichz = SlicePositions[s] - (DoseCalculationThickness / 2);
+                    int whichz = SlicePositions[s] - (DCT / 2);
                     float[] slicedose = LoadSliceDose(s, subfolder);
                     //FindSliceDoseCoverage(Matrix.ScalarMultiply(slicedose,(float)SliceWeights[s]), s, 0.5, DDS);
                     //Debug.WriteLineIf(slicedose.GetLength(0) != weighted_slicedoses.GetLength(0)*x*y, "slicedose not equal to weighted_slicedose in PrepareWeighted_DS()!!!!!");
                     //Debug.WriteLine(slicedose.Sum());
-                    Parallel.For(0, DoseCalculationThickness, (k) =>
+                    Parallel.For(0, DCT, (k) =>
                         {
                             for (int j = 0; j < y; j++)
                                 for (int i = 0; i < x; i++)
                                 {
-                                    weighted_slicedoses[whichz + k][i, j] += slicedose[(k * x * y) + (j * x) + i] * (float)weights[s];
+                                    weighted_slicedoses[whichz + k][i, j] += (slicedose[(k * x * y) + (j * x) + i] * (float)weights[s]);
                                 }
                         });
                 }
@@ -791,9 +794,9 @@ namespace TomosurgeryAlpha
                 //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
                 cputimer.Stop(); Debug.WriteLine("CPU time for PrepareWeightedDS: " + cputimer.Elapsed);
                 Debug.WriteLine("CPU_sum: " + Matrix.SumAll(weighted_slicedoses));
-                Debug.WriteLine("GPU_sum: " + wSD.Sum());
+                Debug.WriteLine("GPU_sum: " + Matrix.SumAll(GPUsd));
                 return weighted_slicedoses;
-            //}
+            }
         }
 
         private float[] LoadSliceDose(int which_slice, string subfolder)
@@ -805,14 +808,14 @@ namespace TomosurgeryAlpha
 
         private int FindStartZ(int s)
         {
-            int start = SlicePositions[s] - (DoseCalculationThickness/2);
+            int start = SlicePositions[s] - (DCT/2);
             if (start < 0)
                 start = 0;
             return start;
         }
         private int FindEndZ(int startz)
         {
-            int end = startz + DoseCalculationThickness;
+            int end = startz + DCT;
             if (end >= DoseSpace.GetLength(0))
                 end = DoseSpace.GetLength(0)-1;
             return end;
@@ -875,8 +878,8 @@ namespace TomosurgeryAlpha
         {
             double Coverage = 0; double TumorVol = 0; double LesionRx = 0; double RxVolume = 0;
             float dose; float dds_value; double Uncovered = 0;
-            int x = DDS[0].GetLength(0); int y = DDS[0].GetLength(1); int z = DoseCalculationThickness;
-            int startz = SlicePositions[which_slice] - (DoseCalculationThickness/2);
+            int x = DDS[0].GetLength(0); int y = DDS[0].GetLength(1); int z = DCT;
+            int startz = SlicePositions[which_slice] - (DCT/2);
             for (int k = 0; k < z; k++)
                 for (int j = 0; j < y; j++)
                     for (int i = 0; i < x; i++)
@@ -924,9 +927,9 @@ namespace TomosurgeryAlpha
         /// <returns></returns>
         //public double GetSumOfMultiplied_DDS_Subset(StructureSet SS, int slicecenter_z, float[][,] doseslab)
         //{
-        //    int dstart = (N - DoseCalculationThickness) / 2; int dend = dstart + DoseCalculationThickness;
+        //    int dstart = (N - DCT) / 2; int dend = dstart + DCT;
 
-        //    float[][,] DDSslab = GrabSlab(SS.fj_Tumor, DoseCalculationThickness, slicecenter_z);
+        //    float[][,] DDSslab = GrabSlab(SS.fj_Tumor, DCT, slicecenter_z);
 
         //    //Multiply the elements and return.
         //    return Matrix.SumAll(Matrix.MultiplyElements(doseslab, DDSslab));
@@ -941,10 +944,10 @@ namespace TomosurgeryAlpha
         //public double GetSumOfMultiplied_DS_Subset(float[][,] dosespace, int z, float[][,] doseslab)
         //{
         //    //Get the dose slab
-        //    int dstart = (N - DoseCalculationThickness) / 2; int dend = dstart + DoseCalculationThickness;
+        //    int dstart = (N - DCT) / 2; int dend = dstart + DCT;
 
         //    //Convert the 1D float ds matrix into the jagged DS matrix, and then get the slab.            
-        //    float[][,] DSslab = GrabSlab(dosespace, DoseCalculationThickness, z);
+        //    float[][,] DSslab = GrabSlab(dosespace, DCT, z);
 
         //    return Matrix.SumAll(Matrix.MultiplyElements(doseslab, DSslab));
         //}
@@ -1005,8 +1008,8 @@ namespace TomosurgeryAlpha
         /// <param name="which_z_slice"></param>
         public float[][,] WriteSliceDoseToDoseSpace(float[] slicedose, float[][,] output_ds, int which_slice)
         {            
-            int TranslateZBy = SlicePositions[which_slice] - (DoseCalculationThickness/2); // <- NEED TO CHANGE APPROPRIATELY
-            //int startz = SlicePositions[which_slice] - DoseCalculationThickness/2;
+            int TranslateZBy = SlicePositions[which_slice] - (DCT/2); // <- NEED TO CHANGE APPROPRIATELY
+            //int startz = SlicePositions[which_slice] - DCT/2;
 
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
             //Then change slicethickness in for loop limit to another variable based on size.
@@ -1017,7 +1020,7 @@ namespace TomosurgeryAlpha
             //else
                 
             {
-                Parallel.For(0, DoseCalculationThickness, (z) =>
+                Parallel.For(0, DCT, (z) =>
                     {
                         int current_z = TranslateZBy + z;
                         if (output_ds[current_z] == null)

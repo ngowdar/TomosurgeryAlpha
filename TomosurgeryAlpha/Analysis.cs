@@ -20,7 +20,7 @@ namespace TomosurgeryAlpha
             //PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;
-            int startingz = PS.SlicePositions[0] - (PS.DoseCalculationThickness / 2);
+            int startingz = PS.SlicePositions[0] - (PathSet.DCT / 2);
             //Debug
             //float[][,] DDS = PS.PrepareDDS(SS.fj_Tumor);
             //AnalyzeLesionCoverage(DDS,SS.fj_Tumor,startingz);

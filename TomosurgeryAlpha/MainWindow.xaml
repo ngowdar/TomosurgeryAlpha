@@ -171,6 +171,7 @@
             <MenuItem Header="File" FontFamily="Ubuntu" FontSize="14" Foreground="#FFD4D3D3" Click="MenuItem_Click_1">
                 <MenuItem Header="Open..." Name="Open_Menu" Foreground="#FF1F1E1E"/>
                 <MenuItem Header="Save..." Name="Save_Menu" Foreground="#FF1F1E1E" />
+                <MenuItem Header="Load Config file..." Name="LoadConfig_Menu" Foreground="#FF1F1E1E" Click="LoadConfig_Menu_Click" />
                 <MenuItem Header="Set Working Directory" Name="Set_Direc" Foreground="#FF1F1E1E" Click="Set_Direc_Click" />
                 <MenuItem Header="Load DICOM Image set..." Foreground="#FF1F1E1E" Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
                 <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Foreground="#FF1F1E1E" Click="LoadStructure_Menu_Click" />
