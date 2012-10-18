@@ -49,7 +49,7 @@ namespace TomosurgeryAlpha
         public static float[,] mask;
         public static int RasterWidth;
         public static int StepSize;
-        public static int ComparisonKernelSize =30;
+        public static int ComparisonKernelSize = 40;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -104,7 +104,8 @@ namespace TomosurgeryAlpha
                     if (slice[i, j] > 0)
                         DDS_slice[i, j] = PathSet.RxDose;
                 }
-
+            Debug.WriteLine("DDS_Slice sum: " + Matrix.SumAll(DDS_slice));
+            
         }
 
 
@@ -459,7 +460,7 @@ namespace TomosurgeryAlpha
                 Debug.Assert(temp_weight.Max() > 0);
 
                 ds = ReviseDS(ds, weight, temp_weight);
-                ds = Normalize(ds);
+                //ds = Normalize(ds);
 
                 double[] measurements = CalculateIterationCoverage(ds, 0.5f);
                 //1st value = tumor voxel total
@@ -515,13 +516,19 @@ namespace TomosurgeryAlpha
 
         private double EvalShotWeightIteration(float[] ds, PointF pf)
         {
-            float[,] DStimesP = Matrix.Subset(ds, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
+            float[,] DStimesP = Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int)pf.X, (int)pf.Y, ComparisonKernelSize);
             float[,] DDStimesP = Matrix.Subset(DDS_slice, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
             
-            //WriteFloatArray2BMP(DStimesP, String.Concat(s, "_DS.bmp"));
-            //WriteFloatArray2BMP(DDStimesP, String.Concat(s, "_DDS.bmp"));
+            
             float dssum = Matrix.SumAll(DStimesP);
             float ddssum = Matrix.SumAll(DDStimesP);
+            if (dssum <= 0 || ddssum <= 0)
+            {
+                Debug.WriteLine("DS: " + dssum);
+                Debug.WriteLine("DDS: " + ddssum);
+                WriteFloatArray2BMP(DStimesP, "error_DS.bmp");
+                WriteFloatArray2BMP(DDStimesP, "error_DDS.bmp");
+            }
             
             double ratio =  (double)(ddssum / dssum);
             Debug.Assert(ratio > 0);
@@ -531,7 +538,7 @@ namespace TomosurgeryAlpha
         private float[] ReoptimizeShotWeights(float[] ds)
         {
             float[] tweight = (float[])weight.Clone();
-            //float[] DS = PrepareDS();            
+            //float[] DS = PrepareDS(ds,tweight,1.0f);            
             //WriteFloatArray2BMP(Matrix.Normalize(DS), "wholeDS.bmp");
             for (int shot = 0; shot < shots.GetLength(0); shot++)
             {
@@ -543,7 +550,7 @@ namespace TomosurgeryAlpha
                 tweight[shot] = (float)(weight[shot] * ratio); // old weight multiplied by newest ratio.                
                 Debug.WriteLine("Old: " + weight[shot] + " * R: " + ratio + " = New: " + tweight[shot]);
             }
-            tweight = Normalize(tweight);
+            //tweight = Normalize(tweight);
             return tweight;
         }
 
@@ -613,7 +620,7 @@ namespace TomosurgeryAlpha
                          * 
                          * Therefore, the old weighted contribution must be removed (leaving any other dose contributions intact)
                          * and then the recent weight applied. In other words, only the incremental weight difference is applied (+ or -)*/
-                        ds[index] += (dosemidplane[i, j] * (recent_weight[k] - old_weight[k]));
+                        ds[index] += (dosemidplane[i, j] * (recent_weight[k]));// - old_weight[k]));
                         if (ds[index] < 0)
                             ds[index] = (dosemidplane[i, j] * recent_weight[k]);
 
@@ -774,12 +781,12 @@ namespace TomosurgeryAlpha
             string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
             float[] temp2 = (float[])Matrix.Normalize(temp).Clone(); 
             int color = 0;
-            int size = (int)Math.Sqrt(temp.GetLength(0));
-            Bitmap b = new Bitmap(size, size);
-            for (int j = 0; j < size; j++)
-                for (int i = 0; i < size; i++)
+            //int size = (int)Math.Sqrt(temp.GetLength(0));
+            Bitmap b = new Bitmap(X, Y);
+            for (int j = 0; j < Y; j++)
+                for (int i = 0; i < X; i++)
                 {
-                    color = (int)(temp2[i+(j*size)] * 255);
+                    color = (int)(temp2[i+(j*X)] * 255);
                     b.SetPixel(i, j, Color.FromArgb(color, color, color));
                 }
             b.Save(path);

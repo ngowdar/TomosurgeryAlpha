@@ -885,7 +885,7 @@ namespace TomosurgeryAlpha
         {
             RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
             //float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
-            float[,] f = Matrix.Subset(rp.dosespace, (int)p.X, (int)p.Y, N);
+            float[,] f = Matrix.Subset(rp.dosespace, RasterPath.X, RasterPath.Y, (int)p.X, (int)p.Y, N);
             //f = Matrix.Normalize(f);
             //DisplayWindowCenteredAboutPoint(f, p);
             Display2DFloat(f);

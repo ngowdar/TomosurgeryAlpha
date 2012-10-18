@@ -318,7 +318,13 @@ namespace TomosurgeryAlpha
 
         public static float[,] Normalize(float[,] d)
         {
-            float divisor = 1 / FindMax(d);
+            float max = FindMax(d);
+            float divisor;
+            if (max <= 0)
+                divisor = 1.0f;
+            else
+                divisor = 1 / FindMax(d);            
+            
             return ScalarMultiply(d, divisor);
         }
 
@@ -331,9 +337,15 @@ namespace TomosurgeryAlpha
                 if (tempmax > max)
                     max = tempmax;
             }
+
+            float divisor;
+            if (max <= 0)
+                divisor = 1.0f;
+            else
+                divisor = 1 / max;     
+
             for (int k = 0; k < d.GetLength(0); k++)
-            {
-                float divisor = 1 / max;
+            {               
                 d[k] = ScalarMultiply(d[k], divisor);
             }
             return d;
@@ -468,21 +480,21 @@ namespace TomosurgeryAlpha
             return Window;
         }
 
-        internal static float[,] Subset(float[] A, int centerx, int centery, int subsetsize)
+        internal static float[,] Subset(float[] A, int Ax, int Ay, int centerx, int centery, int subsetsize)
         {
             float[,] Window;
-            int Asize = (int)Math.Sqrt(A.GetLength(0));
+            //int Asize = (int)Math.Sqrt(A.GetLength(0));
             int halfwindow = (subsetsize / 2);
             int startx = centerx - halfwindow; int starty = centery - halfwindow;
             int endx = centerx + halfwindow; int endy = centery + halfwindow;
             bool xfits = false; bool yfits = false;
 
-            if (endx >= Asize)
+            if (endx >= Ax)
             {
-                endx = (Asize - 1);
+                endx = (Ax - 1);
                 xfits = false;
             }
-            else if (endx < Asize)
+            else if (endx < Ax)
             { xfits = true; }
 
             if (startx < 0)
@@ -493,12 +505,12 @@ namespace TomosurgeryAlpha
             else if (startx >= 0)
             { xfits = true; }
 
-            if (endy >= Asize)
+            if (endy >= Ay)
             {
-                endy = (Asize - 1);
+                endy = (Ay - 1);
                 yfits = false;
             }
-            else if (endy < Asize)
+            else if (endy < Ay)
             { yfits = true; }
 
             if (starty < 0)
@@ -517,7 +529,7 @@ namespace TomosurgeryAlpha
             Parallel.For(0, endy - starty, (j) =>
             {
                 for (int i = 0; i < endx - startx; i++)
-                    Window[i, j] = A[i + startx + (j + starty)*Asize];
+                    Window[i, j] = A[(i + startx) + (j + starty)*Ax];
             });
             return Window;
         }

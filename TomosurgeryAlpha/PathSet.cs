@@ -708,7 +708,7 @@ namespace TomosurgeryAlpha
             int _debug_tumorcount = 0;
             for (int k = 0; k < dds_slice.GetLength(0); k++)
             {
-                pDDS[k] = new float[dds_slice[0].GetLength(0), dds_slice[0].GetLength(0)];
+                pDDS[k] = new float[dds_slice[0].GetLength(0), dds_slice[0].GetLength(1)];
                 for (int j = 0; j < dds_slice[0].GetLength(1); j++)
                     for (int i = 0; i < dds_slice[0].GetLength(0); i++)
                     {
