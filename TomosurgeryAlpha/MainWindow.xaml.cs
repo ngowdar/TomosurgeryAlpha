@@ -1260,7 +1260,7 @@ namespace TomosurgeryAlpha
             N = 161;
             int length = radius + N;
             StructureSet.size = length;
-            StructureSet.SS_dim = new int[3] { length, length, length };
+            StructureSet.BIG_dim = new int[3] { length, length, length };
             
             float[][] tumor = new float[length][];
             float[] slice; float dist;
