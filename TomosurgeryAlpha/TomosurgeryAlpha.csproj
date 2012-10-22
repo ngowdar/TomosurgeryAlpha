@@ -35,7 +35,7 @@
     <PlatformTarget>x86</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -115,6 +115,7 @@
     <Compile Include="Analysis.cs" />
     <Compile Include="CLSourceCode.cs" />
     <Compile Include="Coordinates.cs" />
+    <Compile Include="DICOMDoseFile.cs" />
     <Compile Include="DoseKernel.cs" />
     <Compile Include="FolderBrowserDialogEx.cs">
       <SubType>Component</SubType>
@@ -124,6 +125,9 @@
     <Compile Include="LinMatrix.cs" />
     <Compile Include="PathSet.cs" />
     <Compile Include="RasterPath.cs" />
+    <Compile Include="RestrictSliceWeight.xaml.cs">
+      <DependentUpon>RestrictSliceWeight.xaml</DependentUpon>
+    </Compile>
     <Compile Include="SlicePlanView.xaml.cs">
       <DependentUpon>SlicePlanView.xaml</DependentUpon>
     </Compile>
@@ -145,6 +149,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="RestrictSliceWeight.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="SlicePlanView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

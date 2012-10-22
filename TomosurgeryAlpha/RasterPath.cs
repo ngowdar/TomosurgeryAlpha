@@ -49,7 +49,7 @@ namespace TomosurgeryAlpha
         public static float[,] mask;
         public static int RasterWidth;
         public static int StepSize;
-        public static int ComparisonKernelSize = 30;
+        public static int ComparisonKernelSize = 20;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -408,7 +408,10 @@ namespace TomosurgeryAlpha
                         //Finds the coordinates relative to dosespace
                         ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
                         ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
-
+                        if (ds_x < 0 || ds_y < 0)
+                            continue;
+                        if (ds_x >= StructureSet.BIG_dim[0] || ds_y >= StructureSet.BIG_dim[1])
+                            continue;
                         //Add the final result
                         index = ds_x + StructureSet.BIG_dim[0] * ds_y;
                         dosespace[index] += dosemidplane[i, j] * weight[k];
@@ -540,28 +543,80 @@ namespace TomosurgeryAlpha
         {
             float[,] DStimesP = Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int)pf.X, (int)pf.Y, ComparisonKernelSize);
             float[,] DDStimesP = Matrix.Subset(DDS_slice, (int)pf.X, (int)pf.Y, ComparisonKernelSize);
-            float max = Matrix.FindMax(DDStimesP);
+            float max = Matrix.FindMax(DDStimesP);           
+
+            double[] measurements = FindWindowCoverage(DStimesP, DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
             
-            float dssum = Matrix.SumAll(DStimesP);
-            float ddssum = Matrix.SumAll(DDStimesP);
-            if (dssum <= 0 || ddssum <= 0)
-            {
-                Debug.WriteLine("DS: " + dssum);
-                Debug.WriteLine("DDS: " + ddssum);
-                WriteFloatArray2BMP(DStimesP, "error_DS.bmp");
-                WriteFloatArray2BMP(DDStimesP, "error_DDS.bmp");
-            }            
             
-            double ratio =  (double)(ddssum / dssum);
-            if (ratio < 0.2)
-            {
-                string d = "mismatch_DS_" + pf.X + "_" + pf.Y + ".bmp";
-                string dd = "mismatch_DDS_" + pf.X + "_" + pf.Y + ".bmp";
-                WriteFloatArray2BMP(DStimesP, d);
-                WriteFloatArray2BMP(DDStimesP, dd);
-            }
-            Debug.Assert(ratio > 0);
+            //ratio, RxVolume, TumorVol, LesionRx, Uncovered
+
+            double ratio;
+            double simplesum = measurements[0];
+            double RxVolvsTumor = Convert.ToDouble(measurements[1]/measurements[2]); //Isovolume / Tumorvolume
+            double BothvsTumor = Convert.ToDouble(measurements[3]/measurements[2]); //Covered tumor / Totaltumor
+            double BothvsRxVol = Convert.ToDouble(measurements[3]/measurements[1]);
+            double Importance_Factor = measurements[2] / (ComparisonKernelSize * ComparisonKernelSize);
+                   
+            
+            //double ratio =  (double)(ddssum / dssum);
+            //if (ratio < 0.2)
+            //{
+            //    string d = "mismatch_DS_" + pf.X + "_" + pf.Y + ".bmp";
+            //    string dd = "mismatch_DDS_" + pf.X + "_" + pf.Y + ".bmp";
+            //    WriteFloatArray2BMP(DStimesP, d);
+            //    WriteFloatArray2BMP(DDStimesP, dd);
+            //}
+
+            //if (BothvsTumor < 0.98)
+            //{
+            //    double ratio1 = (1.0 / measurements[2]);
+            //    double ratio2 = measurements[0];
+            //    if (ratio1 > ratio2)
+            //        ratio = ratio1;
+            //    else
+            //        ratio = ratio2;
+            //}                
+            //else
+            //ratio = (1.0 / BothvsTumor);
+            ratio = simplesum;
+            //Debug.Assert(ratio > 0);
             return ratio;
+        }
+
+        private double[] FindWindowCoverage(float[,] ds_window, float[,] dds_window, double iso, double ToleranceDose)
+        {
+            double Coverage = 0; double TumorVol = 0; double LesionRx = 0; double RxVolume = 0;
+            float dose; float dds_value; double Uncovered = 0;
+            int x = ds_window.GetLength(0); int y = ds_window.GetLength(1); int z = ds_window.GetLength(0);            
+                for (int j = 0; j < ds_window.GetLength(1); j++)
+                    for (int i = 0; i < ds_window.GetLength(0); i++)
+                    {
+                        dose = ds_window[i, j];
+                        dds_value = ds_window[i, j];
+                        if (dds_value > ToleranceDose && dose < 0.5)
+                            Uncovered++;
+                        if (dose >= iso)
+                        {
+                            RxVolume++;
+                            if (dds_value > ToleranceDose)
+                            {
+                                TumorVol++;
+                                LesionRx++;
+                            }
+                        }
+                        else if (dose < iso)
+                        {
+                            if (dds_value > ToleranceDose)
+                                TumorVol++;
+                        }
+                    }
+                double LesionRxoverTumorVol = LesionRx / TumorVol;
+                double LesionRxoverRxVol = LesionRx / RxVolume;
+                double Underdosed = (Uncovered / TumorVol) * 100;
+                double sum_sd = Matrix.SumAll(ds_window);
+                double sum_dds = Matrix.SumAll(dds_window);
+                double ratio = sum_dds / sum_sd;
+                return new double[5] { ratio, RxVolume, TumorVol, LesionRx, Uncovered };            
         }
 
         private float[] ReoptimizeShotWeights(float[] ds)

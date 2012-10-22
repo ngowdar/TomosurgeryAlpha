@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Collections;
 using System.Windows.Media.Imaging;
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace TomosurgeryAlpha
 {
@@ -24,7 +25,8 @@ namespace TomosurgeryAlpha
         public static float f_global_yoffset;
         public static float f_global_zoffset;
         public static int padsize;
-
+        public string headerpath;
+        public string tumorpath;
         public float[] f_offset;
         public float[][] f_structurearray;
         public static int size;
@@ -50,6 +52,33 @@ namespace TomosurgeryAlpha
             fj_CS = GetCSOnly(BinaryVolume);
             size = f_structurearray.GetLength(0);
             SI = new StructureInfo();
+            headerpath = header;
+            tumorpath = tumor;
+
+            
+            ////TODO: Remove this, just a test
+            //float[] d = new float[5] { 1, 2, 3, 4, 5 };
+            //Matrix.WriteArrayAsList("d: ", d);
+            //float[] dd = new float[5] { 6, 7, 8, 9, 10 };            
+            //float[][] ff = new float[2][] { Matrix.InterpolateSingleVector(d), Matrix.InterpolateSingleVector(dd) };
+            
+            //float[,] awesome = Matrix.InterpolateVectors(ff);
+            //for (int i = 0; i < awesome.GetLength(0); i++)
+            //    Debug.Write(awesome[i, 1]);
+            //float[,] awesome = Matrix.LinearlyInterpolateSlices(new float[,]{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}});
+            //for (int i = 0; i < awesome.GetLength(1); i++)
+            //{
+            //    Debug.Write(" " + awesome[0, i]);
+            //    Debug.WriteLine(" ");
+            //    Debug.Write(" " + awesome[1, i]);
+            //    Debug.WriteLine(" ");
+            //    Debug.Write(" " + awesome[2, i]);
+            //    Debug.WriteLine(" ");
+            //    Debug.Write(" " + awesome[3, i]);
+            //    Debug.WriteLine(" ");
+            //    Debug.Write(" " + awesome[4, i]);
+            //}
+
         }
 
         public StructureSet(float[][] tumorobj)
@@ -121,17 +150,18 @@ namespace TomosurgeryAlpha
 
         private float[][,] EnlargeTumor(float[] dd, int p)
         {   
-            float[][,] d = Matrix.EnlargeAndCenter(dd, p, SS_dim[0], SS_dim[1], SS_dim[2]);
-            Enlarge_SS_Dim(p);
+            float[][,] d = Matrix.TransposeMatrix(Matrix.EnlargeAndCenter(dd, p, SS_dim[0], SS_dim[1], SS_dim[2]));
+
+            Enlarge_SS_Dim(d);
             return d;
         }
 
-        private void Enlarge_SS_Dim(int padsize)
+        private void Enlarge_SS_Dim(float[][,] d)
         {
             BIG_dim = new int[3];
-            BIG_dim[0] = SS_dim[0] + (2 * padsize);
-            BIG_dim[1] = SS_dim[1] + (2 * padsize);
-            BIG_dim[2] = SS_dim[2] + (2 * padsize);
+            BIG_dim[0] = d[0].GetLength(0);
+            BIG_dim[1] = d[0].GetLength(1);
+            BIG_dim[2] = d.GetLength(0);
         }
 
         public float[] Read1DArrayFromFile(string fpath, string hpath)
@@ -159,6 +189,8 @@ namespace TomosurgeryAlpha
                     d[k] = (float)Convert.ToDecimal(file.ReadLine());
                 }
             }
+            headerpath = hpath;
+            tumorpath = fpath;
             return d;
         }
         
@@ -201,6 +233,8 @@ namespace TomosurgeryAlpha
                     d[k] = temp;
                 }
             }
+            tumorpath = fpath;
+            headerpath = hpath;
             return d;
         }
 

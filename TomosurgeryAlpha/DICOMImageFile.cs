@@ -31,12 +31,16 @@ namespace TomosurgeryAlpha
 		int i_stride;
         int i_samples;
 		float f_Zposition;
-		float[] fa_OffsetCoords;
+		public float[] fa_OffsetCoords;
         public static BackgroundWorker bw_imagemaker;        
 		
 		
 		public DICOMImageFile(string path)
 		{
+            if (s_dictionarypath == null)
+            {
+                CreateDictionaryFile(TomosurgeryAlpha.Properties.Resources.dicomdictionary);
+            }
             dd = new openDicom.Registry.DataElementDictionary(s_dictionarypath, openDicom.Registry.DictionaryFileFormat.BinaryFile);
             s_path = path;            
             file = new openDicom.File.DicomFile(path, false);
@@ -51,11 +55,25 @@ namespace TomosurgeryAlpha
             //PlanarConfig = pd.PlanarConfiguration;
             i_samples = pd.SamplesPerPixel;
 		}
-		
-		public void Load()
-		{
-		    
-		}	
+
+        public void CreateDictionaryFile(byte[] b)
+        {
+            //Create path
+            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, "tempdict.bin");
+
+            //Writing byte array to a file
+            FileStream fs = new FileStream(path, FileMode.Create);
+
+            BinaryWriter bw = new BinaryWriter(fs);
+            bw.Write(b);
+            bw.Close();
+
+            DICOMImageFile.s_dictionarypath = path;
+            DICOMImageSet.s_dictionarypath = path;
+            s_dictionarypath = path;
+            //DICOMRT.dictionarypath = path;
+            //DICOMdose.dictionarypath = path;
+        }     		
 		
 		public float[] makeFloatArray(byte[][] data)
 		{

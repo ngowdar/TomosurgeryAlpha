@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using System.Drawing;
+using System.Diagnostics;
 
 namespace TomosurgeryAlpha
 {
@@ -239,6 +241,18 @@ namespace TomosurgeryAlpha
             return slice;
         }
 
+        public static float[] Convertto1D(float[][,] d)
+        {
+            float[] result;
+            int z = d.GetLength(0); int x = d[0].GetLength(0); int y = d[0].GetLength(1);
+            result = new float[z * x * y];
+            for (int i = 0; i < z; i++)
+                for (int j = 0; j < y; j++)
+                    for (int k = 0; k < x; k++)
+                        result[(i * x * y) + (j * x) + k] = (float)d[i][k, j];
+            return result;
+        }
+
         //Added 10/17/2012
         public static float[][,] EnlargeAndCenter(float[] dd, int padsize, int sizex, int sizey, int sizez)
         {
@@ -260,6 +274,43 @@ namespace TomosurgeryAlpha
             }
             return output;
         }
+
+        public static void WriteFloatArray2BMP(float[,] temp, string p)
+        {
+            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
+            float[,] temp2 = (float[,])Matrix.Normalize(temp).Clone();
+            int color = 0;
+            Bitmap b = new Bitmap(temp.GetLength(0), temp.GetLength(1));
+            for (int j = 0; j < temp.GetLength(1); j++)
+                for (int i = 0; i < temp.GetLength(0); i++)
+                {
+                    color = (int)(temp2[i, j] * 255);
+                    b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                }
+            b.Save(path);
+        }
+
+        public static float[,] TransposeMatrix(float[,] d)
+        {
+            float[,] transpose = new float[d.GetLength(1), d.GetLength(0)];
+            Parallel.For(0, d.GetLength(0), (i) =>
+                {
+                    for (int j = 0; j < d.GetLength(1); j++)
+                    {
+                        transpose[j, i] = d[i, j];
+                    }
+                });
+            return transpose;
+        }
+
+        public static float[][,] TransposeMatrix(float[][,] d)
+        {
+            float[][,] output = new float[d.GetLength(0)][,];
+            for (int i = 0; i < d.GetLength(0); i++)
+                output[i] = TransposeMatrix(d[i]);
+            return output;
+        }
+
 
         public static float[,] Add(float[,] A, float[,] B)
         {
@@ -679,6 +730,119 @@ namespace TomosurgeryAlpha
                         sum += p[k][i, j];
                     }
             return sum;
+        }
+
+        public static double[, ,] LinearInterpSlicesX(double[, ,] d)
+        {
+            int xx = 2 * d.GetLength(0);
+            double[, ,] temp = new double[xx - 1, d.GetLength(1), d.GetLength(2)];
+            //Interpolating along x            
+            for (int x = 0; x < d.GetLength(0); x++)
+            {
+                for (int i = 0; i < d.GetLength(1); i++)
+                    for (int j = 0; j < d.GetLength(2); j++)
+                    {
+                        if (x == d.GetLength(0) - 1) //i.e. if it is the last slice
+                        {
+                            temp[2 * x, i, j] = d[x, i, j];
+                        }
+                        else
+                        {
+                            temp[2 * x, i, j] = d[x, i, j];
+                            temp[(2 * x + 1), i, j] = (d[x, i, j] + d[(x + 1), i, j]) / 2;
+                        }
+                    }
+                //int p = 100 * (x / d.GetLength(0));
+                //MatrixInterp.ReportProgress(p);
+            }
+            return temp;
+        }
+
+        public static double[, ,] LinearInterpSlicesY(double[, ,] d)
+        {
+            int yy = 2 * d.GetLength(1);
+            double[, ,] temp = new double[d.GetLength(0), yy - 1, d.GetLength(2)];
+            //Interpolating along z            
+            for (int y = 0; y < d.GetLength(1); y++)
+            {
+                for (int i = 0; i < d.GetLength(0); i++)
+                    for (int j = 0; j < d.GetLength(2); j++)
+                    {
+                        //if (y == 0)
+                        //    temp[i, 0, j] = d[i, 0, j];
+
+                        if (y == d.GetLength(1) - 1) //i.e. if it is the last slice
+                        {
+                            temp[i, 2 * y, j] = d[i, y, j];
+                        }
+                        else
+                        {
+                            temp[i, (2 * y), j] = d[i, y, j];
+                            temp[i, (2 * y + 1), j] = (d[i, y, j] + d[i, (y + 1), j]) / 2;
+                        }
+                    }
+                //int p = 100 * (y / d.GetLength(1));
+                //MatrixInterp.ReportProgress(p);
+            }
+            return temp;
+        }
+
+        public static float[,] LinearlyInterpolateSlices(float[,] d)
+        {
+            //Covnert d matrix into a float[][] array;            
+
+            float[] row;
+            float[][] rows = new float[d.GetLength(0)][];
+            for (int j = 0; j < d.GetLength(0); j++)
+            {
+                row = new float[d.GetLength(1)];
+                for (int i = 0; i < d.GetLength(1); i++)
+                    row[i] = d[j, i];
+                rows[j] = InterpolateSingleVector(row);
+            }
+            return InterpolateVectors(rows);
+        }
+
+        public static float[] InterpolateSingleVector(float[] f)
+        {
+            float[] output = new float[(2*f.GetLength(0)) - 1];
+            //Fill in original elements.
+            for (int i = 0; i < f.GetLength(0); i++)
+                output[2*i] = f[i];
+            //Average to find the others.
+            for (int i = 1; i < f.GetLength(0); i++)
+            {
+                output[(2 * i) - 1] = (output[(2 * i) - 2] + output[2 * i]) / 2;
+            }            
+            return output;
+
+        }
+
+        public static float[,] InterpolateVectors(float[][] f)
+        {
+            float[,] A = new float[(2 * f.GetLength(0)) - 1, f[0].GetLength(0)];
+            //Fill in values into positions within A
+            for (int i = 0; i < f.GetLength(0); i++)
+            {
+                float[] vector = f[i];
+                for (int j = 0; j < vector.GetLength(0); j++)
+                    A[2 * i, j] = vector[j];
+            }
+            for (int j = 0; j < A.GetLength(1); j++)
+                {
+                    for (int i = 1; i < f.GetLength(0); i++)
+                        A[(2 * i) - 1, j] = (A[(2 * i) - 2, j] + A[(2 * i), j]) / 2;
+                }
+            return A;
+        }
+
+        public static void WriteArrayAsList(string prefix, float[] f)
+        {
+            string output = prefix + ": [" + Math.Round(f[0], 2);
+            for (int i = 1; i < f.GetLength(0); i++)
+                output += ", " + Math.Round(f[i], 2);
+            output += "]";
+            Debug.WriteLine(output);
         }
 
         

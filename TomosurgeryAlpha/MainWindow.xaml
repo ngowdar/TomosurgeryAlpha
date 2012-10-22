@@ -70,6 +70,7 @@
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,84,0,0" Name="DDS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,97,0,0" Name="DDS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,110,0,0" Name="DDS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Label Content="Actual Z:" Height="28" HorizontalAlignment="Left" Margin="528,130,0,0" Name="DDS_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" FontSize="11" />
                 </Grid>
             </TabItem>
             <TabItem Header="Dose Space" Name="DStab" FontFamily="Euphemia" FontSize="14">
@@ -94,8 +95,12 @@
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,74,0,0" x:Name="DS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,87,0,0" x:Name="DS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,100,0,0" x:Name="DS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
+                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DS_imgbox" Stretch="None" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
                     <CheckBox x:Name="ViewIso_chkbox" Content="Show Coverage" HorizontalAlignment="Left" Margin="522,417,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
+                    <RadioButton x:Name="dicomdose_rb_btn" Content="DICOM dose" HorizontalAlignment="Left" Margin="522,457,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="RadioButton_Checked_1"/>
+                    <RadioButton x:Name="plandose_rb_btn" Content="Plan dose" HorizontalAlignment="Left" Margin="522,436,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="plandose_rb_btn_Copy_Checked"/>
+                    <Label Content="Actual Z:" Height="28" HorizontalAlignment="Left" Margin="528,120,0,0" x:Name="DS_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" FontSize="11" />
+
                 </Grid>
             </TabItem>
             <TabItem Header="Plan View" Name="PlanViewtab" GotFocus="PlanViewtab_GotFocus" FontFamily="Euphemia" FontSize="14">
@@ -156,12 +161,13 @@
                 <Grid>
                     <DataGrid x:Name="Analysis_datagrid" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="403" Width="598" Background="#FF292929"/>
                     <Button x:Name="clearhistory_btn" Content="Clear History" HorizontalAlignment="Left" Margin="505,418,0,0" VerticalAlignment="Top" Width="103" Click="clearhistory_btn_Click"/>
-                    <Button x:Name="Load_dosespace_btn" Content="Load..." HorizontalAlignment="Left" Margin="10,418,0,0" VerticalAlignment="Top" Width="75" IsCancel="True"/>
+                    <Button x:Name="Load_dosespace_btn" Content="Load..." HorizontalAlignment="Left" Margin="10,418,0,0" VerticalAlignment="Top" Width="75" IsCancel="True" Click="Load_dosespace_btn_Click"/>
                     <Button x:Name="run_analysis_btn" Content="Run Analysis" HorizontalAlignment="Left" Margin="251,418,0,0" VerticalAlignment="Top" Width="142" Click="run_analysis_btn_Click"/>
 
                 </Grid>
             </TabItem>
-            <CheckBox Content="CheckBox" Margin="541,446,0,64"/>
+            
+            
         </TabControl>
         <Slider Height="354" HorizontalAlignment="Left" Margin="646,29,0,0" Name="slider2" VerticalAlignment="Top" Width="29" Orientation="Vertical" ValueChanged="slider2_ValueChanged" IsSnapToTickEnabled="True" SmallChange="1" Foreground="#FF252323" />
         <Menu Height="23" HorizontalAlignment="Left" Name="menu1" VerticalAlignment="Top" Width="1012">
@@ -172,6 +178,7 @@
                 <MenuItem Header="Open..." Name="Open_Menu" Foreground="#FF1F1E1E"/>
                 <MenuItem Header="Save..." Name="Save_Menu" Foreground="#FF1F1E1E" />
                 <MenuItem Header="Load Config file..." Name="LoadConfig_Menu" Foreground="#FF1F1E1E" Click="LoadConfig_Menu_Click" />
+                <MenuItem Header="Save Configuration..." Name="SaveConfig_Menu" Foreground="#FF1F1E1E" Click="SaveConfig_Menu_Click" />
                 <MenuItem Header="Set Working Directory" Name="Set_Direc" Foreground="#FF1F1E1E" Click="Set_Direc_Click" />
                 <MenuItem Header="Load DICOM Image set..." Foreground="#FF1F1E1E" Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
                 <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Foreground="#FF1F1E1E" Click="LoadStructure_Menu_Click" />
@@ -184,7 +191,9 @@
                 </MenuItem>
                 <MenuItem Header="Load Previous Dosespace" Name="LoadDS_menu" Foreground="#FF1F1E1E" Click="LoadDS_menu_Click_1" />
             </MenuItem>
-            <MenuItem x:Name="Tools_menuitem" Header="Tools" Foreground="#FFD4D3D3" FontSize="14"/>
+            <MenuItem x:Name="Tools_menuitem" Header="Tools" Foreground="#FFD4D3D3" FontSize="14">
+                <Button Content="Restrict SliceWeights..." Click="Button_Click_3"/>                
+            </MenuItem>
         </Menu>
         <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" FontSize="14" FontFamily="Consolas" />
         <Slider Height="21" HorizontalAlignment="Left" Margin="741,517,0,0" Name="slider_rasterwidth" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_rasterwidth_ValueChanged" Minimum="1" Maximum="30" IsSnapToTickEnabled="True" SmallChange="1" />

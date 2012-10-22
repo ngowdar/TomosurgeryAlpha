@@ -17,6 +17,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace TomosurgeryAlpha
 {
@@ -47,6 +48,7 @@ namespace TomosurgeryAlpha
         public StructureSet SS;
         public PathSet PS;
         public DoseKernel DK;
+        public DICOMDoseFile ddf;
         bool AlignmentOn = false;
         public Coordinates LGKcoords;
         public double DICOM_aspectMultiplier = 1.0;
@@ -126,6 +128,7 @@ namespace TomosurgeryAlpha
             string slicethickness;
             int dosecalculationthickness;
             string workdir;
+            string dosesavepath;
 
             using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
             using (StreamReader br = new StreamReader(fs))
@@ -138,6 +141,7 @@ namespace TomosurgeryAlpha
                 slicethickness = br.ReadLine();
                 dosecalculationthickness = Convert.ToInt16(br.ReadLine());
                 workdir = br.ReadLine();
+                dosesavepath = br.ReadLine();
             }
             txt_rasterwidth.Text = rasterwidth;
             txt_slicethickness.Text = slicethickness;
@@ -171,6 +175,42 @@ namespace TomosurgeryAlpha
                 AddStructureLoadedToListBox();
                 Plan_btn.IsEnabled = true;
             }            
+
+            //LOAD DICOM DOSE
+            LoadDoseSpace(dosesavepath);
+        }
+
+        public void WRITE_CONFIG_FILE(string name)
+        {
+            /* STANDARD CONFIG FORMAT
+             * 
+             * This is the line order:
+             * ===========================
+             * tumorpath
+             * headerpath 
+             * shotsize (this is a number: 4, 8, 16)
+             * rasterwidth
+             * stepsize
+             * slicethickness
+             * dosecalculationthickness
+             * workingdirectory
+             * DICOMdosepath "dosesavepath"
+             */
+            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, name);
+            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate,FileAccess.Write))
+            using (StreamWriter sw = new StreamWriter(fs))
+            {
+                sw.WriteLine(SS.tumorpath);
+                sw.WriteLine(SS.headerpath);
+                sw.WriteLine(4);
+                sw.WriteLine(txt_rasterwidth.Text);
+                sw.WriteLine(txt_stepsize.Text);
+                sw.WriteLine(txt_slicethickness.Text);
+                sw.WriteLine(PathSet.DCT);
+                sw.WriteLine(PathSet.ActiveDirectory);
+                sw.WriteLine(Analysis.ddf.dosesavepath);
+                //TODO: finish.
+            }
         }
 
         public int GetCurrentSlice()
@@ -240,31 +280,57 @@ namespace TomosurgeryAlpha
         void DS_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
             double aspectMultiplier; double[] img;
-            if (PS.DoseSpace != null)
+            if (plandose_rb_btn.IsChecked == true)
             {
                 //Calculate an aspect multiplier based on the size of the matrix.
                 double aspectmult = (double)(DS_imgbox.Width / PS.DoseSpace[0].GetLength(0));
 
                 img = new double[3];
-                img[0] = (double)Math.Round(e.GetPosition(this.DS_imgbox).X * aspectmult, 2);
-                img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y * aspectmult, 2);
+                img[0] = (double)Math.Round(e.GetPosition(this.DS_imgbox).X / aspectmult, 2);
+                img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y / aspectmult, 2);
                 img[2] = GetCurrentSlice();
                 UpdateDSLabels(img);
-            }            
+            }
+            else if (dicomdose_rb_btn.IsChecked == true)
+            {
+                if (DICOMDoseFile.DoseJ != null)
+                {
+                    double aspectmultx = (double)(DS_imgbox.Width / DICOMDoseFile.DoseJ[0].GetLength(0));
+                    double aspectmulty = (double)(DS_imgbox.Height / DICOMDoseFile.DoseJ[0].GetLength(1));
+                    img = new double[3];
+                    img[0] = (double)Math.Round(e.GetPosition(this.DS_imgbox).X / aspectmultx, 2);
+                    img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y / aspectmulty, 2);
+                    img[2] = GetCurrentSlice();
+                    UpdateDICOMDoseLabels(img);
+                }
+            }
+        }
+
+        private void UpdateDICOMDoseLabels(double[] point)
+        {
+            decimal xstart = Math.Round(DICOMDoseFile.doseoffset[0] + (decimal)point[0], 2);
+            decimal ystart = Math.Round(DICOMDoseFile.doseoffset[1] + (decimal)point[1], 2);
+            decimal zstart = Math.Round(DICOMDoseFile.doseoffset[2] + (decimal)point[2], 2);
+            DS_x_lbl.Content = "X: " + xstart;
+            DS_y_lbl.Content = "Y: " + ystart;
+            DS_z_lbl.Content = "Z: " + zstart;
         }
 
         void UpdateDSLabels(double[] point)
         {
             DS_x_lbl.Content = "X: " + point[0];
-            DS_y_lbl.Content += "Y: " + point[1];
-            DS_z_lbl.Content += "Z: " + point[2];
+            DS_y_lbl.Content = "Y: " + point[1];
+            DS_z_lbl.Content = "Z: " + point[2];
         }
 
         void UpdateDDSLabels(double[] point)
         {
-            DDS_x_lbl.Content = "X: " + point[0];
-            DDS_y_lbl.Content = "Y: " + point[1];
-            DDS_z_lbl.Content = "Z: " + point[2];
+            decimal xstart = Math.Round((decimal)StructureSet.f_global_xoffset + (decimal)point[0], 2);
+            decimal ystart = Math.Round((decimal)StructureSet.f_global_yoffset + (decimal)point[1], 2);
+            decimal zstart = Math.Round((decimal)StructureSet.f_global_zoffset + (decimal)point[2], 2);
+            DDS_x_lbl.Content = "X: " + xstart;
+            DDS_y_lbl.Content = "Y: " + ystart;
+            DDS_z_lbl.Content = "Z: " + zstart;
         }
 
         void DDS_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
@@ -747,10 +813,10 @@ namespace TomosurgeryAlpha
             bool viewiso = false;
             if (ViewIso_chkbox.IsChecked == true)
                 viewiso = true;
-            int maxvalue = 255; //change if increase range
+            //int maxvalue = 255; //change if increase range
             double default_rx_dose = 0.5;
 
-            int iso = (int)Math.Round(maxvalue*default_rx_dose);
+            //int iso = (int)Math.Round(maxvalue*default_rx_dose);
             wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
             DS_imgbox.Source = wb_DS;
             wb_DS.Lock();
@@ -767,13 +833,12 @@ namespace TomosurgeryAlpha
                         int value; int alpha;
                         alpha = (int)Math.Round((f[i,j]) * 255);
                         int color_data = 0;
-                        if (viewiso == true)                        
-                            if (alpha > iso)
-                            {
+                        if (viewiso == true && alpha > (default_rx_dose * 255))
+                        {   
                                 color_data = alpha << 16;
                                 color_data |= 0 << 8;
-                                color_data |= 0 << 0;
-                            }                        
+                                color_data |= 0 << 0;                           
+                        }
                         else
                         {
                             color_data = alpha << 16;
@@ -957,15 +1022,24 @@ namespace TomosurgeryAlpha
             }
             if (tabControl1.SelectedIndex == 1) //"Structure/DDS" tab
             {
-                slider2.Minimum = 0;
-                slider2.Maximum = SS.f_structurearray.GetLength(0) - 1;
+                slider2.Minimum = StructureSet.padsize;
+                slider2.Maximum = SS.f_structurearray.GetLength(0) - StructureSet.padsize;
                 DisplayStructure(slice);
-                DDS_z_lbl.Content = "Z: " + slice;
+                DDS_z_lbl.Content = "Z: " + ((decimal)StructureSet.f_global_zoffset - (decimal)0.25*((decimal)Math.Round(slider2.Value, 2) - StructureSet.padsize));
+                DDS_index_lbl.Content = "Actual Z: " + slice;
             }
 
             if (tabControl1.SelectedIndex == 2) //"DS" tab
             {
-                if (PS != null)
+                if (dicomdose_rb_btn.IsChecked == true)
+                {
+                    slider2.Minimum = Math.Abs((float)StructureSet.f_global_zoffset - (float)DICOMDoseFile.doseoffset[2]);
+                    slider2.Maximum = DICOMDoseFile.DoseJ.GetLength(0)-slider2.Minimum;
+                    DS_z_lbl.Content = "Z: " + (DICOMDoseFile.doseoffset[2] - (decimal)slider2.Minimum - (decimal)(Math.Round(slider2.Value, 2)-slider2.Minimum));
+                    DS_index_lbl.Content = "Actual Z: " + slice;
+                    Display2DFloat(DICOMDoseFile.DoseJ[slice]);
+                }
+                else if (PS != null)
                 {
                     slider2.Minimum = 0;
                     slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
@@ -995,7 +1069,7 @@ namespace TomosurgeryAlpha
             Microsoft.Win32.OpenFileDialog opendicom = new Microsoft.Win32.OpenFileDialog();
             opendicom.Multiselect = true;
             if (opendicom.ShowDialog() != false)
-            {
+            {                
                 if (opendicom.FileNames.GetLength(0) > 1)
                 {
                     string h = ""; string t = "";
@@ -1007,6 +1081,8 @@ namespace TomosurgeryAlpha
                         if (f.Extension == ".txt")
                             t = s;
                     }
+                    string path = System.IO.Path.GetDirectoryName(opendicom.FileName);
+                    SetWorkingDirectory(path);
                     SS = new StructureSet(h, t);
 
                 }
@@ -1537,6 +1613,7 @@ namespace TomosurgeryAlpha
 
         private void plan_btn_Click(object sender, RoutedEventArgs e)
         {
+            SetWorkingDirectory(); 
             PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
             PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
             PathSet.line_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
@@ -1564,17 +1641,37 @@ namespace TomosurgeryAlpha
 
         private void Opt_btn_Click(object sender, RoutedEventArgs e)
         {
-            UpdateStatusBar("Running optimization...this may take some time.");
-
-            if (PathSet.ActiveDirectory == null)
-                SetWorkingDirectory();            
+            UpdateStatusBar("Running optimization...this may take some time.");            
+            SetWorkingDirectory();            
             PS.PS_1_ShotOptimize_worker.RunWorkerAsync();
             UpdateTextBlock2("Optimizing shot weights...please wait.");
         }
 
         private void SetWorkingDirectory()
+        {            
+                string path = LoadConfig();
+                PathSet.ActiveDirectory = path;
+            if (PS != null)
+                PS.folderpath = path;
+
+           
+        }
+
+        private string LoadConfig()
         {
-            if (LoadConfig() == null)
+            string path = System.IO.Directory.GetCurrentDirectory();
+            path = System.IO.Path.Combine(path, "config.ini");
+            if (System.IO.File.Exists(path))
+            {
+                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                using (StreamReader br = new StreamReader(fs))
+                {
+                    string s = br.ReadLine();
+                    PathSet.ActiveDirectory = s;
+                    return s;
+                }
+            }
+            else
             {
                 string _folderName = "c:\\dinoch";
 
@@ -1599,31 +1696,14 @@ namespace TomosurgeryAlpha
                 PathSet.ActiveDirectory = _folderName;
                 string configfile = System.IO.Path.Combine(_folderName, "config.ini");
                 string configpath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "config.ini");
-                using (FileStream fs = new FileStream(configpath, FileMode.Create, FileAccess.Write))
+                using (FileStream fs = new FileStream(configfile, FileMode.Create, FileAccess.Write))
                 using (StreamWriter bw = new StreamWriter(fs))
                 {
                     bw.Write(_folderName);
                 }
+                return _folderName;
             }
-            else
-                PathSet.ActiveDirectory = LoadConfig();
-
-        }
-
-        private string LoadConfig()
-        {
-            string path = System.IO.Directory.GetCurrentDirectory();
-            path = System.IO.Path.Combine(path, "config.ini");
-            if (System.IO.File.Exists(path))
-            {
-                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
-                using (StreamReader br = new StreamReader(fs))
-                {
-                    return br.ReadLine();
-                }
-            }
-            else
-                return null;
+            
         }
 
         private void SetWorkingDirectory(string fullpath)
@@ -1796,7 +1876,10 @@ namespace TomosurgeryAlpha
         private void SetUpAnalysis()
         {
             Analysis_datagrid.IsEnabled = true;
-            Analysis.RunAnalysis(PS, SS, PathSet.RxDose);
+            if (PS != null && SS != null)
+                Analysis.RunAnalysis(PS, SS, PathSet.RxDose);
+            else if (Analysis.ddf != null)
+                Analysis.RunAnalysis(Analysis.ddf, SS.fj_Tumor, 0.5);
         }
 
         private List<AnalysisInfo> GetAnalysisInfo()
@@ -1903,12 +1986,48 @@ namespace TomosurgeryAlpha
 
         private void Set_Direc_Click(object sender, RoutedEventArgs e)
         {
-            SetWorkingDirectory();
+            //SetWorkingDirectory();
+            ChooseDirectory();
         }
+        private void ChooseDirectory()
+        {
+            string _folderName = "c:\\dinoch";
+
+            _folderName = (System.IO.Directory.Exists(_folderName)) ? _folderName : "";
+            var dlg1 = new Ionic.Utils.FolderBrowserDialogEx
+            {
+                Description = "Select a folder for temporary files and dosefile:",
+                ShowNewFolderButton = true,
+                ShowEditBox = true,
+                //NewStyle = false,
+                SelectedPath = _folderName,
+                ShowFullPathInEditBox = false,
+            };
+            dlg1.RootFolder = System.Environment.SpecialFolder.MyComputer;
+
+            var result = dlg1.ShowDialog();
+
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                _folderName = dlg1.SelectedPath;
+            }
+            PathSet.ActiveDirectory = _folderName;
+            string configfile = System.IO.Path.Combine(_folderName, "config.ini");
+            string configpath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "config.ini");
+            using (FileStream fs = new FileStream(configpath, FileMode.Create, FileAccess.Write))
+            using (StreamWriter bw = new StreamWriter(fs))
+            {
+                bw.Write(_folderName);
+            }
+        }
+
 
         private void ViewIso_chkbox_Checked(object sender, RoutedEventArgs e)
         {
-            Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+            if (dicomdose_rb_btn.IsChecked == true)
+                Display2DFloat(DICOMDoseFile.DoseJ[GetCurrentSlice()]);
+            else
+                Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
         }
 
         private void GPU_chkbox_Checked(object sender, RoutedEventArgs e)
@@ -1931,7 +2050,74 @@ namespace TomosurgeryAlpha
                 LOAD_CONFIG_FILE(loadconfig.FileName);
             }
         }
-       
+
+        private void Button_Click_3(object sender, RoutedEventArgs e)
+        {
+            
+                
+        }
+
+        private void Load_dosespace_btn_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog loadconfig = new Microsoft.Win32.OpenFileDialog();
+            loadconfig.Title = "Select a dosespace or DICOM-RT dose file";            
+            //float[] dosespace;
+            if (loadconfig.ShowDialog() != false)
+            {
+                Debug.WriteLine(System.IO.Path.GetExtension(loadconfig.FileName));
+                if (System.IO.Path.GetExtension(loadconfig.FileName) == ".dcm")
+                {
+                    LoadDICOMdose(loadconfig.FileName);
+
+                }
+                else if (System.IO.Path.GetExtension(loadconfig.FileName) == ".txt")
+                {
+                    LoadDoseSpace(loadconfig.FileName);
+                }
+            }
+        }
+
+        private void LoadDoseSpace(string p)
+        {
+            Analysis.ddf = new DICOMDoseFile(p, false);
+        }
+
+        private void LoadDICOMdose(string p)
+        {
+            Analysis.ddf = new DICOMDoseFile(p, true);
+        }
+
+        private void RadioButton_Checked_1(object sender, RoutedEventArgs e)
+        {
+            if (DICOMDoseFile.DoseJ != null)
+            {
+                slider2.Minimum = 0;
+                slider2.Maximum = DICOMDoseFile.DoseJ.GetLength(0) - 1;
+                slider2.Value = (double)(slider2.Maximum / 2);
+                Display2DFloat(DICOMDoseFile.DoseJ[GetCurrentSlice()]);
+            }
+            
+        }
+
+        public void DisplayDose(float[,] d)
+        {
+
+            d = Matrix.Normalize(d);
+            Display2DFloat(d);
+        }
+
+        private void plandose_rb_btn_Copy_Checked(object sender, RoutedEventArgs e)
+        {
+            slider2.Minimum = 0;
+            slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;            
+            Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+        }
+
+        private void SaveConfig_Menu_Click(object sender, RoutedEventArgs e)
+        {
+            WRITE_CONFIG_FILE("CONFIG_1.txt");
+        }
+            
         
     }
 }
