@@ -37,20 +37,20 @@ namespace TomosurgeryAlpha
             ai.VantReits = (lesioncoveragebyrx * lesioncoveragebyrx) / (lesionvolume * totalvolcoveredbyrx);
             ai.TestName = System.DateTime.Now.ToShortTimeString();
             AIList.Add(ai);
-            if (ddf != null)
-            {
-                AnalysisInfo DICOM_dose = new AnalysisInfo();
-                DICOM_dose.LesionVolume = lesionvolume;
-                DICOM_dose.RxLevel = RX;
-                AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), SS.fj_Tumor, startingz);                                
-                DICOM_dose.Rx_Volume = totalvolcoveredbyrx;
-                DICOM_dose.RxLesion_Volume = lesioncoveragebyrx;
-                DICOM_dose.RTOG = totalvolcoveredbyrx / lesionvolume;
-                DICOM_dose.LomaxScheib = lesioncoveragebyrx / totalvolcoveredbyrx;
-                DICOM_dose.VantReits = (lesioncoveragebyrx * lesioncoveragebyrx) / (lesionvolume * totalvolcoveredbyrx);
-                DICOM_dose.TestName = "DICOMdose";
-                AIList.Add(DICOM_dose);
-            }
+            //if (ddf != null)
+            //{
+            //    AnalysisInfo DICOM_dose = new AnalysisInfo();
+            //    DICOM_dose.LesionVolume = lesionvolume;
+            //    DICOM_dose.RxLevel = RX;
+            //    //AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), SS.fj_Tumor, startingz);                                
+            //    DICOM_dose.Rx_Volume = totalvolcoveredbyrx;
+            //    DICOM_dose.RxLesion_Volume = lesioncoveragebyrx;
+            //    DICOM_dose.RTOG = totalvolcoveredbyrx / lesionvolume;
+            //    DICOM_dose.LomaxScheib = lesioncoveragebyrx / totalvolcoveredbyrx;
+            //    DICOM_dose.VantReits = (lesioncoveragebyrx * lesioncoveragebyrx) / (lesionvolume * totalvolcoveredbyrx);
+            //    DICOM_dose.TestName = "DICOMdose";
+            //    AIList.Add(DICOM_dose);
+            //}
         }
 
 
