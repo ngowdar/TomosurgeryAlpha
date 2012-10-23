@@ -74,6 +74,7 @@ __global    float * params) //size, dosecalculationthickness
  	//Vector element index, number of workers = slicedose size.
  	int id_z = get_global_id(0); 
     int id_x = get_global_id(1); //represents which slice of size:dosecalculationthickness
+    int real_x;
     
     int startz;
     float weight;
@@ -87,19 +88,33 @@ __global    float * params) //size, dosecalculationthickness
     {
         startz = positions[s] - (dosecalcthick / 2);
         weight = weights[s];
-        index = ((startz+id_z)*size*size) + (id_x*size);
+        int extra = 0;
+        
+        if (id_x < (size-1))
+        {
+            real_x = id_x;
+            extra = 1;
+        }
+        else if (id_x >= (size-1))
+        {
+            real_x = id_x-(size-1);
+            extra = 0;
+        }
 
-//each worker handles half a single row (241 elements), 
-int extra = 0;
-if (id_x % 2 == 1)
-    extra = 1;
 
-    for (int x = 0; x < size/2; x++)
-{
-    wDS[index+x+extra] += weight*originalDS[index+x+extra];
-}
+        index = ((startz + id_z) * size * size) + (real_x * size);
 
-}
+        //each worker handles half a single row (241 elements), 
+        
+
+        for (int x = 0; x < (size - 1) / 2; x++)
+        {
+            wDS[index+(2*x)+extra] += weight*originalDS[index+(2*x)+extra];
+        }       
+if (id_x >= (size-1))
+            wDS[index+size] += weight*originalDS[index + size];
+
+    }
 }
 
 ";

@@ -9,6 +9,8 @@ namespace TomosurgeryAlpha
 {
     public static class GPU
     {
+        public static float[] originalds;
+
         public static bool GPUenabled = false;
 
         public static float[,] ScalarMultiply(float[,] A, float scalar)
@@ -144,14 +146,18 @@ namespace TomosurgeryAlpha
 
         }
 
+        public static void LoadOriginalDSFromFile(string filename, string folderpath)
+        {
+            string path = System.IO.Path.Combine(folderpath, filename);
+            originalds = Matrix.Normalize(PathSet.ReadDoseSpaceFromFile(path));
+        }
+
         public static float[] WeightOriginalDS(int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
         {
-            
-            string filename = "OriginalDS.txt";
-            string path = System.IO.Path.Combine(folderpath, filename);
-            float[] originalds = Matrix.Normalize(PathSet.ReadDoseSpaceFromFile(path));
-            Debug.WriteLine("oDS sum: " + originalds.Sum());
-            Debug.WriteLine("oDS sum normalized: " + Matrix.Normalize(originalds).Sum());
+            if (originalds == null)
+                LoadOriginalDSFromFile("OriginalDS.txt", folderpath);            
+            //Debug.WriteLine("oDS sum: " + originalds.Sum());
+            //Debug.WriteLine("oDS sum normalized: " + Matrix.Normalize(originalds).Sum());
             float[] wDS = new float[originalds.GetLength(0)];
 
             if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.Unknown)

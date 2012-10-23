@@ -223,7 +223,8 @@ namespace TomosurgeryAlpha
         }
         private void SetParams(int stepsize, int rasterwidth)
         {            
-            StepSize = stepsize;            
+            StepSize = stepsize;
+            ComparisonKernelSize = (int)Math.Round(stepsize*1.4);
             RasterWidth = rasterwidth;
         }        
         /// <summary>
@@ -891,7 +892,7 @@ namespace TomosurgeryAlpha
         }
 
         
-
+//TODO: 
         public void CalculateAndSaveSliceDose(DoseKernel dk, int dosecalcthickness, string savepath)
         {
             Stopwatch s = new Stopwatch();
@@ -902,7 +903,7 @@ namespace TomosurgeryAlpha
             int xmid = xsize / 2; int ymid = ysize / 2; int zmid = dosecalcthickness / 2;
             int StartingDoseSlice = ((N - 1) / 2) - zmid;
             float[] slicedose = new float[xsize * ysize * dosecalcthickness];
-            Parallel.For(0, dosecalcthickness, (k) =>
+            for (int k = 0; k < dosecalcthickness; k++)
                 {
                     for (int j = 0; j < N; j++)
                         for (int i = 0; i < N; i++)
@@ -914,16 +915,16 @@ namespace TomosurgeryAlpha
                                 //PointF LDP = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
                                 PointF FDP = new PointF(shot.X - center.X, shot.Y - center.Y);
                                 float dose = dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
-                                int index = (k * xsize * ysize) + (((int)FDP.Y + j) * xsize) + ((int)FDP.X + i);                                                            
+                                int index = (k * xsize * ysize) + (((int)FDP.Y + j) * xsize) + ((int)FDP.X + i);
                                 slicedose[index] += dose;
                                 //
                             });
-                });
-            s.Stop(); Debug.WriteLine("Calculate and save doses takes: " + s.ElapsedMilliseconds);
-            s.Reset(); s.Start();
+                }
+            //s.Stop(); Debug.WriteLine("Calculate and save doses takes: " + s.ElapsedMilliseconds);
+            //s.Reset(); s.Start();
             //float f = dk.ReturnSpecificDoseValue(80, 80, 80);
             WriteToFile(savepath, slicedose, xsize, ysize, dosecalcthickness);
-            s.Stop(); Debug.WriteLine("WriteToFile() takes: " + s.ElapsedMilliseconds);
+            //s.Stop(); Debug.WriteLine("WriteToFile() takes: " + s.ElapsedMilliseconds);
         }
 
         public PointF FindFirstExistingDosePixel(PointF shot, PointF dims)

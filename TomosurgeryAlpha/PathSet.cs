@@ -505,6 +505,7 @@ namespace TomosurgeryAlpha
                 ClearDosespace();
                 //DoseSpace = PrepareWeighted_DS(temp_weights, folderpath, DDS); //TODO: This method is time-consuming, make this GPU?
                 DoseSpace = PrepareWeighted_DS_GPU(temp_weights, folderpath, DDS);
+                WriteFloatArray2BMP(DoseSpace[DoseSpace.GetLength(0) / 2], "ds_midplane_" + index + ".bmp");
                 //DoseSpace = Matrix.Normalize(DoseSpace);            
                 TotalCoverage = FindTotalCoverage(RxDose, DoseSpace, DDS, temp_weights);
                 /*
@@ -645,8 +646,10 @@ namespace TomosurgeryAlpha
 
            for (int s = 0; s < NumSlices; s++)
            {
-               float[][,] ds_slab = GrabSlab(DoseSpace,(int)Math.Round(SliceThickness*1.5), SlicePositions[s]);
-               float[][,] dds_slab = GrabSlab(dds, (int)Math.Round(SliceThickness * 1.5), SlicePositions[s]);
+               float[][,] ds_slab = GrabSlab(DoseSpace,PathSet.DCT, SlicePositions[s]);
+               //WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_slab.bmp"));
+               float[][,] dds_slab = GrabSlab(dds, PathSet.DCT, SlicePositions[s]);
+               //WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_slab.bmp"));
                double[] measurements = FindSliceDoseCoverage(ds_slab,s,0.5,dds_slab);
 
                /* 0: ratio
@@ -789,18 +792,14 @@ namespace TomosurgeryAlpha
             for (int k = 0; k < weighted_slicedoses.GetLength(0); k++)
                 weighted_slicedoses[k] = Matrix.Zeroes(x, y);
             PathSet.DCT = DCT;           
-                float[][,] GPUsd = new float[DoseSpace.GetLength(0)][,];
+                
                 Stopwatch gputime = new Stopwatch();
                 gputime.Start();
-                float[] wSD = new float[x * y * z];
-                for (int i = 0; i < wSD.GetLength(0); i++)
-                    wSD[i] = 0.0f;
-
-                //wSD = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
-                wSD = GPU.WeightOriginalDS(SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
+                                //wSD = GPU.PrepareDoseSpace(wSD, SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
+                float[] wSD = GPU.WeightOriginalDS(SlicePositions, weights, new int[3] { x, y, z }, DCT, subfolder);
                 gputime.Stop();
                 Debug.WriteLine("GPU PrepareWeighted_DS time: " + gputime.Elapsed);
-                GPUsd = GPU.BackTo3D(wSD, x, y, z);
+                float[][,] GPUsd = GPU.BackTo3D(wSD, x, y, z);
                 return GPUsd;
 
             
