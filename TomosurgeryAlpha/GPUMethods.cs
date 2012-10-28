@@ -190,7 +190,7 @@ namespace TomosurgeryAlpha
 
                 //Run the program
                 if (AddSliceDose_kernel != null)
-                    AddSliceDose_kernel.Execute(args, new int[2]{PathSet.DCT, (size[0]*2)});
+                    AddSliceDose_kernel.Execute(args, new int[3]{PathSet.DCT, (size[0]*2), SlicePositions.GetLength(0)});
                 dev_wDS.ReadFromDeviceTo(wDS);
             }     
             return wDS;

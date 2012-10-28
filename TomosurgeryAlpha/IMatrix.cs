@@ -337,6 +337,13 @@ namespace TomosurgeryAlpha
             return t;
         }
 
+        public static float[][,] ThresholdEq(float[][,] d, float th)
+        {
+            float[][,] t = new float[d.GetLength(0)][,];
+            for (int k = 0; k < d.GetLength(0); k++)
+                t[k] = ThresholdEq(d[k], 0.4f);
+            return t;
+        }
 
 
 
@@ -584,6 +591,7 @@ namespace TomosurgeryAlpha
             });
             return Window;
         }
+
         internal static float[,] MultiplySubset(float[,] A, float[,] b, int centerx, int centery)
         {
             float[,] AA = new float[A.GetLength(0), A.GetLength(1)];

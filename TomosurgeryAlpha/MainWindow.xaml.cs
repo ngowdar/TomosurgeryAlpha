@@ -2117,6 +2117,11 @@ namespace TomosurgeryAlpha
         {
             WRITE_CONFIG_FILE("CONFIG_1.txt");
         }
+
+        private void run_DDF_analysis_btn_Click(object sender, RoutedEventArgs e)
+        {
+            Analysis.RunAnalysis(Analysis.ddf,StructureSet.originalTumor, 0.5);
+        }
             
         
     }

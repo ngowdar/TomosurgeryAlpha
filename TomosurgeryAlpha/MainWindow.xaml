@@ -95,7 +95,7 @@
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,74,0,0" x:Name="DS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,87,0,0" x:Name="DS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,100,0,0" x:Name="DS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DS_imgbox" Stretch="None" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
+                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
                     <CheckBox x:Name="ViewIso_chkbox" Content="Show Coverage" HorizontalAlignment="Left" Margin="522,417,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
                     <RadioButton x:Name="dicomdose_rb_btn" Content="DICOM dose" HorizontalAlignment="Left" Margin="522,457,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="RadioButton_Checked_1"/>
                     <RadioButton x:Name="plandose_rb_btn" Content="Plan dose" HorizontalAlignment="Left" Margin="522,436,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="plandose_rb_btn_Copy_Checked"/>
@@ -163,6 +163,8 @@
                     <Button x:Name="clearhistory_btn" Content="Clear History" HorizontalAlignment="Left" Margin="505,418,0,0" VerticalAlignment="Top" Width="103" Click="clearhistory_btn_Click"/>
                     <Button x:Name="Load_dosespace_btn" Content="Load..." HorizontalAlignment="Left" Margin="10,418,0,0" VerticalAlignment="Top" Width="75" IsCancel="True" Click="Load_dosespace_btn_Click"/>
                     <Button x:Name="run_analysis_btn" Content="Run Analysis" HorizontalAlignment="Left" Margin="251,418,0,0" VerticalAlignment="Top" Width="142" Click="run_analysis_btn_Click"/>
+                    <Button x:Name="run_DDF_analysis_btn" Content="Run DICOM Analysis" HorizontalAlignment="Left" Margin="251,448,0,0" VerticalAlignment="Top" Width="142" Click="run_DDF_analysis_btn_Click"/>
+                    
 
                 </Grid>
             </TabItem>

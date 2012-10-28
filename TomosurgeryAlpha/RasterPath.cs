@@ -50,6 +50,8 @@ namespace TomosurgeryAlpha
         public static int RasterWidth;
         public static int StepSize;
         public static int ComparisonKernelSize = 20;
+        public const int LineSidePadding = 12;
+        public const int LineEdgePadding = 8;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -77,7 +79,10 @@ namespace TomosurgeryAlpha
             SetParams(StepSize, RasterWidth);
             slice = f;
             ModdedSlice = f;
-            PrepareDDSFromSlice(f);
+            //slice = PrepareDDSFromSlice(f);
+            DDS_slice = PrepareDDSFromSlice(DilateSlice(f));
+            
+            //PrepareDDSFromSlice(f);
             X = f.GetLength(0); Y = f.GetLength(1);
             FindAllShotPoints();            
             InitWeightArray();
@@ -93,18 +98,18 @@ namespace TomosurgeryAlpha
             
         }
 
-        private void PrepareDDSFromSlice(float[,] slice)
+        private float[,] PrepareDDSFromSlice(float[,] slice)
         {
-            DDS_slice = new float[slice.GetLength(0), slice.GetLength(1)];
+            float[,] dds_slice = new float[slice.GetLength(0), slice.GetLength(1)];
             for (int j = 0; j < slice.GetLength(1); j++)
                 for (int i = 0; i < slice.GetLength(0); i++)
                 {
                     if (slice[i, j] == 0)
-                        DDS_slice[i, j] = PathSet.ToleranceDose;
+                        dds_slice[i, j] = PathSet.ToleranceDose;
                     if (slice[i, j] > 0)
-                        DDS_slice[i, j] = PathSet.RxDose;
+                        dds_slice[i, j] = PathSet.RxDose;
                 }
-            Debug.WriteLine("DDS_Slice sum: " + Matrix.SumAll(DDS_slice));
+            return dds_slice;
             
         }
 
@@ -223,8 +228,10 @@ namespace TomosurgeryAlpha
         }
         private void SetParams(int stepsize, int rasterwidth)
         {            
-            StepSize = stepsize;
-            ComparisonKernelSize = (int)Math.Round(stepsize*1.4);
+            StepSize = stepsize;            
+            ComparisonKernelSize = (int)Math.Round((decimal)stepsize);
+            if (ComparisonKernelSize < 10)
+                ComparisonKernelSize = 10;
             RasterWidth = rasterwidth;
         }        
         /// <summary>
@@ -317,7 +324,7 @@ namespace TomosurgeryAlpha
             {
 
                 //Find shot spacing
-                int edgepad = PathSet.shot_edgepadding;
+                int edgepad = LineEdgePadding;
                 int meat; int first; int last;
                 int numshots; int newspacing;
                 //Rest of Logic goes here...
@@ -331,6 +338,8 @@ namespace TomosurgeryAlpha
                     numshots = (meat / StepSize) - 1;
                 //Find the new spacing
                 newspacing = meat / (numshots + 1);
+                if (newspacing < 2)
+                    newspacing = 2;
                 //Add the first and last shots to the total number of shots
                 numshots += 2;
                 //Respace shots by newspacing distance.
@@ -338,7 +347,12 @@ namespace TomosurgeryAlpha
                 shots[0] = first;
                 shots[numshots - 1] = last;
                 for (int i = 1; i < numshots - 1; i++)
-                    shots[i] = shots[i - 1] + newspacing;
+                {
+                    if (shots[i - 1] + newspacing > last)
+                        break;
+                    else
+                        shots[i] = shots[i - 1] + newspacing;
+                }
             }
             //NumOfShots += shots.GetLength(0);
             return shots;
@@ -353,7 +367,7 @@ namespace TomosurgeryAlpha
         public int[] LineSpacer(int xstart, int xend)
         {            
             int[] lines;
-            int edgepad = PathSet.line_edgepadding;
+            int edgepad = LineSidePadding;
             int meat; int first; int last;
             int numlines; int newspacing;
             //Is there enough room for the two starting lines?
@@ -445,7 +459,7 @@ namespace TomosurgeryAlpha
             int index = 0;
             float[] temp_weight = new float[weight.GetLength(0)];
             weight = InitWeightArray(1, 0.7f);
-
+            float[,] temp_slice = PrepareDDSFromSlice(slice);
             float[] ds = new float[slice.GetLength(0) * slice.GetLength(1)];
             for (int i = 0; i < ds.GetLength(0); i++)
                 ds[i] = 0.0f;
@@ -453,7 +467,7 @@ namespace TomosurgeryAlpha
             ds = PrepareDS(ds, weight, 1.0f);
             ds = Normalize(ds);
 
-            double[] m = CalculateIterationCoverage(ds, 0.5f); //TODO: Take this out.            
+            double[] m = CalculateIterationCoverage(ds, temp_slice, 0.5f); //TODO: Take this out.            
             WriteFloatArray2BMP(ds, "starting_ds.bmp");
             WriteFloatArray2BMP(DDS_slice, "starting_DDS.bmp");
             double old_error;
@@ -472,39 +486,64 @@ namespace TomosurgeryAlpha
                 WriteFloatArray2BMP(ds, string.Concat(index, "_ds.bmp"));
                 //ds = Normalize(ds);
 
-                double[] measurements = CalculateIterationCoverage(ds, 0.5f);
+                double[] measurements = CalculateIterationCoverage(ds, DDS_slice, 0.5f);
                 //1st value = tumor voxel total
                 //2nd value = isovolume voxel total
                 //3rd value = both tumor & >iso voxel total
                 //4th value = pixels underdosed
 
                 //Calculate Coverage = (tumor pixels covered by rx dose) / (tumor pixels)
-                double temp_coverage = measurements[2] / measurements[0];
-                if (index > 0 && (1 / temp_coverage) >= (1 / coverage))
+                double IterationCoverage = measurements[2] / measurements[0];
+                double PercentUnderdosed = (measurements[3] / measurements[0]) * 100;
+                if (index > 0 && (1 / IterationCoverage) >= (1 / coverage))
                     IsCoverageBeingOptimized = true;
-                
 
                 //Calculate Overage = (total pixels covered by rx dose) / (tumor pixels)                
                 double temp_overage = measurements[1] / measurements[0];
 
+                if (index > 5)
+                {
+                    if (IterationCoverage > 0.98 && PercentUnderdosed < 0.1 && temp_overage < 0.05) //i.e. Good Enough
+                    {
+                        Debug.WriteLine("Stopped bc coverage > 98%, < 0.1% underdosed");
+                        Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        break;
+                    }
+                    else if (IterationCoverage > 0.98 && IterationCoverage < coverage) //coverage reversing/oscillating
+                    {
+                        Debug.WriteLine("Stopped bc coverage > 98%, coverage starting to decrease");
+                        Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        break;
+                    }
+                    else if ((Math.Abs(old_error - Error) < .005)) //error isn't changing that much
+                    {
+                        Debug.WriteLine("Stopped bc error difference negligible");
+                        Debug.WriteLine("Error: " + old_error + " --> " + Error);
+                        Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        break;
+                    }
+                }
+
+                
+
                 //Need to make sure that with each iteration, coverage isn't going down, and overage isn't going up.
 
-                if (index > 2 && (temp_coverage < coverage || temp_overage > overage)) //Old version was index > 1 && cov < coverage
-                {
-                    string r = "CAUTION: Bad trend in coverage!!! " + coverage + " --> " + temp_coverage;
-                    Debug.WriteLine(r);
-                    Debug.WriteLine("Overage: " + overage + "-->" + temp_overage);
-                    break;
-                }
-                if (index > 10 && old_error < Error)
-                {
-                    string r = "WARNING: Error is increasing (" + old_error + " --> " + Error + "). Terminating...";
-                    Debug.WriteLine(r);
-                    //break;
-                }
+                //if (index > 2 && (IterationCoverage < coverage || temp_overage > overage)) //Old version was index > 1 && cov < coverage
+                //{
+                //    string r = "CAUTION: Bad trend in coverage!!! " + coverage + " --> " + IterationCoverage;
+                //    Debug.WriteLine(r);
+                //    Debug.WriteLine("Overage: " + overage + "-->" + temp_overage);
+                //    break;
+                //}
+                //if (index > 10 && old_error < Error)
+                //{
+                //    string r = "WARNING: Error is increasing (" + old_error + " --> " + Error + "). Terminating...";
+                //    Debug.WriteLine(r);
+                //    //break;
+                //}
                 else
                 {
-                    coverage = Convert.ToDouble(temp_coverage);
+                    coverage = Convert.ToDouble(IterationCoverage);
                     overage = Convert.ToDouble(temp_overage);
                     string status = "=";
                     if (IsCoverageBeingOptimized)
@@ -632,7 +671,11 @@ namespace TomosurgeryAlpha
                 
                 //double[] temp_r = CompareSlices(DStimesP, DDStimesP, false); //This was the elaborate rule-based algorithm                
                 double ratio = EvalShotWeightIteration(ds, pf); //This comparison function just adds the DDS and DS and compares for a simple ratio.
-                
+
+                //TODO: Limiting shotweight to 1.0
+                if (weight[shot] * ratio >= 1.0)
+                    tweight[shot] = 1.0f;
+                else
                 tweight[shot] = (float)(weight[shot] * ratio); // old weight multiplied by newest ratio.                
                 //Debug.WriteLine("Old: " + weight[shot] + " * R: " + ratio + " = New: " + tweight[shot]);
 
@@ -1125,7 +1168,34 @@ namespace TomosurgeryAlpha
             massvol = (int)tumor;
         }
 
-        public double[] CalculateIterationCoverage(float[] DS, float iso)
+        public float[,] DilateSlice(float[,] p)
+        {
+            float[,] output = (float[,])p.Clone();
+            float top;
+            float right;
+            float left; float bottom;
+            for (int j = 1; j < p.GetLength(1) - 1; j++)
+                for (int i = 1; i < p.GetLength(0) - 1; i++)
+                {
+                    if (p[i, j] > 0)
+                        continue;
+                    else
+                    {
+                        top = p[i, j - 1];
+                        left = p[i - 1, j];
+                        right = p[i + 1, j];
+                        bottom = p[i, j + 1];
+                        
+                        
+                        float sum = top + left + right + bottom;
+                        if (sum > 0)
+                            output[i, j] = 1;
+                    }
+                }
+            return output;
+        }
+
+        public double[] CalculateIterationCoverage(float[] DS, float[,] s, float iso)
         {
             //float[] ds = Normalize(DS);            
             double c = 0;

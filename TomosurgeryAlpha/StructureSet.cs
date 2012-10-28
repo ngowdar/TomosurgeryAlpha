@@ -25,6 +25,7 @@ namespace TomosurgeryAlpha
         public static float f_global_yoffset;
         public static float f_global_zoffset;
         public static int padsize;
+        public static float[][,] originalTumor;
         public string headerpath;
         public string tumorpath;
         public float[] f_offset;
@@ -46,6 +47,7 @@ namespace TomosurgeryAlpha
             if (DoseKernel.N != null)
                 padsize = DoseKernel.N/2; // <- need to make this (N-1)/2 once N has been established.
             float[] LinearVolume = Read1DArrayFromFile(tumor, header);
+            originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
             float[][,] BinaryVolume = EnlargeTumor(LinearVolume, padsize);
             f_structurearray = CreateArray(BinaryVolume, padsize);
             fj_Tumor = GetTumorOnly(BinaryVolume);
@@ -79,6 +81,28 @@ namespace TomosurgeryAlpha
             //    Debug.Write(" " + awesome[4, i]);
             //}
 
+        }
+
+        public static int[] FindZBoundaries(float[][,] t)
+        {
+            int[] Zends = new int[2];
+            bool z1 = false;
+            for (int k = 0; k < t.GetLength(0); k++)
+            {
+                float[,] temp = t[k];
+                float sum = Matrix.SumAll(temp);
+                if (sum > 0)
+                {
+                    if (z1 == false)
+                    {
+                        Zends[0] = k;
+                        z1 = true;
+                    }
+                    else
+                        Zends[1] = k;
+                }
+            }
+            return Zends;
         }
 
         public StructureSet(float[][] tumorobj)

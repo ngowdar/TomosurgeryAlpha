@@ -153,10 +153,34 @@ namespace TomosurgeryAlpha
                         temp[i, j] = Dose[k * columns * rows + j * columns + i];
                 r[k] = Matrix.LinearlyInterpolateSlices(Matrix.LinearlyInterpolateSlices(temp));
             }
-
-
+            r = InterpolateInbetweenSlices(InterpolateInbetweenSlices(r));
             //r = Matrix.EnlargeAndCenter(Matrix.Convertto1D(r), StructureSet.padsize, r[0].GetLength(0), r[0].GetLength(1), r.GetLength(0));
             return Matrix.Normalize(r);
+        }
+
+        private static float[,] AverageSlices(float[,] A, float[,] B)
+        {
+            float[,] C = Matrix.Zeroes(A.GetLength(0), A.GetLength(1));
+            for (int j = 0; j < A.GetLength(1); j++)
+                for (int i = 0; i < A.GetLength(0); i++)
+                    C[i, j] = (A[i, j] + B[i, j]) / 2;
+            return C;
+        }
+
+        public static float[][,] InterpolateInbetweenSlices(float[][,] A)
+        {
+            int newlength = (A.GetLength(0) * 2) - 1;
+            float[][,] C = new float[newlength][,];
+            //fill in original slices:
+
+            for (int i = 0; i < A.GetLength(0); i++)
+                C[2*i] = (float[,])A[i].Clone();
+
+            for (int i = 1; i < A.GetLength(0); i++)
+                C[(2 * i) - 1] = AverageSlices(A[i - 1], A[i]);
+
+                        
+            return Matrix.ThresholdEq(C,0.4f);
         }
 
 

@@ -92,12 +92,12 @@ namespace TomosurgeryAlpha
 
         public static void RunAnalysis(DICOMDoseFile ddf, float[][,] tumor, double rxlevel)
         {
-            double rxdoselevel;
-            double rtogindex;
-            double lomaxscheib;
-            double vantreits;
+            int[] zends = StructureSet.FindZBoundaries(tumor);
+            float[][,] t = PathSet.GrabSlab(tumor, zends[0], zends[1], true);            
+            t = PathSet.PrepareDDS(t);
+            
             AnalysisInfo DICOM_dose = new AnalysisInfo();
-            AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), tumor, (int)ddf.ZStart);
+            AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), t, (int)ddf.ZStart);
             DICOM_dose.RxLevel = RX;
             DICOM_dose.LesionVolume = lesionvolume;
             DICOM_dose.Rx_Volume = totalvolcoveredbyrx;

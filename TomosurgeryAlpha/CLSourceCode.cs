@@ -61,7 +61,7 @@ __global    float * params)
         //NOT FINISHED YET.
         public string WeightOriginalDS = @"
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+
 
 __kernel void
 AddWeight2OriginalDS(
@@ -74,6 +74,7 @@ __global    float * params) //size, dosecalculationthickness
  	//Vector element index, number of workers = slicedose size.
  	int id_z = get_global_id(0); 
     int id_x = get_global_id(1); //represents which slice of size:dosecalculationthickness
+    int id_s = get_global_id(2);
     int real_x;
     
     int startz;
@@ -83,23 +84,23 @@ __global    float * params) //size, dosecalculationthickness
     int size = (int)params[1];
     int dosecalcthick = (int)params[2];
  	
- 	//Loop through slices, and then loop through the length of one slicedose array
-    for (int s = 0; s < numslices; s++)
-    {
-        startz = positions[s] - (dosecalcthick / 2);
-        weight = weights[s];
+ 	
+        startz = positions[id_s] - (dosecalcthick / 2);
+        weight = weights[id_s];
         int extra = 0;
+        
         
         if (id_x < (size-1))
         {
-            real_x = id_x;
-            extra = 1;
+            //real_x = id_x;
+            extra = 0;
         }
         else if (id_x >= (size-1))
         {
-            real_x = id_x-(size-1);
-            extra = 0;
+            //real_x = id_x-(size-1);
+            extra = (size-1);
         }
+        real_x = id_x - extra;
 
 
         index = ((startz + id_z) * size * size) + (real_x * size);
@@ -107,14 +108,14 @@ __global    float * params) //size, dosecalculationthickness
         //each worker handles half a single row (241 elements), 
         
 
-        for (int x = 0; x < (size - 1) / 2; x++)
+        for (int x = extra/2; x < ((size - 1) / 2)+extra/2; x++)
         {
-            wDS[index+(2*x)+extra] += weight*originalDS[index+(2*x)+extra];
+            wDS[index + x] += (originalDS[index + x] * weight);
         }       
-if (id_x >= (size-1))
-            wDS[index+size] += weight*originalDS[index + size];
+        //if (id_x >= (size-1))
+          //  wDS[index + size] += (weight * originalDS[index + size]);
 
-    }
+    
 }
 
 ";
