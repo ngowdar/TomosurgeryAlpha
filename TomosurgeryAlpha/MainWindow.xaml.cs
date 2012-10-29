@@ -290,6 +290,7 @@ namespace TomosurgeryAlpha
                 img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y / aspectmult, 2);
                 img[2] = GetCurrentSlice();
                 UpdateDSLabels(img);
+                UpdateStatusWindow(img);
             }
             else if (dicomdose_rb_btn.IsChecked == true)
             {
@@ -302,6 +303,7 @@ namespace TomosurgeryAlpha
                     img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y / aspectmulty, 2);
                     img[2] = GetCurrentSlice();
                     UpdateDICOMDoseLabels(img);
+                    UpdateStatusWindow(img);
                 }
             }
         }
@@ -314,23 +316,75 @@ namespace TomosurgeryAlpha
             DS_x_lbl.Content = "X: " + xstart;
             DS_y_lbl.Content = "Y: " + ystart;
             DS_z_lbl.Content = "Z: " + zstart;
+            
+        }
+
+        private void UpdateStatusWindow(double[] point)
+        {
+            
+            string dicomoffset = "Not set yet.";
+            string doseoffset = "Not set yet.";
+            string structoffset = "Not set yet.";
+
+            if (DICOMImageFile.GlobalOffset != null)
+                dicomoffset = "DICOM ref. pos: " + Math.Round(DICOMImageFile.GlobalOffset[0],1) + ", " + Math.Round(DICOMImageFile.GlobalOffset[1],1) + ", " + Math.Round(DICOMImageFile.GlobalOffset[2],1);
+            if (DICOMDoseFile.doseoffset != null)
+                doseoffset = "Dose ref. pos: " + Math.Round(DICOMDoseFile.doseoffset[0], 1) + ", " + Math.Round(DICOMDoseFile.doseoffset[1], 1) + ", " + Math.Round(DICOMDoseFile.doseoffset[2], 1);
+            if (StructureSet.f_SSoffset != null)
+                structoffset = "Struct ref pos: " + Math.Round(StructureSet.f_SSoffset[0], 1) + ", " + Math.Round(StructureSet.f_SSoffset[1], 1) + ", " + Math.Round(StructureSet.f_SSoffset[2], 1);
+
+            string imgtxt = "Cursor: " + Math.Round(point[0], 1) + ", " + Math.Round(point[1], 1) + ", " + Math.Round(point[2], 1);
+            string dicomtxt = "DICOM: " + Math.Round(point[0], 1) + ", " + Math.Round(point[1], 1) + ", " + Math.Round(point[2], 1);
+            string chosenoffset = "";
+            if (tabControl1.SelectedIndex == 2) //"DS" tab
+                chosenoffset = doseoffset;
+            else if (tabControl1.SelectedIndex == 1) //"Structure"
+                chosenoffset = structoffset;
+            else if (tabControl1.SelectedIndex == 0) //"DICOM"
+                chosenoffset = dicomoffset;
+            StatusTxtBox.Text = imgtxt + "\n" + dicomtxt + "\n" + "\n" + chosenoffset;
         }
 
         void UpdateDSLabels(double[] point)
         {
+            double xstart; double ystart; double zstart;
+            if (DICOMDoseFile.doseoffset != null)
+            {
+                xstart = Math.Round((double)DICOMDoseFile.doseoffset[0] + (double)point[0], 1);
+                ystart = Math.Round((double)DICOMDoseFile.doseoffset[1] + (double)point[1], 1);
+                zstart = Math.Round((double)DICOMDoseFile.doseoffset[2] + (double)point[2], 1);
+            }
+            else
+            {
+                xstart = point[0];
+                ystart = point[1];
+                zstart = point[2];
+            }
             DS_x_lbl.Content = "X: " + point[0];
             DS_y_lbl.Content = "Y: " + point[1];
             DS_z_lbl.Content = "Z: " + point[2];
+            UpdateStatusWindow(new double[3] { xstart, ystart, zstart });
         }
 
         void UpdateDDSLabels(double[] point)
         {
-            decimal xstart = Math.Round((decimal)StructureSet.f_global_xoffset + (decimal)point[0], 2);
-            decimal ystart = Math.Round((decimal)StructureSet.f_global_yoffset + (decimal)point[1], 2);
-            decimal zstart = Math.Round((decimal)StructureSet.f_global_zoffset + (decimal)point[2], 2);
+            double xstart; double ystart; double zstart;
+            if (StructureSet.f_global_xoffset != null)
+            {
+                xstart = Math.Round((double)StructureSet.f_global_xoffset + (double)point[0], 1);
+                ystart = Math.Round((double)StructureSet.f_global_yoffset + (double)point[1], 1);
+                zstart = Math.Round((double)StructureSet.f_global_zoffset + (double)point[2], 1);
+            }
+            else
+            {
+                xstart = point[0];
+                ystart = point[1];
+                zstart = point[2];
+            }
             DDS_x_lbl.Content = "X: " + xstart;
             DDS_y_lbl.Content = "Y: " + ystart;
             DDS_z_lbl.Content = "Z: " + zstart;
+            UpdateStatusWindow(new double[3]{ xstart, ystart, zstart });
         }
 
         void DDS_imgbox_MouseWheel(object sender, MouseWheelEventArgs e)
@@ -348,6 +402,7 @@ namespace TomosurgeryAlpha
                 img[1] = (double)Math.Round(e.GetPosition(this.DDS_imgbox).Y * aspectmult, 2);
                 img[2] = (double)Math.Round(slider2.Value, 2);
                 UpdateDDSLabels(img);
+                
             }
             //if (e.LeftButton == MouseButtonState.Pressed)
             //    DrawPixel(ref wb_DDS,DDS_imgbox, e);
@@ -403,6 +458,7 @@ namespace TomosurgeryAlpha
                 dicom[1] = img[1] + Convert.ToDecimal(set.imagePosition[1]);
                 dicom[2] = Convert.ToDecimal(set.imagePosition[2]) - img[2] * 2;
                 tracking_label.Content = "Image Pos: (" + img[0] + ", " + img[1] + ", " + img[2] + ")";
+                UpdateStatusWindow((double[])dicom.Clone());
             }
             if (LGKcoords.finished == true)
             {
@@ -1635,7 +1691,7 @@ namespace TomosurgeryAlpha
 
         private void UpdateTextBlock2(string update)
         {
-            textBlock2.Text += "\n" + update;
+            textBlock2.Text = update;
         }
 
 

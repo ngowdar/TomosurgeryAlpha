@@ -119,6 +119,19 @@ namespace TomosurgeryAlpha
 
         public void WriteDoseToFile(string path)
         {
+            //rows
+            //columns
+            //numframes
+            //offsets:
+            //x
+            //y
+            //z
+            //scaling
+            //zstart
+            //total length
+            //10 elements in***
+            //start dose data here.
+
             FileStream ff;
             if (System.IO.File.Exists(path))
                 ff = new FileStream(path, FileMode.Truncate, FileAccess.Write);

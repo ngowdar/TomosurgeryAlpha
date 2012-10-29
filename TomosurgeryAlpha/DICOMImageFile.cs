@@ -19,6 +19,7 @@ namespace TomosurgeryAlpha
 {
     public class DICOMImageFile : Image
     {
+        public static decimal[] GlobalOffset;
         public string s_path;
 		public static string s_dictionarypath;
         public static openDicom.Registry.DataElementDictionary dd;

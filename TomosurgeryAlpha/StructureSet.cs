@@ -24,6 +24,7 @@ namespace TomosurgeryAlpha
         public static float f_global_xoffset;
         public static float f_global_yoffset;
         public static float f_global_zoffset;
+        public static decimal[] f_SSoffset;
         public static int padsize;
         public static float[][,] originalTumor;
         public string headerpath;

@@ -853,6 +853,55 @@ namespace TomosurgeryAlpha
             Debug.WriteLine(output);
         }
 
-        
+
+
+        internal static float[,] Subtract(float[,] slice, float[,] p)
+        {
+            float[,] sub = new float[slice.GetLength(0), slice.GetLength(1)];
+            for (int j = 0; j < slice.GetLength(1); j++)
+                for (int i = 0; i < slice.GetLength(0); i++)
+                    sub[i, j] = slice[i, j] - p[i, j];
+            return sub;
+        }
+
+        public static float[][,] PrepareDDSMask(float[][,] tumor, int iterations)
+        {
+            float[][,] mask = new float[tumor.GetLength(0)][,];
+            for (int k = 0; k < tumor.GetLength(0); k++)
+            {
+                float[,] slice = new float[tumor[0].GetLength(0), tumor[0].GetLength(1)];
+                for (int i = 0; i < iterations; i++)
+                    slice = DilateSlice(tumor[k]);
+                mask[k] = Matrix.Subtract(slice, tumor[k]);
+            }
+            return mask;
+        }
+
+        public static float[,] DilateSlice(float[,] p)
+        {
+            float[,] output = (float[,])p.Clone();
+            float top;
+            float right;
+            float left; float bottom;
+            for (int j = 1; j < p.GetLength(1) - 1; j++)
+                for (int i = 1; i < p.GetLength(0) - 1; i++)
+                {
+                    if (p[i, j] > 0)
+                        continue;
+                    else
+                    {
+                        top = p[i, j - 1];
+                        left = p[i - 1, j];
+                        right = p[i + 1, j];
+                        bottom = p[i, j + 1];
+
+
+                        float sum = top + left + right + bottom;
+                        if (sum > 0)
+                            output[i, j] = 1;
+                    }
+                }
+            return output;
+        }
     }
 }

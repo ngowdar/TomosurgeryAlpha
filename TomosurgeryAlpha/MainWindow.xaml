@@ -206,8 +206,8 @@
         <Label Content="Raster Width" Height="28" HorizontalAlignment="Left" Name="label2" VerticalAlignment="Top" Margin="655,514,0,0" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
         <Label Content="Step Size" Height="28" HorizontalAlignment="Left" Margin="678,539,0,0" Name="label3" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
         <Label Content="Slice Thickness" Height="28" HorizontalAlignment="Left" Margin="643,566,0,0" Name="label4" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
-        <ListBox Height="40" HorizontalAlignment="Left" Margin="657,451,0,0" Name="listBox1" VerticalAlignment="Top" Width="329" Foreground="#FFFBD78A" Background="#FF040404" BorderBrush="#FFB3B3B4" FontFamily="Droid Sans Mono" FontSize="10" />
-        <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="653,431,0,0" Name="label17" VerticalAlignment="Top" FontFamily="Droid Sans" FontSize="14" Foreground="#FFE1E2FF" FontStyle="Italic" />
+        <ListBox Height="91" HorizontalAlignment="Left" Margin="657,418,0,0" Name="listBox1" VerticalAlignment="Top" Width="158" Foreground="#FFFBD78A" Background="#FF040404" BorderBrush="#FFB3B3B4" FontFamily="Droid Sans Mono" FontSize="10" />
+        <Label Content="Loaded Data:" Height="28" HorizontalAlignment="Left" Margin="653,390,0,0" Name="label17" VerticalAlignment="Top" FontFamily="Droid Sans" FontSize="14" Foreground="#FFE1E2FF" FontStyle="Italic" />
         <ProgressBar Height="17" HorizontalAlignment="Left" Margin="673,236,0,0" Name="progressBar1" VerticalAlignment="Top" Width="313" />
         <StatusBar Height="23" HorizontalAlignment="Left" Margin="0,620,0,0" Name="statusBar1" VerticalAlignment="Top" Width="998">
             <StatusBarItem Width="1007">
@@ -250,7 +250,7 @@
                 </LinearGradientBrush>
             </Button.Foreground>
         </Button>
-        <TextBlock Height="53" HorizontalAlignment="Left" Margin="673,383,0,0" Name="textBlock2" Text="Please load a dose kernel and a tumor file (Use the file menu)..." VerticalAlignment="Top" Width="313" TextAlignment="Center" TextWrapping="Wrap" FontFamily="Hattori Hanzo" Foreground="#FFE6E0E0" FontStyle="Italic" />
+        <TextBlock Height="16" HorizontalAlignment="Left" Margin="673,383,0,0" Name="textBlock2" Text="Please load a dose kernel and a tumor file (Use the file menu)..." VerticalAlignment="Top" Width="313" TextAlignment="Center" TextWrapping="Wrap" FontFamily="Hattori Hanzo" Foreground="#FFE6E0E0" FontStyle="Italic" />
         <DataGrid AutoGenerateColumns="False" Height="178" HorizontalAlignment="Left" Margin="673,52,0,0" Name="dataGrid1" VerticalAlignment="Top" Width="183" SelectionChanged="dataGrid1_SelectionChanged" Background="#FF292929" Foreground="#FF080808" FontFamily="Droid Sans Mono" FontSize="10" BorderBrush="{x:Null}" />
         <ListBox Height="178" HorizontalAlignment="Left" Margin="862,52,0,0" Name="listBox2" VerticalAlignment="Top" Width="140" SelectionChanged="listBox2_SelectionChanged" Foreground="#FFFF3030" BorderBrush="#FF292929" Background="#FF292929" FontFamily="Droid Sans Mono" FontSize="10" />
         <Button Content="Export Shots" Height="23" HorizontalAlignment="Left" IsEnabled="False" Margin="841,337,0,0" Name="export_shots_btn" VerticalAlignment="Top" Width="145" FontFamily="Glegoo" FontSize="14" Click="export_shots_btn_Click" />
@@ -262,5 +262,6 @@
         <Slider Height="21" HorizontalAlignment="Left" Margin="742,595,0,0" x:Name="slider_slicethickness_Copy" Orientation="Horizontal" VerticalAlignment="Top" Width="174" Value="20" ValueChanged="slider_slicethickness_ValueChanged" Minimum="1" Maximum="30" SmallChange="1" IsSnapToTickEnabled="True" />
         <Label Content="Edge Padding" Height="28" HorizontalAlignment="Left" Margin="644,592,0,0" x:Name="label4_Copy" VerticalAlignment="Top" FontSize="14" FontFamily="Droid Sans" Foreground="#FFE1E2FF" />
         <CheckBox x:Name="GPU_chkbox" Content="Use GPU" HorizontalAlignment="Left" Margin="564,587,0,0" VerticalAlignment="Top" Width="74" Foreground="#FFF1512D" FontSize="14" Checked="GPU_chkbox_Checked" Unchecked="GPU_chkbox_Unchecked"/>
+        <TextBox x:Name="StatusTxtBox" HorizontalAlignment="Left" Height="92" Margin="820,418,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="178" Background="#FF2A2B2E" Foreground="#FF48F9E9" FontSize="10"/>
     </Grid>
 </Window>

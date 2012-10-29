@@ -13,6 +13,8 @@ namespace TomosurgeryAlpha
         static double lesionvolume;
         static double totalvolcoveredbyrx;
         static double lesioncoveragebyrx;
+        static double maskvolume;
+        static double maskcoveragebyrx;
         public static DICOMDoseFile ddf;
 
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
@@ -28,6 +30,7 @@ namespace TomosurgeryAlpha
             //AnalyzeLesionCoverage(DDS,SS.fj_Tumor,startingz);
 
             AnalyzeLesionCoverage(PS.DoseSpace, SS.fj_Tumor, startingz);
+            AnalyzeMaskCoverage(PS.DoseSpace, Matrix.PrepareDDSMask(SS.fj_Tumor,3), rxlevel);
             ai.RxLevel = RX;
             ai.LesionVolume = lesionvolume;
             ai.Rx_Volume = totalvolcoveredbyrx;
@@ -65,6 +68,7 @@ namespace TomosurgeryAlpha
             AnalysisInfo ai = new AnalysisInfo();
             RX = rxlevel;            
             AnalyzeLesionCoverage(dosespace, tumor, startingz);
+            AnalyzeMaskCoverage(dosespace, Matrix.PrepareDDSMask(tumor, 3), rxlevel);
             ai.RxLevel = RX;
             ai.LesionVolume = lesionvolume;
             ai.Rx_Volume = totalvolcoveredbyrx;
@@ -90,14 +94,41 @@ namespace TomosurgeryAlpha
             }
         }
 
+        
+
         public static void RunAnalysis(DICOMDoseFile ddf, float[][,] tumor, double rxlevel)
         {
+            //TODO: Figure out what size slab of tumor to take such that it lines up with the beginning of the dose matrix.
+
+            /*Problem:
+             * 
+             * The structure tumor is by definition going to be a smaller matrix 
+             * than the dose matrix, because the dose has to cover outside the tumor 
+             * boundaries.
+             *                   62                52        
+             * So, dose start --> |================|--------|&&&&&&&&&&&... and so on
+             *                    ^doseoffset      ^SS      ^where tumor starts
+             * So, (dose-offset - structureoffset) gives how far the 
+             * SS matrix is in DICOM coordinates, and zstart gives how far before tumor edge starts.
+             *              * 
+             *  So, (doseoffset - SSoffset)*4-3 gives where the SS matrix starts
+             *  Then, that + the zstart gives where the tumor startys.
+             * 
+             * 
+             * 
+             * 
+             */
+
+
             int[] zends = StructureSet.FindZBoundaries(tumor);
+            int startingz = zends[0] - (int)Math.Round(DICOMDoseFile.doseoffset[2] - StructureSet.f_SSoffset[2]);
             float[][,] t = PathSet.GrabSlab(tumor, zends[0], zends[1], true);            
             t = PathSet.PrepareDDS(t);
+
             
             AnalysisInfo DICOM_dose = new AnalysisInfo();
             AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), t, (int)ddf.ZStart);
+            AnalyzeMaskCoverage(ddf.GetJaggedDoseArray(), Matrix.PrepareDDSMask(t, 3), rxlevel);
             DICOM_dose.RxLevel = RX;
             DICOM_dose.LesionVolume = lesionvolume;
             DICOM_dose.Rx_Volume = totalvolcoveredbyrx;
@@ -147,6 +178,27 @@ namespace TomosurgeryAlpha
                     }
             }
             
+        }
+        
+        public static void AnalyzeMaskCoverage(float[][,] ds, float[][,] mask, double rxlevel)
+        {
+            ds = Matrix.Normalize(ds);
+            maskvolume = 0; maskcoveragebyrx = 0;
+            int zmid2 = mask.GetLength(0) / 2;            
+            Matrix.WriteFloatArray2BMP(mask[zmid2], "Tumor_halfslice.bmp");
+            for (int k = 0; k < ds.GetLength(0); k++)
+            {
+                for (int j = 0; j < ds[0].GetLength(1); j++)
+                    for (int i = 0; i < ds[0].GetLength(0); i++)
+                    {
+                        if (mask[k][i, j] > 0)
+                        {
+                            maskvolume++;
+                            if (ds[k][i, j] >= RX)
+                                maskcoveragebyrx++;
+                        }                        
+                    }
+            }
         }
 
         

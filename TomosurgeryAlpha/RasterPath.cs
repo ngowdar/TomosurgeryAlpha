@@ -80,7 +80,9 @@ namespace TomosurgeryAlpha
             slice = f;
             ModdedSlice = f;
             //slice = PrepareDDSFromSlice(f);
+            //DDS_slice = PrepareDDSFromSlice(DilateSlice(DilateSlice(f)));
             DDS_slice = PrepareDDSFromSlice(DilateSlice(f));
+            //DDS_slice = PrepareDDSFromSlice(f);
             
             //PrepareDDSFromSlice(f);
             X = f.GetLength(0); Y = f.GetLength(1);
@@ -97,6 +99,8 @@ namespace TomosurgeryAlpha
             Matrix.Normalize(ModdedSlice);
             
         }
+
+        
 
         private float[,] PrepareDDSFromSlice(float[,] slice)
         {

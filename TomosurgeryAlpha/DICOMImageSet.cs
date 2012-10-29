@@ -99,7 +99,8 @@ namespace TomosurgeryAlpha
         {
             
             DICOMImageFile tempImg = new DICOMImageFile(files[0]);
-            imagePosition = tempImg.getAbsoluteImgPosition();            
+            imagePosition = tempImg.getAbsoluteImgPosition();
+            DICOMImageFile.GlobalOffset = new decimal[3] { (decimal)imagePosition[0], (decimal)imagePosition[1], (decimal)imagePosition[2] };
             f_imagearray = new float[files.GetLength(0)][];
             f_imagearray[0] = tempImg.makeFloatArray(tempImg.ba_PixelData);
             int ImagesSoFar = 1;
