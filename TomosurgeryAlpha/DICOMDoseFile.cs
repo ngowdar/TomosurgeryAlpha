@@ -15,6 +15,7 @@ namespace TomosurgeryAlpha
     public class DICOMDoseFile
     {
         openDicom.File.DicomFile DF;
+        public StructureSet SS;
         public static string dictionarypath;
         public string path;        
         static openDicom.Registry.DataElementDictionary dd;
@@ -28,6 +29,7 @@ namespace TomosurgeryAlpha
         static public long numframes;
         public ushort scaling;
         public static decimal[] doseoffset = new decimal[3];
+        public static int[] structurebounds;
         public string dosesavepath;
 
         public DICOMDoseFile(string path, bool IsDICOM)
@@ -58,6 +60,26 @@ namespace TomosurgeryAlpha
                 dictionarypath = CreateDictionaryFile(TomosurgeryAlpha.Properties.Resources.dicomdictionary);
                 dd = new openDicom.Registry.DataElementDictionary(dictionarypath, openDicom.Registry.DictionaryFileFormat.BinaryFile);
             }
+        }
+
+        public decimal[] AssociateStructureSet(StructureSet ss)
+        {
+            SS = ss;
+            SS.AssociateDose(this);
+            decimal[] offset = new decimal[3];
+            for (int i = 0; i < 3; i++)
+                offset[i] = (decimal)SS.f_offset[i] - (decimal)doseoffset[i];
+            structurebounds = new int[6];
+            structurebounds = SS.FindAllAxisBoundaries();
+
+            //TODO: Find relative structure bounds
+            decimal[] zbound = new decimal[2] { structurebounds[4], structurebounds[5] };
+            zbound[0] += offset[2];
+            zbound[1] += offset[2];
+
+            return zbound;
+
+            
         }
 
         public void ReadDoseFromFile(string path)

@@ -554,7 +554,7 @@ namespace TomosurgeryAlpha
                 SliceWeights = (double[])temp_weights.Clone();
                 index++;
 
-                PS_3_SliceWeightOpt_worker.ReportProgress(index * 10);
+                PS_3_SliceWeightOpt_worker.ReportProgress(index * 5);
             } // <- end of while loop
             
             PS_3_SliceWeightOpt_worker.ReportProgress(100);
@@ -970,6 +970,7 @@ namespace TomosurgeryAlpha
             {
                 //Stopwatch cputimer = new Stopwatch();
                 //cputimer.Start();
+                Debug.Write("Preparing weighted DS.");
                 for (int s = 0; s < NumSlices; s++)
                 {                    
                     int whichz = SlicePositions[s] - (DCT / 2);
@@ -986,7 +987,11 @@ namespace TomosurgeryAlpha
                                     weighted_slicedoses[whichz + k][i, j] += (slicedose[(k * x * y) + (j * x) + i] * (float)weights[s]);
                                 }
                         });
+                    int progress = Convert.ToInt16((double)(s * 100.0) / (double)NumSlices);
+                    PS_3_SliceWeightOpt_worker.ReportProgress(progress);
+                    Debug.Write(".");
                 }
+                Debug.Write("done.");
                 //Just took these out 10/15/2012, put back in if above doesn't work.
                 //slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
                 //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
@@ -1325,7 +1330,7 @@ namespace TomosurgeryAlpha
         public void AssembleDoseSpaceFromFiles()
         {
             string subfolder = ActiveDirectory;
-
+            int progress = 0;
             int x = volume[0].GetLength(0); int y = volume[0].GetLength(1); int z = volume.GetLength(0);
             /* First, a for-loop to create the string name for each slice, which then loads each
              * slicedose file and in turn adds it to the result matrix.*/
@@ -1336,12 +1341,13 @@ namespace TomosurgeryAlpha
             {                
                 float[] slicedose = LoadSliceDose(s, subfolder);
                 DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
-            }
-            //Normalize Dosespace
-            //NormalizeDosespace();
+                progress = (int)((double)s * 50.0 / NumSlices);
+                PS_2_CalcDose_worker.ReportProgress(progress);
+            }           
 
             //Write dosespace to file.
             WriteDoseSpaceToFile("OriginalDS.txt");
+            PS_2_CalcDose_worker.ReportProgress(100);
         }
         private void NormalizeDosespace()
         {

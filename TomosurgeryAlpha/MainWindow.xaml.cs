@@ -1327,12 +1327,12 @@ namespace TomosurgeryAlpha
 
         void PS_3_SliceweightWorkerProgress(object sender, ProgressChangedEventArgs e)
         {
-            slider2.Value = e.ProgressPercentage;
+            UpdateProgressBar((double)e.ProgressPercentage);
         }
 
         private void PS_2_OptimizationProgress(object sender, ProgressChangedEventArgs e)
         {
-            slider2.Value = e.ProgressPercentage;
+            UpdateProgressBar((double)e.ProgressPercentage);
         }
 
         void PS_3_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)

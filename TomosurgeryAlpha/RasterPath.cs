@@ -278,6 +278,7 @@ namespace TomosurgeryAlpha
 
             //Get line positions for the slice
             int[] lines = LineSpacer(boundaries[0], boundaries[1]);
+            WriteArrayAsList("Line locations: ", lines);
             shot_points = new PointF[lines.GetLength(0)][];
             NumOfShots = 0;
             for (int i = 0; i < lines.GetLength(0); i++)
@@ -688,11 +689,11 @@ namespace TomosurgeryAlpha
             return tweight;
         }
 
-        private void WriteArrayAsList(string prefix, float[] f)
+        private void WriteArrayAsList(string prefix, object[] f)
         {
-            string output = prefix + ": [" + Math.Round(f[0],2);
+            string output = prefix + ": [" + Math.Round((decimal)f[0],2);
             for (int i = 0; i < f.GetLength(0); i++)
-                output += ", " + Math.Round(f[i], 2);
+                output += ", " + Math.Round((decimal)f[i], 2);
             output += "]";
             Debug.WriteLine(output);
         }

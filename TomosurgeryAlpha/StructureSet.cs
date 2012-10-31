@@ -41,7 +41,7 @@ namespace TomosurgeryAlpha
         public StructureInfo SI;
         public float[][,] fj_Tumor;
         public float[][,] fj_CS;
-
+        public DICOMDoseFile DDF;
 
         public StructureSet(string header, string tumor)
         {
@@ -84,6 +84,15 @@ namespace TomosurgeryAlpha
 
         }
 
+        public int[] FindAllAxisBoundaries()
+        {
+            int[] x = FindXBoundaries(fj_Tumor);
+            int[] y = FindYBoundaries(fj_Tumor);
+            int[] z = FindZBoundaries(fj_Tumor);
+            int[] output = new int[6] { x[0], x[1], y[0], y[1], z[0], z[1] };
+            return output;
+        }
+
         public static int[] FindZBoundaries(float[][,] t)
         {
             int[] Zends = new int[2];
@@ -104,6 +113,59 @@ namespace TomosurgeryAlpha
                 }
             }
             return Zends;
+        }
+        public static int[] FindXBoundaries(float[][,] t)
+        {
+            t = Matrix.Normalize(t);
+            int[] Xends = new int[2];
+            bool x1 = false;
+            for (int k = 0; k < t[0].GetLength(0); k++)
+            {
+                double sum = 0;
+                for (int j = 0; j < t[0].GetLength(1); j++)
+                    for (int i = 0; i < t.GetLength(0); i++)
+                        sum += t[i][k, j];
+                if (sum > 0)
+                {
+                    if (x1 == false)
+                    {
+                        x1 = true;
+                        Xends[0] = k;
+                    }
+                    else
+                    {
+                        Xends[1] = k;
+                    }
+                }
+            }
+            return Xends;
+        }
+
+        public static int[] FindYBoundaries(float[][,] t)
+        {
+            t = Matrix.Normalize(t);
+            int[] Yends = new int[2];
+            bool y1 = false;
+            for (int k = 0; k < t[0].GetLength(1); k++)
+            {
+                double sum = 0;
+                for (int j = 0; j < t[0].GetLength(0); j++)
+                    for (int i = 0; i < t.GetLength(0); i++)
+                        sum += t[i][j, k];
+                if (sum > 0)
+                {
+                    if (y1 == false)
+                    {
+                        y1 = true;
+                        Yends[0] = k;
+                    }
+                    else
+                    {
+                        Yends[1] = k;
+                    }
+                }
+            }
+            return Yends;
         }
 
         public StructureSet(float[][] tumorobj)
@@ -263,7 +325,12 @@ namespace TomosurgeryAlpha
             return d;
         }
 
-        
+
+
+        public void AssociateDose(DICOMDoseFile ddf)
+        {
+            DDF = ddf;
+        }
     }
     
     public struct StructureInfo
