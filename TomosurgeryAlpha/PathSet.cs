@@ -14,6 +14,7 @@ using Cloo;
 
 namespace TomosurgeryAlpha
 {
+    
 
     /// <summary>
     /// A collection class that contains the information about a group of RasterPath objects.
@@ -92,7 +93,7 @@ namespace TomosurgeryAlpha
             RasterPaths = new ArrayList();
             for (int i = 0; i < NumSlices; i++)
             {
-                RasterPath rp = new RasterPath(CompressSection(f, SlicePositions[i], SliceThickness / 2));
+                RasterPath rp = new RasterPath(CompressSection(f, SlicePositions[i], SliceThickness / 2), CompressSection(ss.fj_Combined, SlicePositions[i], SliceThickness / 2));
                 rp.WhichSlice = i;
                 RasterPaths.Add(rp);
             }            
@@ -280,7 +281,7 @@ namespace TomosurgeryAlpha
             RasterPaths = new ArrayList();
             for (int i = 0; i < NumSlices; i++)
             {
-                RasterPath rp = new RasterPath(CompressSection(volume, SlicePositions[i], SliceThickness / 2));
+                RasterPath rp = new RasterPath(CompressSection(SS.fj_Tumor, SlicePositions[i], SliceThickness / 2), CompressSection(SS.fj_Combined, SlicePositions[i], SliceThickness / 2));
                 RasterPaths.Add(rp);
             }
         }      

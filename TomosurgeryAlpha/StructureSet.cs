@@ -41,6 +41,7 @@ namespace TomosurgeryAlpha
         public StructureInfo SI;
         public float[][,] fj_Tumor;
         public float[][,] fj_CS;
+        public float[][,] fj_Combined;
         public DICOMDoseFile DDF;
 
         public StructureSet(string header, string tumor)
@@ -51,37 +52,42 @@ namespace TomosurgeryAlpha
             originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
             float[][,] BinaryVolume = EnlargeTumor(LinearVolume, padsize);
             f_structurearray = CreateArray(BinaryVolume, padsize);
+            fj_Combined = BinaryVolume;
             fj_Tumor = GetTumorOnly(BinaryVolume);
             fj_CS = GetCSOnly(BinaryVolume);
+
             size = f_structurearray.GetLength(0);
             SI = new StructureInfo();
+            SI.Name = "Combined";
+            SI.Size = SS_dim;
+            SI.CreateInfo();
             headerpath = header;
             tumorpath = tumor;
-
             
-            ////TODO: Remove this, just a test
-            //float[] d = new float[5] { 1, 2, 3, 4, 5 };
-            //Matrix.WriteArrayAsList("d: ", d);
-            //float[] dd = new float[5] { 6, 7, 8, 9, 10 };            
-            //float[][] ff = new float[2][] { Matrix.InterpolateSingleVector(d), Matrix.InterpolateSingleVector(dd) };
-            
-            //float[,] awesome = Matrix.InterpolateVectors(ff);
-            //for (int i = 0; i < awesome.GetLength(0); i++)
-            //    Debug.Write(awesome[i, 1]);
-            //float[,] awesome = Matrix.LinearlyInterpolateSlices(new float[,]{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}});
-            //for (int i = 0; i < awesome.GetLength(1); i++)
-            //{
-            //    Debug.Write(" " + awesome[0, i]);
-            //    Debug.WriteLine(" ");
-            //    Debug.Write(" " + awesome[1, i]);
-            //    Debug.WriteLine(" ");
-            //    Debug.Write(" " + awesome[2, i]);
-            //    Debug.WriteLine(" ");
-            //    Debug.Write(" " + awesome[3, i]);
-            //    Debug.WriteLine(" ");
-            //    Debug.Write(" " + awesome[4, i]);
-            //}
+        }
 
+        public StructureSet(float[][,] t, string name)
+        {
+            if (DoseKernel.N != null)
+                padsize = DoseKernel.N / 2;
+            f_structurearray = CreateArray(t, padsize);
+            size = f_structurearray.GetLength(0);
+            fj_CS = GetCSOnly(t);
+            fj_Tumor = GetTumorOnly(t);
+            SI = new StructureInfo();
+            SI.Name = name;
+            SI.Size = new int[3] { t[0].GetLength(0), t[0].GetLength(1), size };
+            SI.CreateInfo();
+        }
+
+        public StructureSet ExportTumor()
+        {
+            return new StructureSet(fj_Tumor, "Tumor");
+        }
+
+        public StructureSet ExportCS()
+        {
+            return new StructureSet(fj_CS, "CS");
         }
 
         public int[] FindAllAxisBoundaries()
@@ -209,7 +215,7 @@ namespace TomosurgeryAlpha
                 for (int i = 0; i < d[0].GetLength(0); i++)
                     for (int j = 0; j < d[0].GetLength(1); j++)
                     {
-                        if (d[k][i, j] > 0 && d[k][i,j] < 5)
+                        if (d[k][i, j] > 1)
                             cs[k][i, j] = 1;
                         else
                             cs[k][i, j] = 0;
@@ -227,8 +233,8 @@ namespace TomosurgeryAlpha
                     for (int j = 0; j < d[0].GetLength(1); j++)
                     {
                         float value = d[k][i, j];
-                        if (value > 0)
-                            tumor[k][i, j] = 1.0f;
+                        if (value == 1)
+                            tumor[k][i, j] = 1.0f; 
                         else
                             tumor[k][i, j] = 0.0f;
                     }
@@ -261,9 +267,9 @@ namespace TomosurgeryAlpha
                 SS_dim[2] = Convert.ToInt16(header.ReadLine());
 
                 //Read in the global img_offset vector (this is the top-left corner, and sets the DICOM coordinate frame)
-                StructureSet.f_global_xoffset = (float)Convert.ToDecimal(header.ReadLine());
-                StructureSet.f_global_yoffset = (float)Convert.ToDecimal(header.ReadLine());
-                StructureSet.f_global_zoffset = (float)Convert.ToDecimal(header.ReadLine());
+                //StructureSet.f_global_xoffset = (float)Convert.ToDecimal(header.ReadLine());
+                //StructureSet.f_global_yoffset = (float)Convert.ToDecimal(header.ReadLine());
+                //StructureSet.f_global_zoffset = (float)Convert.ToDecimal(header.ReadLine());
 
             }
 
@@ -272,8 +278,9 @@ namespace TomosurgeryAlpha
             using (System.IO.StreamReader file = new System.IO.StreamReader(fpath))
             {                
                 for (int k = 0; k < d.GetLength(0); k++)
-                {         
-                    d[k] = (float)Convert.ToDecimal(file.ReadLine());
+                {
+                    string f = file.ReadLine();
+                    d[k] = (float)Convert.ToDecimal(f);
                 }
             }
             headerpath = hpath;
@@ -337,7 +344,7 @@ namespace TomosurgeryAlpha
     {
         public string Name { get; set; }
         public string Info { get; set; }
-        public int Size { get; set; }
+        public int[] Size { get; set; }
 
         public void CreateInfo()
         {

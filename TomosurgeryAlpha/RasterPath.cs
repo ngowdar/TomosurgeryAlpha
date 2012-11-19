@@ -74,18 +74,18 @@ namespace TomosurgeryAlpha
         #endregion
 
         #region Constructors
-        public RasterPath(float[,] f)
+        public RasterPath(float[,] tumor, float[,] combined)
         {
             SetParams(StepSize, RasterWidth);
-            slice = f;
-            ModdedSlice = f;
+            slice = tumor;
+            ModdedSlice = tumor;
             //slice = PrepareDDSFromSlice(f);
             //DDS_slice = PrepareDDSFromSlice(DilateSlice(DilateSlice(f)));
-            DDS_slice = PrepareDDSFromSlice(DilateSlice(f));
+            DDS_slice = PrepareDDSFromSlice(DilateSlice(tumor));
             //DDS_slice = PrepareDDSFromSlice(f);
             
             //PrepareDDSFromSlice(f);
-            X = f.GetLength(0); Y = f.GetLength(1);
+            X = tumor.GetLength(0); Y = tumor.GetLength(1);
             FindAllShotPoints();            
             InitWeightArray();
             AttachHandlers();
@@ -110,8 +110,10 @@ namespace TomosurgeryAlpha
                 {
                     if (slice[i, j] == 0)
                         dds_slice[i, j] = PathSet.ToleranceDose;
-                    if (slice[i, j] > 0)
+                    else if (slice[i, j] == 1)
                         dds_slice[i, j] = PathSet.RxDose;
+                    else if (slice[i, j] > 1)
+                        dds_slice[i, j] = 0.01f;
                 }
             return dds_slice;
             
@@ -275,10 +277,10 @@ namespace TomosurgeryAlpha
         {
             //Get slice boundaries first
             int[] boundaries = FindSliceBoundaries(slice);
-
+            //TODO: jhg
             //Get line positions for the slice
             int[] lines = LineSpacer(boundaries[0], boundaries[1]);
-            WriteArrayAsList("Line locations: ", lines);
+            WriteArrayAsList("Line locations: ", (int[])lines.Clone());
             shot_points = new PointF[lines.GetLength(0)][];
             NumOfShots = 0;
             for (int i = 0; i < lines.GetLength(0); i++)
@@ -689,7 +691,7 @@ namespace TomosurgeryAlpha
             return tweight;
         }
 
-        private void WriteArrayAsList(string prefix, object[] f)
+        private void WriteArrayAsList(string prefix, decimal[] f)
         {
             string output = prefix + ": [" + Math.Round((decimal)f[0],2);
             for (int i = 0; i < f.GetLength(0); i++)
@@ -698,6 +700,23 @@ namespace TomosurgeryAlpha
             Debug.WriteLine(output);
         }
 
+        private void WriteArrayAsList(string prefix, double[] f)
+        {
+            string output = prefix + ": [" + Math.Round((double)f[0], 2);
+            for (int i = 0; i < f.GetLength(0); i++)
+                output += ", " + Math.Round((double)f[i], 2);
+            output += "]";
+            Debug.WriteLine(output);
+        }
+
+        private void WriteArrayAsList(string prefix, int[] f)
+        {
+            string output = prefix + ": [" + Math.Round((double)f[0], 2);
+            for (int i = 0; i < f.GetLength(0); i++)
+                output += ", " + Math.Round((double)f[i], 2);
+            output += "]";
+            Debug.WriteLine(output);
+        }
 
         /// <summary>
         /// Prepares the DS matrix with the most recent shot weights. Optional normalization value

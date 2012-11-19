@@ -17,6 +17,22 @@ namespace TomosurgeryAlpha
         static double maskcoveragebyrx;
         public static DICOMDoseFile ddf;
 
+        public static void AnalyzeDICOMdose(DICOMDoseFile ddf, StructureSet SS)
+        {
+            float[][,] tumor = SS.fj_Tumor;
+            float[][,] cs = SS.fj_CS;
+            float[][,] dose = ddf.GetJaggedDoseArray();
+
+            double tumorvol = Matrix.SumAll(Matrix.Normalize(tumor));
+            double csvol = Matrix.SumAll(Matrix.Normalize(cs));
+            for (int k = 0; k < tumor.GetLength(0); k++)
+                for (int j = 0; j < tumor[0].GetLength(1); j++)
+                    for (int i = 0; i < tumor[0].GetLength(0); i++)
+
+
+                    
+        }
+
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
         {
             
@@ -112,16 +128,13 @@ namespace TomosurgeryAlpha
              * SS matrix is in DICOM coordinates, and zstart gives how far before tumor edge starts.
              *              * 
              *  So, (doseoffset - SSoffset)*4-3 gives where the SS matrix starts
-             *  Then, that + the zstart gives where the tumor startys.
-             * 
-             * 
-             * 
-             * 
+             *  Then, that + the zstart gives where the tumor starts. 
              */
-
-
             int[] zends = StructureSet.FindZBoundaries(tumor);
-            int startingz = zends[0] - (int)Math.Round(DICOMDoseFile.doseoffset[2] - StructureSet.f_SSoffset[2]);
+            //The dose DICOM offset - the structureset's offset = where the structure set starts in the dosespace
+            //Add the starting boundary for the z-slice to get the absolute start location for the tumor within the 
+            //dosespace matrix.
+            int startingz = (int)Math.Round(DICOMDoseFile.doseoffset[2] - StructureSet.f_SSoffset[2]) + zends[0];
             float[][,] t = PathSet.GrabSlab(tumor, zends[0], zends[1], true);            
             t = PathSet.PrepareDDS(t);
 

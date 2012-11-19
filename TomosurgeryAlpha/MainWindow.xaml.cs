@@ -65,7 +65,7 @@ namespace TomosurgeryAlpha
             ResetMask();
         }
 
-        #region UI Update Methods
+        #region UI Update Methodsq
         private void UpdateTextBlock(string s)
         {
             textBlock2.Text = s + "\n";
@@ -508,6 +508,11 @@ namespace TomosurgeryAlpha
             double distance = Math.Round(Math.Sqrt(Math.Pow((p2.X - p1.X), 2) + Math.Pow((p2.Y - p1.Y), 2)), 1);
             return distance;
         }
+        private double FindDistanceBetweenPoints(PointF p1, PointF p2)
+        {
+            double distance = Math.Round(Math.Sqrt(Math.Pow((p2.X - p1.X), 2) + Math.Pow((p2.Y - p1.Y), 2)), 1);
+            return distance;
+        }
 
         public void DrawPixel(ref WriteableBitmap writeableBitmap, System.Windows.Controls.Image i, MouseEventArgs e)
         {
@@ -557,6 +562,22 @@ namespace TomosurgeryAlpha
                         c[x, y] = 0;
                 }
             circle = (PointF[])points.ToArray(typeof(PointF));            
+        }
+
+        private PointF[] CreateShotMarker(PointF center, int diameter) //diameter should be odd!!!
+        {
+            ArrayList al = new ArrayList();            
+            int midpoint = (diameter - 1) / 2;
+            int[,] c = new int[diameter, diameter];
+            for (int y = 0; y < c.GetLength(0); y++)
+                for (int x = 0; x < c.GetLength(1); x++)
+                {
+                    if (FindDistanceBetweenPoints(new PointF(midpoint, midpoint), new PointF(x, y)) < midpoint)
+                    {
+                        al.Add(new PointF(center.X-midpoint+x, center.Y-midpoint+y));                                            
+                    }
+                }
+            return (PointF[])al.ToArray(typeof(PointF));
         }
 
         private void AdjustCursorSize()
@@ -702,19 +723,23 @@ namespace TomosurgeryAlpha
                 //Overlay the planned points
                 foreach(PointF pf in points)
                     {
-                        int x = (int)Math.Round(pf.X);
-                        int y = (int)Math.Round(pf.Y);
+                        PointF[] circlepoints = CreateShotMarker(pf, 15);
+                        foreach (PointF p in circlepoints)
+                        {
+                            int x = (int)Math.Round(p.X);
+                            int y = (int)Math.Round(p.Y);
 
-                        int pBackBuffer = (int)wb_Plan.BackBuffer;
-                        pBackBuffer += y * wb_Plan.BackBufferStride;
-                        pBackBuffer += x * 4;
+                            int pBackBuffer = (int)wb_Plan.BackBuffer;
+                            pBackBuffer += y * wb_Plan.BackBufferStride;
+                            pBackBuffer += x * 4;
 
-                        int color_data = 255 << 16; // R
-                        color_data |= 0 << 8;   // G
-                        color_data |= 0 << 0;   // B
-                        
-                        // Assign the color data to the pixel.
-                        *((int*)pBackBuffer) = color_data;
+                            int color_data = 255 << 16; // R
+                            color_data |= 0 << 8;   // G
+                            color_data |= 0 << 0;   // B
+
+                            // Assign the color data to the pixel.
+                            *((int*)pBackBuffer) = color_data;
+                        }
                     }
             }
             try
@@ -732,16 +757,31 @@ namespace TomosurgeryAlpha
             
         }
 
-        
+        private float[,] Convert1Dto2D(float[] f, int x, int y)
+        {
+            float[,] output = new float[x, y];
+            for (int i = 0; i < y; i++)
+                for (int j = 0; j < x; j++)
+                    output[j, i] = f[i * x + j];
+            return output;
+        }
 
         private void DisplayStructure(int slice)
         {
-            float[] structureimg = SS.f_structurearray[slice];
+            float[,] structureimg;
+            if (combined_rb.IsChecked == true)
+                structureimg = SS.fj_Combined[slice]; //structureimg = Convert1Dto2D(SS.f_structurearray[slice], SS.fj_Tumor[0].GetLength(0), SS.fj_Tumor[0].GetLength(1));
+            else if (tumor_rb.IsChecked == true)
+                structureimg = SS.fj_Tumor[slice];
+            else if (cs_rb.IsChecked == true)
+                structureimg = SS.fj_CS[slice];
+            else
+                structureimg = new float[StructureSet.BIG_dim[0], StructureSet.BIG_dim[1]];
             int sizex = StructureSet.BIG_dim[0];
             int sizey = StructureSet.BIG_dim[1];
             
             wb_DDS = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);
-            int max = (int)structureimg.Max();
+            //int max = (int)structureimg.Max();
             DDS_imgbox.Source = wb_DDS;
             wb_DDS.Lock();
             unsafe
@@ -753,17 +793,34 @@ namespace TomosurgeryAlpha
                         int pBackBuffer = (int)wb_DDS.BackBuffer;
                         pBackBuffer += y * wb_DDS.BackBufferStride;
                         pBackBuffer += x * 4;
-                        int value = (int)structureimg[x + y * sizex];
-                        int alpha;
+                        int value = (int)structureimg[x,y];
+                        int alpha; int color_data=0;
 
                         if (value > 0)
+                        {
                             alpha = 255;
+                            if (value == 1)
+                            {
+                                color_data = red_colormap[alpha] << 16; // R
+                                color_data |= green_colormap[alpha] << 8;   // G
+                                color_data |= blue_colormap[alpha] << 0;   // B
+                            }
+                            else if (value > 1)
+                            {
+                                color_data = red_colormap[alpha] << 16;
+                                color_data |= 0 << 8;
+                                color_data |= 0 << 0;
+                            }
+                        }
                         else
+                        {
                             alpha = 0;
+                            color_data = 0 << 16;
+                            color_data |= 0 << 8;
+                            color_data |= 0 << 0;
+                        }
 
-                        int color_data = red_colormap[alpha] << 16; // R
-                        color_data |= green_colormap[alpha] << 8;   // G
-                        color_data |= blue_colormap[alpha] << 0;   // B
+                        
                         //int color_data = alpha << 16;
                         //color_data |= alpha << 8;
                         //color_data |= alpha << 0;
@@ -1417,7 +1474,7 @@ namespace TomosurgeryAlpha
                 tumor[z] = slice;
             }
             SS = new StructureSet(tumor);
-            SS.SI.Size = length;
+            SS.SI.Size = new int[3]{length, length, length};
             SS.SI.CreateTestInfo(radius);
             SS.fj_Tumor = Convert1DJaggedto2DJagged(tumor, length, length);
             Plan_btn.IsEnabled = true;
@@ -1616,6 +1673,7 @@ namespace TomosurgeryAlpha
         private void AddStructureLoadedToListBox()
         {
             listBox1.Items.Add(SS.SI.Info);
+            
         }
 
         private void AddDICOMLoadedToListBox()
@@ -2178,7 +2236,8 @@ namespace TomosurgeryAlpha
         {
             Analysis.RunAnalysis(Analysis.ddf,StructureSet.originalTumor, 0.5);
         }
-            
+
+       
         
     }
 }
