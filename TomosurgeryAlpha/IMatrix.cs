@@ -35,12 +35,16 @@ namespace TomosurgeryAlpha
 
         public static float[][,] MakeJaggedFloat(float[] f, int x, int y, int z)
         {
-            int[] size = new int[3]{f.GetLength(0),f.GetLength(1),f.GetLength(2)};
+            int[] size = new int[3]{x, y, z};
             float[][,] ff = new float[size[2]][,];
             for (int k = 0; k < z; k++)
+            {
+                float[,] temp = new float[x, y];
                 for (int j = 0; j < y; j++)
-                    for (int i = 0; i < x; i++)                    
-                        ff[k][i,j] = f[k*x*y + j*x + i];
+                    for (int i = 0; i < x; i++)
+                        temp[i, j] = f[k * x * y + j * x + i];
+                ff[k] = temp;
+            }
             return ff;
         }
 
@@ -901,6 +905,36 @@ namespace TomosurgeryAlpha
                             output[i, j] = 1;
                     }
                 }
+            return output;
+        }
+
+        internal static float FindMax(float[][,] d)
+        {
+            float max = 0;
+            for (int k = 0; k < d.GetLength(0); k++)
+                   for (int j = 0; j < d[0].GetLength(1); j++)
+                       for (int i = 0; i < d[0].GetLength(0); i++)
+                       {
+                           float temp = d[k][i, j];
+                           if (temp > max)
+                               max = temp;
+                       }
+            return max;
+        }
+
+        internal static float[][,] LinearlyCombine(float[][,] fj_Tumor, float[][,] fj_CS, int p)
+        {
+            float[][,] output = new float[fj_Tumor.GetLength(0)][,];
+            for (int k = 0; k < fj_Tumor.GetLength(0); k++)
+            {
+                float[,] temp = Matrix.Zeroes(fj_Tumor[0].GetLength(0), fj_Tumor[0].GetLength(1));
+                for (int j = 0; j < temp.GetLength(1); j++)
+                    for (int i = 0; i < temp.GetLength(0); i++)
+                    {
+                        temp[i, j] = fj_Tumor[k][i, j] + p * fj_CS[k][i, j];
+                    }
+                output[k] = temp;
+            }
             return output;
         }
     }

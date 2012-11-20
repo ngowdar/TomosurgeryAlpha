@@ -20,8 +20,9 @@ namespace TomosurgeryAlpha
         public string path;        
         static openDicom.Registry.DataElementDictionary dd;
         byte[] pixeldata;
-        public float[] Dose;
-        public static float[][,] DoseJ;
+        public static float[][,] OriginalDose;
+        //public static float[] dose;
+        public static float[][,] Dose;
         public float ZStart;
         public static ushort rows;
         public static ushort columns;
@@ -39,16 +40,16 @@ namespace TomosurgeryAlpha
                 this.path = path;
                 SetDictionaryPath();
                 DF = new openDicom.File.DicomFile(path);
-                Dose = ExtractDoseData();
-                DoseJ = GetJaggedDoseArray();
+                OriginalDose = Matrix.Normalize(ExtractDoseData());
+                Dose = EnlargeAndInterpolate(OriginalDose);
                 dosesavepath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");
-                WriteDoseToFile(dosesavepath);
+                //WriteDoseToFile(dosesavepath);
                 DEBUG_WriteFileSummary();
             }
             else
             {
                 ReadDoseFromFile(path);
-                DoseJ = GetJaggedDoseArray();
+                Dose = EnlargeAndInterpolate(OriginalDose);
             }
 
         }
@@ -96,13 +97,15 @@ namespace TomosurgeryAlpha
                 scaling = Convert.ToUInt16(br.ReadLine());
                 ZStart = (float)Convert.ToDecimal(br.ReadLine());
                 int readlength = Convert.ToInt32(br.ReadLine());
-                Dose = new float[readlength];
-                for (int i = 0; i < readlength; i++)
-                {
-                    Dose[i] = (float)Convert.ToDecimal(br.ReadLine());
-                }
+                OriginalDose = new float[numframes][,];
+                for (int k = 0; k < (int)numframes; k++)
+                    for (int j = 0; j < rows; j++)
+                        for (int i = 0; i < columns; i++)
+                        {
+                            OriginalDose[k][i, j] = (float)Convert.ToDecimal(br.ReadLine());
+                        }
             }
-            Dose = Matrix.Normalize(Dose);
+            OriginalDose = Matrix.Normalize(OriginalDose);
             Debug.WriteLine("Successfully loaded dose file.");
             DEBUG_WriteFileSummary();
 
@@ -135,7 +138,7 @@ namespace TomosurgeryAlpha
             Debug.WriteLine("Scaling: " + scaling);
             Debug.WriteLine("ZStart: " + ZStart);
             Debug.WriteLine("Saved to: " + dosesavepath);
-            Debug.WriteLine("Maximum value: " + Dose.Max());
+            Debug.WriteLine("Maximum value: " + Matrix.FindMax(OriginalDose));
             Debug.WriteLine("------------------------------");
         }
 
@@ -170,23 +173,20 @@ namespace TomosurgeryAlpha
                 ds.WriteLine(doseoffset[2]);
                 ds.WriteLine(scaling);
                 ds.WriteLine(ZStart);
-                ds.WriteLine(Dose.GetLength(0));
-                for (int i = 0; i < Dose.GetLength(0); i++)
-                    ds.WriteLine(Dose[i]);
+                ds.WriteLine(OriginalDose.GetLength(0));
+                for (int k = 0; k < OriginalDose.GetLength(0); k++)
+                    for (int j = 0; j < OriginalDose[0].GetLength(1); j++)
+                        for (int i = 0; i < OriginalDose[0].GetLength(0); i++)
+                            ds.WriteLine(OriginalDose[k][i,j]);
             }
         }
 
-        public float[][,] GetJaggedDoseArray()
+        public float[][,] EnlargeAndInterpolate(float[][,] dose)
         {
-            float[][,] r = new float[numframes][,];
-            float[,] temp = new float[columns, rows];
+            float[][,] r = new float[numframes][,];            
             for (int k = 0; k < numframes; k++)
-            {
-                temp = new float[columns, rows];
-                for (int j = 0; j < rows; j++)
-                    for (int i = 0; i < columns; i++)
-                        temp[i, j] = Dose[k * columns * rows + j * columns + i];
-                r[k] = Matrix.LinearlyInterpolateSlices(Matrix.LinearlyInterpolateSlices(temp));
+            {                
+                r[k] = Matrix.LinearlyInterpolateSlices(Matrix.LinearlyInterpolateSlices(dose[k]));
             }
             r = InterpolateInbetweenSlices(InterpolateInbetweenSlices(r));
             //r = Matrix.EnlargeAndCenter(Matrix.Convertto1D(r), StructureSet.padsize, r[0].GetLength(0), r[0].GetLength(1), r.GetLength(0));
@@ -219,7 +219,7 @@ namespace TomosurgeryAlpha
         }
 
 
-        private float[] ExtractDoseData()
+        private float[][,] ExtractDoseData()
         {
             openDicom.DataStructure.DataSet.DataSet m = DF.DataSet;
             openDicom.DataStructure.DataSet.Sequence alldata = m.GetJointSubsequences(); //concatenated long list of all data            
@@ -282,7 +282,9 @@ namespace TomosurgeryAlpha
                 }                
 
             }
-            return Byte2Float(pixeldata);
+            //return Byte2Float(pixeldata);
+            float[] temp_pixeldata = Byte2Float(pixeldata);
+            return Matrix.MakeJaggedFloat(temp_pixeldata, (int)columns, (int)rows, (int)numframes);
         }
 
         private float[] Byte2Float(byte[] data)

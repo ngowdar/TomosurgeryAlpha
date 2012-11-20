@@ -989,7 +989,7 @@ namespace TomosurgeryAlpha
                                 }
                         });
                     int progress = Convert.ToInt16((double)(s * 100.0) / (double)NumSlices);
-                    PS_3_SliceWeightOpt_worker.ReportProgress(progress);
+                    //PS_3_SliceWeightOpt_worker.ReportProgress(progress);
                     Debug.Write(".");
                 }
                 Debug.Write("done.");

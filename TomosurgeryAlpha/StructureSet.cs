@@ -43,18 +43,24 @@ namespace TomosurgeryAlpha
         public float[][,] fj_CS;
         public float[][,] fj_Combined;
         public DICOMDoseFile DDF;
+        public bool enlarge = true;
 
         public StructureSet(string header, string tumor)
         {
             if (DoseKernel.N != null)
-                padsize = DoseKernel.N/2; // <- need to make this (N-1)/2 once N has been established.
+                padsize = DoseKernel.N/4; // <- need to make this (N-1)/2 once N has been established.
             float[] LinearVolume = Read1DArrayFromFile(tumor, header);
             originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
-            float[][,] BinaryVolume = EnlargeTumor(LinearVolume, padsize);
-            f_structurearray = CreateArray(BinaryVolume, padsize);
+            float[][,] BinaryVolume = (float[][,])originalTumor.Clone();
+            if (enlarge == true)
+                BinaryVolume = EnlargeTumor(LinearVolume, padsize);          
+
+            f_structurearray = CreateArray(Matrix.TransposeMatrix(BinaryVolume), padsize);
             fj_Combined = BinaryVolume;
             fj_Tumor = GetTumorOnly(BinaryVolume);
             fj_CS = GetCSOnly(BinaryVolume);
+            fj_Combined = Matrix.LinearlyCombine(fj_Tumor, fj_CS, 10);
+
 
             size = f_structurearray.GetLength(0);
             SI = new StructureInfo();
@@ -62,9 +68,9 @@ namespace TomosurgeryAlpha
             SI.Size = SS_dim;
             SI.CreateInfo();
             headerpath = header;
-            tumorpath = tumor;
-            
+            tumorpath = tumor;            
         }
+
 
         public StructureSet(float[][,] t, string name)
         {
@@ -206,44 +212,49 @@ namespace TomosurgeryAlpha
 
         }
 
-        private float[][,] GetCSOnly(float[][,] d)
+        public float[][,] GetCSOnly(float[][,] d)
         {
-            float[][,] cs = new float[d.GetLength(0)][,];
-            for (int i = 0; i < d.GetLength(0); i++)
-                cs[i] = Matrix.Zeroes(d[0].GetLength(0), d[0].GetLength(1));
+            float[][,] cs = new float[d.GetLength(0)][,];         
             for (int k = 0; k < d.GetLength(0); k++)
+            {
+                float[,] temp = Matrix.Zeroes(d[0].GetLength(0), d[0].GetLength(1));
                 for (int i = 0; i < d[0].GetLength(0); i++)
                     for (int j = 0; j < d[0].GetLength(1); j++)
                     {
                         if (d[k][i, j] > 1)
-                            cs[k][i, j] = 1;
+                            temp[i, j] = 1;
                         else
-                            cs[k][i, j] = 0;
+                            temp[i, j] = 0;
                     }
+                cs[k] = Matrix.TransposeMatrix(temp);
+            }
             return cs;
         }
 
-        private float[][,] GetTumorOnly(float[][,] d)
+        public float[][,] GetTumorOnly(float[][,] d)
         {
             float[][,] tumor = new float[d.GetLength(0)][,];
-            for (int i = 0; i < d.GetLength(0); i++)
-                tumor[i] = Matrix.Zeroes(d[0].GetLength(0), d[0].GetLength(1));
-            for (int k = 0; k < d.GetLength(0); k++)
-                for (int i = 0; i < d[0].GetLength(0); i++)
-                    for (int j = 0; j < d[0].GetLength(1); j++)
-                    {
-                        float value = d[k][i, j];
-                        if (value == 1)
-                            tumor[k][i, j] = 1.0f; 
-                        else
-                            tumor[k][i, j] = 0.0f;
-                    }
+                for (int k = 0; k < d.GetLength(0); k++)
+                {
+                    float[,] temp = Matrix.Zeroes(d[0].GetLength(0), d[0].GetLength(1));
+                    for (int i = 0; i < d[0].GetLength(0); i++)
+                        for (int j = 0; j < d[0].GetLength(1); j++)
+                        {
+                            float value = d[k][i, j];
+                            if (value == 1)
+                                temp[i, j] = 1.0f;
+                            else
+                                temp[i, j] = 0.0f;
+                        }
+                    tumor[k] = Matrix.TransposeMatrix(temp);
+                }
             return tumor;
         }
 
         private float[][,] EnlargeTumor(float[] dd, int p)
         {   
             float[][,] d = Matrix.TransposeMatrix(Matrix.EnlargeAndCenter(dd, p, SS_dim[0], SS_dim[1], SS_dim[2]));
+            //float[][,] d = Matrix.EnlargeAndCenter(dd, p, SS_dim[0], SS_dim[1], SS_dim[2]);
 
             Enlarge_SS_Dim(d);
             return d;
@@ -252,8 +263,8 @@ namespace TomosurgeryAlpha
         private void Enlarge_SS_Dim(float[][,] d)
         {
             BIG_dim = new int[3];
-            BIG_dim[0] = d[0].GetLength(0);
-            BIG_dim[1] = d[0].GetLength(1);
+            BIG_dim[0] = d[0].GetLength(1);
+            BIG_dim[1] = d[0].GetLength(0);
             BIG_dim[2] = d.GetLength(0);
         }
 

@@ -19,18 +19,48 @@ namespace TomosurgeryAlpha
 
         public static void AnalyzeDICOMdose(DICOMDoseFile ddf, StructureSet SS)
         {
-            float[][,] tumor = SS.fj_Tumor;
-            float[][,] cs = SS.fj_CS;
-            float[][,] dose = ddf.GetJaggedDoseArray();
+            float rxdose = 0.5f; float toldose = 0.3f;
+            float[][,] tumor = SS.GetTumorOnly(StructureSet.originalTumor);
+            float[][,] cs = SS.GetCSOnly(StructureSet.originalTumor);
+            float[][,] dose = Matrix.Normalize(Matrix.TransposeMatrix(DICOMDoseFile.OriginalDose));
 
+            double isovol = 0; double isotumorvol = 0;
+            double toldosevol = 0; double tolcsvol = 0;
             double tumorvol = Matrix.SumAll(Matrix.Normalize(tumor));
             double csvol = Matrix.SumAll(Matrix.Normalize(cs));
             for (int k = 0; k < tumor.GetLength(0); k++)
                 for (int j = 0; j < tumor[0].GetLength(1); j++)
                     for (int i = 0; i < tumor[0].GetLength(0); i++)
+                    {
+                        double t = tumor[k][i,j];
+                        double d = dose[k][i, j];
+                        double c = cs[k][i,j];
 
+                        if (d >= rxdose)
+                        {
+                            isovol++;
+                            if (t > 0)
+                                isotumorvol++;
+                        }
+                        else if (d >= toldose)
+                        {
+                            toldosevol++;
+                            if (c > 0)
+                                tolcsvol++;
+                        }
+                    }
 
-                    
+            AnalysisInfo ai = new AnalysisInfo();
+            ai.CS_Volume = csvol;
+            ai.CS_overdose = tolcsvol;
+            ai.LesionVolume = tumorvol;
+            ai.Rx_Volume = isovol;
+            ai.RxLesion_Volume = isotumorvol;
+            ai.RTOG = (double)(isovol / tumorvol);
+            ai.LomaxScheib = isotumorvol / isovol;
+            ai.VantReits = (isotumorvol * isotumorvol) / (tumorvol * isovol);
+            ai.TestName = String.Concat("original_", System.DateTime.Now.ToShortTimeString());
+            AIList.Add(ai);
         }
 
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
@@ -97,7 +127,7 @@ namespace TomosurgeryAlpha
             if (ddf != null)
             {
                 AnalysisInfo DICOM_dose = new AnalysisInfo();
-                AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), tumor, startingz);
+                AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), tumor, startingz);
                 DICOM_dose.RxLevel = RX;
                 DICOM_dose.LesionVolume = lesionvolume;
                 DICOM_dose.Rx_Volume = totalvolcoveredbyrx;
@@ -140,8 +170,8 @@ namespace TomosurgeryAlpha
 
             
             AnalysisInfo DICOM_dose = new AnalysisInfo();
-            AnalyzeLesionCoverage(ddf.GetJaggedDoseArray(), t, (int)ddf.ZStart);
-            AnalyzeMaskCoverage(ddf.GetJaggedDoseArray(), Matrix.PrepareDDSMask(t, 3), rxlevel);
+            AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), t, (int)ddf.ZStart);
+            AnalyzeMaskCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), Matrix.PrepareDDSMask(t, 3), rxlevel);
             DICOM_dose.RxLevel = RX;
             DICOM_dose.LesionVolume = lesionvolume;
             DICOM_dose.Rx_Volume = totalvolcoveredbyrx;
@@ -227,7 +257,8 @@ namespace TomosurgeryAlpha
         public double RxLesion_Volume { get; set; }
         public double RTOG { get; set; }
         public double LomaxScheib { get; set; }
-        public double VantReits { get; set; }        
-        
+        public double VantReits { get; set; }
+        public double CS_Volume { get; set; }
+        public double CS_overdose { get; set; }
     }
 }

@@ -294,10 +294,10 @@ namespace TomosurgeryAlpha
             }
             else if (dicomdose_rb_btn.IsChecked == true)
             {
-                if (DICOMDoseFile.DoseJ != null)
+                if (DICOMDoseFile.Dose != null)
                 {
-                    double aspectmultx = (double)(DS_imgbox.Width / DICOMDoseFile.DoseJ[0].GetLength(0));
-                    double aspectmulty = (double)(DS_imgbox.Height / DICOMDoseFile.DoseJ[0].GetLength(1));
+                    double aspectmultx = (double)(DS_imgbox.Width / DICOMDoseFile.Dose[0].GetLength(0));
+                    double aspectmulty = (double)(DS_imgbox.Height / DICOMDoseFile.Dose[0].GetLength(1));
                     img = new double[3];
                     img[0] = (double)Math.Round(e.GetPosition(this.DS_imgbox).X / aspectmultx, 2);
                     img[1] = (double)Math.Round(e.GetPosition(this.DS_imgbox).Y / aspectmulty, 2);
@@ -924,8 +924,11 @@ namespace TomosurgeryAlpha
         {
             //f = Matrix.Normalize(f);
             bool viewiso = false;
+            bool viewcov = false;
             if (ViewIso_chkbox.IsChecked == true)
-                viewiso = true;
+            {viewiso = true; viewcov = false;}
+            if (ViewCoverage_chkbox.IsChecked == true)
+            { viewcov = true; viewiso = false; }
             //int maxvalue = 255; //change if increase range
             double default_rx_dose = 0.5;
 
@@ -1135,8 +1138,11 @@ namespace TomosurgeryAlpha
             }
             if (tabControl1.SelectedIndex == 1) //"Structure/DDS" tab
             {
-                slider2.Minimum = StructureSet.padsize;
-                slider2.Maximum = SS.f_structurearray.GetLength(0) - StructureSet.padsize;
+                if (SS.fj_Tumor != null)
+                {
+                    slider2.Minimum = 0;
+                    slider2.Maximum = SS.fj_Tumor.GetLength(0)-1;
+                }
                 DisplayStructure(slice);
                 DDS_z_lbl.Content = "Z: " + ((decimal)StructureSet.f_global_zoffset - (decimal)0.25*((decimal)Math.Round(slider2.Value, 2) - StructureSet.padsize));
                 DDS_index_lbl.Content = "Actual Z: " + slice;
@@ -1146,11 +1152,22 @@ namespace TomosurgeryAlpha
             {
                 if (dicomdose_rb_btn.IsChecked == true)
                 {
-                    slider2.Minimum = Math.Abs((float)StructureSet.f_global_zoffset - (float)DICOMDoseFile.doseoffset[2]);
-                    slider2.Maximum = DICOMDoseFile.DoseJ.GetLength(0)-slider2.Minimum;
+                    //slider2.Minimum = Math.Abs((float)StructureSet.f_global_zoffset - (float)DICOMDoseFile.doseoffset[2]);
+                    //slider2.Maximum = DICOMDoseFile.DoseJ.GetLength(0)-slider2.Minimum;
                     DS_z_lbl.Content = "Z: " + (DICOMDoseFile.doseoffset[2] - (decimal)slider2.Minimum - (decimal)(Math.Round(slider2.Value, 2)-slider2.Minimum));
                     DS_index_lbl.Content = "Actual Z: " + slice;
-                    Display2DFloat(DICOMDoseFile.DoseJ[slice]);
+                    if (origdose_rb_btn.IsChecked == true)
+                    {
+                        slider2.Minimum = 0;
+                        slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
+                        Display2DFloat(DICOMDoseFile.OriginalDose[slice]);
+                    }
+                    else if (newdose_rb_btn.IsChecked == true)
+                    {
+                        slider2.Minimum = 0;
+                        slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
+                        Display2DFloat(DICOMDoseFile.Dose[slice]);
+                    }
                 }
                 else if (PS != null)
                 {
@@ -1357,8 +1374,8 @@ namespace TomosurgeryAlpha
         {
             RasterPath.StepSize = Convert.ToInt16(txt_stepsize.Text);
             RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
-            double sum1 = Matrix.SumAll(SS.fj_Tumor);
-            double sum2 = SS.f_structurearray[130].Sum();
+            //double sum1 = Matrix.SumAll(SS.fj_Tumor);
+            //double sum2 = SS.f_structurearray[130].Sum();
             PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
@@ -2139,7 +2156,9 @@ namespace TomosurgeryAlpha
         private void ViewIso_chkbox_Checked(object sender, RoutedEventArgs e)
         {
             if (dicomdose_rb_btn.IsChecked == true)
-                Display2DFloat(DICOMDoseFile.DoseJ[GetCurrentSlice()]);
+            {
+                Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
+            }
             else
                 Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
         }
@@ -2182,7 +2201,7 @@ namespace TomosurgeryAlpha
                 if (System.IO.Path.GetExtension(loadconfig.FileName) == ".dcm")
                 {
                     LoadDICOMdose(loadconfig.FileName);
-
+                    StatusTxtBox.Text = "DICOM dose successfully loaded";
                 }
                 else if (System.IO.Path.GetExtension(loadconfig.FileName) == ".txt")
                 {
@@ -2194,21 +2213,30 @@ namespace TomosurgeryAlpha
         private void LoadDoseSpace(string p)
         {
             Analysis.ddf = new DICOMDoseFile(p, false);
+            dicomdose_rb_btn.IsEnabled = true;
         }
 
         private void LoadDICOMdose(string p)
         {
             Analysis.ddf = new DICOMDoseFile(p, true);
+            dicomdose_rb_btn.IsEnabled = true;
         }
 
         private void RadioButton_Checked_1(object sender, RoutedEventArgs e)
         {
-            if (DICOMDoseFile.DoseJ != null)
+            origdose_rb_btn.IsEnabled = true;
+            newdose_rb_btn.IsEnabled = true;
+            origdose_rb_btn.IsChecked = true;
+            newdose_rb_btn.IsChecked = false;
+            if (DICOMDoseFile.OriginalDose != null)
             {
                 slider2.Minimum = 0;
-                slider2.Maximum = DICOMDoseFile.DoseJ.GetLength(0) - 1;
+                slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
                 slider2.Value = (double)(slider2.Maximum / 2);
-                Display2DFloat(DICOMDoseFile.DoseJ[GetCurrentSlice()]);
+                if (origdose_rb_btn.IsChecked == true)
+                    Display2DFloat(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
+                else if (newdose_rb_btn.IsChecked == true)
+                    Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);                
             }
             
         }
@@ -2222,9 +2250,13 @@ namespace TomosurgeryAlpha
 
         private void plandose_rb_btn_Copy_Checked(object sender, RoutedEventArgs e)
         {
+            dicomdose_rb_btn.IsChecked = false;
             slider2.Minimum = 0;
-            slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;            
-            Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+            if (PS != null)
+            {
+                slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
+                Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+            }
         }
 
         private void SaveConfig_Menu_Click(object sender, RoutedEventArgs e)
@@ -2234,7 +2266,23 @@ namespace TomosurgeryAlpha
 
         private void run_DDF_analysis_btn_Click(object sender, RoutedEventArgs e)
         {
-            Analysis.RunAnalysis(Analysis.ddf,StructureSet.originalTumor, 0.5);
+            //Analysis.RunAnalysis(Analysis.ddf,StructureSet.originalTumor, 0.5);
+            StatusTxtBox.Text = "Running Analysis...";
+            Analysis.AnalyzeDICOMdose(Analysis.ddf, SS);
+            StatusTxtBox.Text = "Analysis completed.";
+            Analysis_datagrid.ItemsSource = GetAnalysisInfo();
+        }
+
+        private void origdose_rb_btn_Checked(object sender, RoutedEventArgs e)
+        {
+            newdose_rb_btn.IsChecked = false;
+            Display2DFloat(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
+        }
+
+        private void newdose_rb_btn_Checked(object sender, RoutedEventArgs e)
+        {
+            origdose_rb_btn.IsChecked = false;
+            Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
         }
 
        
