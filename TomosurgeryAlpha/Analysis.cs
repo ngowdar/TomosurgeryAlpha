@@ -7,7 +7,8 @@ namespace TomosurgeryAlpha
 {
     public static class Analysis
     {
-        public static List<AnalysisInfo> AIList = new List<AnalysisInfo>();        
+        public static List<AnalysisInfo> AIList = new List<AnalysisInfo>(); 
+        public static float[] DVH;
         static double RX;
         static double TolDose;
         static double lesionvolume;
@@ -19,10 +20,13 @@ namespace TomosurgeryAlpha
 
         public static void AnalyzeDICOMdose(DICOMDoseFile ddf, StructureSet SS)
         {
-            float rxdose = 0.5f; float toldose = 0.3f;
+            
             float[][,] tumor = SS.GetTumorOnly(StructureSet.originalTumor);
             float[][,] cs = SS.GetCSOnly(StructureSet.originalTumor);
-            float[][,] dose = Matrix.Normalize(Matrix.TransposeMatrix(DICOMDoseFile.OriginalDose));
+            float[][,] dose = DICOMDoseFile.OriginalDose;
+            double maxdose = FindMaxDose(dose);
+            float rxdose = (float)(0.5 * maxdose); float toldose = (float)(0.3 * maxdose);
+            dose = Matrix.Normalize(dose);            
 
             double isovol = 0; double isotumorvol = 0;
             double toldosevol = 0; double tolcsvol = 0;
@@ -33,7 +37,7 @@ namespace TomosurgeryAlpha
                     for (int i = 0; i < tumor[0].GetLength(0); i++)
                     {
                         double t = tumor[k][i,j];
-                        double d = dose[k][i, j];
+                        double d = dose[k][i, j]*maxdose;
                         double c = cs[k][i,j];
 
                         if (d >= rxdose)
@@ -49,6 +53,9 @@ namespace TomosurgeryAlpha
                                 tolcsvol++;
                         }
                     }
+            GetDVH(tumor, dose);
+            System.Diagnostics.Debug.Print(String.Concat("DVH Volume covered by 50% dose: ", GetVolumeCoveredByIso(0.5f)));
+
 
             AnalysisInfo ai = new AnalysisInfo();
             ai.CS_Volume = csvol;
@@ -61,6 +68,57 @@ namespace TomosurgeryAlpha
             ai.VantReits = (isotumorvol * isotumorvol) / (tumorvol * isovol);
             ai.TestName = String.Concat("original_", System.DateTime.Now.ToShortTimeString());
             AIList.Add(ai);
+        }
+
+        private static void GetDVH(float[][,] origdose, float[][,] tumor)
+        {
+            float[][,] dose = Matrix.Normalize(origdose);
+            DVH = new float[100];
+            DVH = Matrix.Zero1DFloat(100);
+            for (int k = 0; k < dose.GetLength(0); k++)
+                for (int j = 0; j < dose[0].GetLength(1); j++)
+                    for (int i = 0; i < dose[0].GetLength(0); i++)
+                    {
+                        if (tumor[k][i, j] > 0)
+                        {
+                            int d = (int)(Math.Round(100 * dose[k][i, j], 0));
+                            for (int x = 0; x < d; d++)
+                            {
+                                DVH[x] += 1;
+                            }
+                        }
+                    }
+        }
+
+        private static float GetVolumeCoveredByIso(float iso)
+        {
+            float totalvol = 0; float isovol = 0;
+            int d = (int)Math.Round(100*iso,0);
+            for (int i = 0; i < 100; i++)
+            {
+                if (i < d)
+                {
+                    totalvol++;
+                    isovol++;
+                }
+                else
+                    totalvol++;
+            }
+            return (isovol / totalvol);
+
+        }
+
+        private static double FindMaxDose(float[][,] dose)
+        {
+            double max = 0;
+            for (int k = 0; k < dose.GetLength(0); k++)
+                for (int j = 0; j < dose[0].GetLength(1); j++)
+                    for (int i = 0; i < dose[0].GetLength(0); i++)
+                    {
+                        if (dose[k][i, j] > max)
+                            max = dose[k][i, j];
+                    }
+            return max;
         }
 
         public static void RunAnalysis(PathSet PS, StructureSet SS, double rxlevel)
@@ -85,6 +143,7 @@ namespace TomosurgeryAlpha
             ai.LomaxScheib = lesioncoveragebyrx / totalvolcoveredbyrx;
             ai.VantReits = (lesioncoveragebyrx * lesioncoveragebyrx) / (lesionvolume * totalvolcoveredbyrx);
             ai.TestName = System.DateTime.Now.ToShortTimeString();
+            ai.CreateInfoString();
             AIList.Add(ai);
             //if (ddf != null)
             //{
@@ -260,5 +319,16 @@ namespace TomosurgeryAlpha
         public double VantReits { get; set; }
         public double CS_Volume { get; set; }
         public double CS_overdose { get; set; }
+
+        internal void CreateInfoString()
+        {
+            string s = TestName + ": ";
+            s += "\n Lesion Size: " + LesionVolume;
+            s += "\n Isovolume Size: " + Rx_Volume;
+            s += "\n Lesion Covered by Isodose: " + RxLesion_Volume;
+            if (CS_Volume > 0)
+                s += "\n Percent CS covered by isodose: " + (CS_overdose / CS_Volume);
+
+        }
     }
 }

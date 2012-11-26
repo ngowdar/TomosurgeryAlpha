@@ -413,6 +413,21 @@ namespace TomosurgeryAlpha
             return d;
         }
 
+        public static float[][,] NormalizeBy(float[][,] d, float max)
+        {
+            float divisor;
+            if (max <= 0)
+                divisor = 1.0f;
+            else
+                divisor = 1 / max;
+
+            for (int k = 0; k < d.GetLength(0); k++)
+            {
+                d[k] = ScalarMultiply(d[k], divisor);
+            }
+            return d;
+        }
+
         public static float[,] ScalarMultiply(float[,] a, float scalar)
         {
             float[,] product = new float[a.GetLength(0), a.GetLength(1)];
@@ -713,7 +728,7 @@ namespace TomosurgeryAlpha
         }
 
         internal static float[] Normalize(float[] img)
-        {
+        {            
             float[] n = new float[img.GetLength(0)];
             float max = img.Max();
             Parallel.For(0, img.GetLength(0), (i) =>
@@ -921,6 +936,8 @@ namespace TomosurgeryAlpha
                        }
             return max;
         }
+
+        
 
         internal static float[][,] LinearlyCombine(float[][,] fj_Tumor, float[][,] fj_CS, int p)
         {

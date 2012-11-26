@@ -26,6 +26,7 @@ namespace TomosurgeryAlpha
     /// </summary>
     public partial class MainWindow : Window
     {
+        public Stopwatch plantimer;
         public static int N;
         public static WriteableBitmap wb_DICOM;
         public static WriteableBitmap wb_DS;
@@ -215,10 +216,18 @@ namespace TomosurgeryAlpha
 
         public int GetCurrentSlice()
         {
-            int value;
+            int value;            
             value = (int)Math.Round(slider2.Value);
+            UpdatePositionInfo(value, (int)slider2.Maximum);
             return value;
-        }      
+        }
+
+        public void UpdatePositionInfo(int pos, int of)
+        {
+            string s = "" + pos + " of " + of;
+            zpos_index_lbl.Content = s;
+        }
+
         public void InitializeDS()
         {
             wb_DS = new WriteableBitmap(256, 256, 96, 96, PixelFormats.Bgr32, null);
@@ -666,6 +675,12 @@ namespace TomosurgeryAlpha
             }
         }
 
+        public void DisplayImageSizeInfo(int x, int y)
+        {
+            string s = "" + x + " x " + y;
+            structure_size_lbl.Content = s;
+        }
+
         public void DisplayPlan()
         {
             
@@ -681,6 +696,7 @@ namespace TomosurgeryAlpha
             }
             //float max = img.Max();
             int sizex = StructureSet.BIG_dim[0]; int sizey = StructureSet.BIG_dim[1];
+            DisplayImageSizeInfo(sizex, sizey);
             Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
             //AdjustCursorSize();
             img = Matrix.Normalize(img);
@@ -723,7 +739,7 @@ namespace TomosurgeryAlpha
                 //Overlay the planned points
                 foreach(PointF pf in points)
                     {
-                        PointF[] circlepoints = CreateShotMarker(pf, 15);
+                        PointF[] circlepoints = CreateShotMarker(pf, 3);
                         foreach (PointF p in circlepoints)
                         {
                             int x = (int)Math.Round(p.X);
@@ -779,6 +795,7 @@ namespace TomosurgeryAlpha
                 structureimg = new float[StructureSet.BIG_dim[0], StructureSet.BIG_dim[1]];
             int sizex = StructureSet.BIG_dim[0];
             int sizey = StructureSet.BIG_dim[1];
+            DisplayImageSizeInfo(structureimg.GetLength(0), structureimg.GetLength(1));
             
             wb_DDS = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);
             //int max = (int)structureimg.Max();
@@ -847,6 +864,7 @@ namespace TomosurgeryAlpha
 
         public void DisplayDICOM(float[] image)
         {
+            DisplayImageSizeInfo(256, 256);
             double max = image.Max();
             wb_DICOM = new WriteableBitmap(256, 256, 96, 96, PixelFormats.Bgr32, null);
             DICOM_imgbox.Source = wb_DICOM;
@@ -922,6 +940,7 @@ namespace TomosurgeryAlpha
 
         private void Display2DFloat(float[,] f)
         {
+            DisplayImageSizeInfo(f.GetLength(0), f.GetLength(1));
             //f = Matrix.Normalize(f);
             bool viewiso = false;
             bool viewcov = false;
@@ -1214,7 +1233,9 @@ namespace TomosurgeryAlpha
                     string path = System.IO.Path.GetDirectoryName(opendicom.FileName);
                     SetWorkingDirectory(path);
                     SS = new StructureSet(h, t);
-
+                    string structname = System.IO.Path.GetFileNameWithoutExtension(SS.tumorpath);
+                    string structinfo = string.Concat("\n Width//Height//Frames: ", StructureSet.SS_dim[0], ", ", StructureSet.SS_dim[1], ", ", StructureSet.SS_dim[2]);
+                    StatusTxtBox.Text = structname + structinfo;
                 }
                 else
                 {
@@ -1310,15 +1331,16 @@ namespace TomosurgeryAlpha
                     CreatePreviewDose(PS);                    
                 }                
                 PopulateDataGrid(PS);
+                tabControl1.SelectedIndex = 3;
+                IsPathSetCreated = true;
+                HasPreviewBeenCreated = true;
+                DisplayPlan();
             }
             else
             {
                 MessageBox.Show("I can't create a plan until you properly load a structure object. Please load a DICOM-RT file first.");
             }
-            tabControl1.SelectedIndex = 3;
-            IsPathSetCreated = true;
-            HasPreviewBeenCreated = true;
-            DisplayPlan();
+            
         }
 
         private void CreatePreviewDose(PathSet PS)
@@ -1370,6 +1392,18 @@ namespace TomosurgeryAlpha
                 dataGrid1.Items[i] = rp.info;                
             }
         }
+
+        private string WriteArrayAsList(int[] array, string name)
+        {
+            string s = "" + name + ": ";
+            for (int i = 0; i < array.GetLength(0); i++)
+            {
+                name += ", " + array[i];
+            }
+            return s;
+
+        }
+
         private void CreatePathSet()
         {
             RasterPath.StepSize = Convert.ToInt16(txt_stepsize.Text);
@@ -1385,6 +1419,7 @@ namespace TomosurgeryAlpha
                    PS.DK = DK;
                if (SS != null)
                    PS.SS = SS;
+               StatusTxtBox.Text = WriteArrayAsList(PS.SlicePositions, "slice positions");
             
 
         }
@@ -1412,7 +1447,18 @@ namespace TomosurgeryAlpha
         void PS_3_SliceweightWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             //PS.DoseSpace = Matrix.Normalize(PS.DoseSpace);
-            PS.RetrieveFinalizedDoseSpace();            
+            if (plantimer.IsRunning)
+            Debug.WriteLine("Slice weighting time mark: " + plantimer.Elapsed);
+
+            PS.RetrieveFinalizedDoseSpace();
+            if (plantimer.IsRunning)
+            {
+                Debug.WriteLine("TOTAL TIME: " + plantimer.Elapsed);
+                plantimer.Stop();
+            }
+            
+
+
             MessageBox.Show("Optimization complete. You may run an analysis using the analysis tab, or save/export using the buttons shown.");
             UpdateTextBlock2("Optimization complete. See analysis tab for details. Save using buttons below.");
             UpdateStatusBar("Ready.");
@@ -1422,6 +1468,8 @@ namespace TomosurgeryAlpha
 
         void PS_2_OptimizationWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
+            if (plantimer.IsRunning)
+                Debug.WriteLine("Current time after temp doses written (PS2): " + plantimer.Elapsed);
             UpdateTextBlock2("Temporary doses written. Optimizing slice weights...");
         }
         
@@ -1441,6 +1489,10 @@ namespace TomosurgeryAlpha
 
         void PS_1_PathsetWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
+            if (plantimer.IsRunning)
+            {                
+                Debug.WriteLine("Current time after planning: " + plantimer.Elapsed);
+            }
             UpdateStatusBar("Writing dose file...");
             UpdateTextBlock2("Finished shot weighting. Now writing dose, please wait...");
             RefreshDataGrid();
@@ -1744,6 +1796,8 @@ namespace TomosurgeryAlpha
 
         private void plan_btn_Click(object sender, RoutedEventArgs e)
         {
+            plantimer = new Stopwatch();
+            plantimer.Start();
             SetWorkingDirectory(); 
             PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
             PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
@@ -1762,6 +1816,7 @@ namespace TomosurgeryAlpha
             if (IsPathSetCreated)
                 Opt_btn.IsEnabled = true;
             AdjustCursorSize();
+            plantimer.Stop();
         }
 
         private void UpdateTextBlock2(string update)
@@ -1772,6 +1827,7 @@ namespace TomosurgeryAlpha
 
         private void Opt_btn_Click(object sender, RoutedEventArgs e)
         {
+
             UpdateStatusBar("Running optimization...this may take some time.");            
             SetWorkingDirectory();            
             PS.PS_1_ShotOptimize_worker.RunWorkerAsync();
@@ -2159,8 +2215,10 @@ namespace TomosurgeryAlpha
             {
                 Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
             }
-            else
+            else if (plandose_rb_btn.IsChecked == true)
                 Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+            else
+                MessageBox.Show("Pick a radio button.");
         }
 
         private void GPU_chkbox_Checked(object sender, RoutedEventArgs e)
@@ -2243,7 +2301,7 @@ namespace TomosurgeryAlpha
 
         public void DisplayDose(float[,] d)
         {
-
+            DisplayImageSizeInfo(d.GetLength(0), d.GetLength(1));
             d = Matrix.Normalize(d);
             Display2DFloat(d);
         }
@@ -2276,14 +2334,22 @@ namespace TomosurgeryAlpha
         private void origdose_rb_btn_Checked(object sender, RoutedEventArgs e)
         {
             newdose_rb_btn.IsChecked = false;
+            slider2.Minimum = 0;
+            slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
             Display2DFloat(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
         }
 
         private void newdose_rb_btn_Checked(object sender, RoutedEventArgs e)
         {
             origdose_rb_btn.IsChecked = false;
+            slider2.Minimum = 0;
+            slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
             Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
         }
+
+        
+
+
 
        
         

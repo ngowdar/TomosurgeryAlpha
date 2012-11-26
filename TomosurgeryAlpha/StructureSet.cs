@@ -47,8 +47,9 @@ namespace TomosurgeryAlpha
 
         public StructureSet(string header, string tumor)
         {
+            
             if (DoseKernel.N != null)
-                padsize = DoseKernel.N/4; // <- need to make this (N-1)/2 once N has been established.
+                padsize = DoseKernel.N/2; // <- need to make this (N-1)/2 once N has been established.
             float[] LinearVolume = Read1DArrayFromFile(tumor, header);
             originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
             float[][,] BinaryVolume = (float[][,])originalTumor.Clone();
@@ -60,6 +61,8 @@ namespace TomosurgeryAlpha
             fj_Tumor = GetTumorOnly(BinaryVolume);
             fj_CS = GetCSOnly(BinaryVolume);
             fj_Combined = Matrix.LinearlyCombine(fj_Tumor, fj_CS, 10);
+            
+            
 
 
             size = f_structurearray.GetLength(0);

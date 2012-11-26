@@ -28,6 +28,7 @@ namespace TomosurgeryAlpha
         public static ushort columns;
         public ushort bitsalloc;
         static public long numframes;
+        public static UInt16 maxdose;
         public ushort scaling;
         public static decimal[] doseoffset = new decimal[3];
         public static int[] structurebounds;
@@ -40,9 +41,11 @@ namespace TomosurgeryAlpha
                 this.path = path;
                 SetDictionaryPath();
                 DF = new openDicom.File.DicomFile(path);
-                OriginalDose = Matrix.Normalize(ExtractDoseData());
+                OriginalDose = Matrix.Normalize(ExtractDoseData());                
                 Dose = EnlargeAndInterpolate(OriginalDose);
+
                 dosesavepath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");
+
                 //WriteDoseToFile(dosesavepath);
                 DEBUG_WriteFileSummary();
             }
@@ -284,6 +287,7 @@ namespace TomosurgeryAlpha
             }
             //return Byte2Float(pixeldata);
             float[] temp_pixeldata = Byte2Float(pixeldata);
+            maxdose = (UInt16)temp_pixeldata.Max();
             return Matrix.MakeJaggedFloat(temp_pixeldata, (int)columns, (int)rows, (int)numframes);
         }
 

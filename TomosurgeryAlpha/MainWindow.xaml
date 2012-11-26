@@ -66,7 +66,7 @@
                 </TabItem.Background>
                 <Grid>
                     <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" Name="DDS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DDS_imgbox_MouseMove" />
-                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="528,31,0,0" Name="label9" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="528,31,0,0" x:Name="structure_size_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,84,0,0" Name="DDS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,97,0,0" Name="DDS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                     <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,110,0,0" Name="DDS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
@@ -74,6 +74,7 @@
                     <RadioButton Content="Tumor" Name="tumor_rb" HorizontalAlignment="Left" Margin="527,158,0,347" Width="79" Foreground="#FFF3F1F1" IsChecked="True" />
                     <RadioButton Content="CS" x:Name="cs_rb" HorizontalAlignment="Left" Margin="527,178,0,327" Width="79" Foreground="#FFF3F1F1" />
                     <RadioButton Content="Combined" x:Name="combined_rb" HorizontalAlignment="Left" Margin="527,198,0,307" Width="81" Foreground="#FFF3F1F1" />
+                    <Label Content="Pos:" Height="28" HorizontalAlignment="Left" Margin="531,51,0,0" x:Name="zpos_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                 </Grid>
             </TabItem>
             <TabItem Header="Dose Space" Name="DStab" FontFamily="Euphemia" FontSize="14">
@@ -183,24 +184,24 @@
                 <ImageBrush ImageSource="Resources/metbase.jpg"/>
             </Menu.Background>
             <MenuItem Header="File" FontFamily="Ubuntu" FontSize="14" Foreground="#FFD4D3D3" Click="MenuItem_Click_1">
-                <MenuItem Header="Open..." Name="Open_Menu" Foreground="#FF1F1E1E"/>
-                <MenuItem Header="Save..." Name="Save_Menu" Foreground="#FF1F1E1E" />
-                <MenuItem Header="Load Config file..." Name="LoadConfig_Menu" Foreground="#FF1F1E1E" Click="LoadConfig_Menu_Click" />
-                <MenuItem Header="Save Configuration..." Name="SaveConfig_Menu" Foreground="#FF1F1E1E" Click="SaveConfig_Menu_Click" />
-                <MenuItem Header="Set Working Directory" Name="Set_Direc" Foreground="#FF1F1E1E" Click="Set_Direc_Click" />
-                <MenuItem Header="Load DICOM Image set..." Foreground="#FF1F1E1E" Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
-                <MenuItem Header="Load Structure..." Name="LoadStructure_Menu" Foreground="#FF1F1E1E" Click="LoadStructure_Menu_Click" />
-                <MenuItem Header="Load Test File..." Foreground="#FFF14242" Name="LoadTest_menu" Click="LoadTest_menu_Click" />
-                <MenuItem Header="Load Dose Kernel..." Name="LoadDose_menu" Foreground="#FFF32C2C"  >
+                <MenuItem Header="Open..." x:Name="Open_Menu" Foreground="#FF1F1E1E"/>
+                <MenuItem Header="Save..." x:Name="Save_Menu" Foreground="#FF1F1E1E" />
+                <MenuItem Header="Load Config file..." x:Name="LoadConfig_Menu" Foreground="#FF1F1E1E" Click="LoadConfig_Menu_Click" />
+                <MenuItem Header="Save Configuration..." x:Name="SaveConfig_Menu" Foreground="#FF1F1E1E" Click="SaveConfig_Menu_Click" />
+                <MenuItem Header="Set Working Directory" x:Name="Set_Direc" Foreground="#FF1F1E1E" Click="Set_Direc_Click" />
+                <MenuItem Header="Load DICOM Image set..." Foreground="#FF1F1E1E" x:Name="LoadDICOM_Menu" Click="LoadDICOM_Menu_Click" />
+                <MenuItem Header="Load Structure..." x:Name="LoadStructure_Menu" Foreground="#FF1F1E1E" Click="LoadStructure_Menu_Click" />
+                <MenuItem Header="Load Test File..." Foreground="#FFF14242" x:Name="LoadTest_menu" Click="LoadTest_menu_Click" />
+                <MenuItem Header="Load Dose Kernel..." x:Name="LoadDose_menu" Foreground="#FFF32C2C"  >
                     <Button x:Name="Select4mmDefault" Content="4mm Default" Click="Select4mmDefault_Click"/>
                     <Button Content="8mm Default"/>
                     <Button Content="16mm Default"/>
                     <Button Content="From file..." Click="LoadDose_menu_Click"/>
                 </MenuItem>
-                <MenuItem Header="Load Previous Dosespace" Name="LoadDS_menu" Foreground="#FF1F1E1E" Click="LoadDS_menu_Click_1" />
+                <MenuItem Header="Load Previous Dosespace" x:Name="LoadDS_menu" Foreground="#FF1F1E1E" Click="LoadDS_menu_Click_1" />
             </MenuItem>
             <MenuItem x:Name="Tools_menuitem" Header="Tools" Foreground="#FFD4D3D3" FontSize="14">
-                <Button Content="Restrict SliceWeights..." Click="Button_Click_3"/>                
+                <Button Content="Restrict SliceWeights..." Click="Button_Click_3"/>
             </MenuItem>
         </Menu>
         <TextBox Height="23" HorizontalAlignment="Left" Name="txt_rasterwidth" VerticalAlignment="Top" Width="24" Margin="921,515,0,0" Text="20" TextChanged="txt_rasterwidth_TextChanged" FontSize="14" FontFamily="Consolas" />
