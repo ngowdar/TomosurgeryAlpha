@@ -53,12 +53,14 @@ namespace TomosurgeryAlpha
         public float[][,] DDS;
         public float[][,] dds_nondilated;
         public float[][,] DoseSpace; //The actual final dosespace matrix containing the real dose.
+        public float max;
         public int[] SlicePositions; //The centered z-indexes of each slice location
         public double[] SliceWeights; //Weights, from 0 to 1, of each slice. Calculated from Step 2.
         public double[][] OldSliceCoverage;
         public double[][] SliceCoverage;
         public double[] OldCoverage;
         public double[] TotalCoverage;
+        public double[] NonnormalizedCoverage;
         public int[] boundaries; //6-term sequence (xstart, xend, ystart...etc.)
         public int X; public int Y; public int Z;
         public event ProgressChangedEventHandler PathsetWorkerProgressChanged;
@@ -489,9 +491,13 @@ namespace TomosurgeryAlpha
             DoseSpace = PrepareWeighted_DS(SliceWeights, folderpath);
             //DoseSpace = PrepareWeighted_DS_GPU(SliceWeights, folderpath, DDS);
             //WriteFloatArray2BMP(DoseSpace[DoseSpace.GetLength(0) / 2], "PS_487_ds_midplane_" + index + ".bmp");
-            DoseSpace = Matrix.Normalize(DoseSpace);
+            
             TotalCoverage = new double[5];
+            NonnormalizedCoverage = new double[5];
+            NonnormalizedCoverage = FindTotalCoverage(0.5, DoseSpace, dds_nondilated, SliceWeights);
+            DoseSpace = Matrix.Normalize(DoseSpace);
             TotalCoverage = FindTotalCoverage(0.5, DoseSpace, dds_nondilated, SliceWeights);
+            
             //{ TumorVol, RxVolume, LesionRx, Uncovered };
             
 
@@ -526,7 +532,7 @@ namespace TomosurgeryAlpha
                 double PercentUnderdosed = (TotalCoverage[3] / TotalCoverage[0]) * 100;
                 double TempOverage = TotalCoverage[1]/TotalCoverage[0];
                 //index++;
-                if (index > 2)
+                if (index > 3)
                 {
                     if (IterationCoverage > 0.98 && PercentUnderdosed < 0.1 && TempOverage < 0.05) //i.e. Good Enough
                     {                     
@@ -559,6 +565,7 @@ namespace TomosurgeryAlpha
             } // <- end of while loop
             
             PS_3_SliceWeightOpt_worker.ReportProgress(100);
+            FindMaxDose();
         }
 
         private void PrintIterationSummary(double[][] OldCoverage, double[][] SliceCoverage)
@@ -670,9 +677,9 @@ namespace TomosurgeryAlpha
            for (int s = 0; s < NumSlices; s++)
            {
                float[][,] ds_slab = GrabSlab(DoseSpace,PathSet.DCT, SlicePositions[s]);
-               //WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_slab.bmp"));
+               WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_slab.bmp"));
                float[][,] dds_slab = GrabSlab(dds, PathSet.DCT, SlicePositions[s]);
-               //WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_slab.bmp"));
+               WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_slab.bmp"));
                double[] measurements = FindSliceDoseCoverage(ds_slab,s,0.5,dds_slab);
 
                /* 0: ratio
@@ -688,16 +695,26 @@ namespace TomosurgeryAlpha
                double BothvsRxVol = measurements[3]/measurements[1];
                double Overdosed = measurements[5];
 
-               double ratio = 1.0 / RxVolvsTumor;               
-               if (SliceWeights[s] * ratio >= 1.0)
-                   SliceWeights[s] = 1.0;
+               double ratio = 1.0 / RxVolvsTumor;
+               //double ratio = simplesum_ratio;
+               //double ratio = 1.0 / BothvsTumor;
+               Debug.WriteLine("Slice: " + s + " Tumor coverage: " + BothvsTumor);
+               Debug.WriteLine("(Isovol/Tumor)x(Isotumor/Tumor): " + ratio + "; 1//BothVsTumor: " + (1.0 / BothvsTumor) + "; 1//RxVolVsTumor: " + (1.0 / RxVolvsTumor));
+               Debug.WriteLine("Currently using RxVolVsTumor");
+               
+               if (SliceWeights[s] * ratio > 1.0)
+               {
+                   tweight[s] = 1.0;
+                   continue;
+                   Debug.WriteLine("Ratio greater than 1: " + ratio);
+               }
                else
                    tweight[s] = SliceWeights[s] * ratio;
                
                SliceCoverage[s] = measurements;
                count++;
            }
-           //tweight = Normalize(tweight);
+           tweight = Normalize(tweight);
            return tweight;
         }
 
@@ -863,9 +880,9 @@ namespace TomosurgeryAlpha
             //DoseSpace = Matrix.Normalize(DoseSpace);
             //Debug.WriteLine("After Normalization: ");
             //FindTotalCoverage(0.5, DoseSpace, DDS, SliceWeights);
-            MakeMidplaneXPic(DoseSpace, "X_view_Dosespace.bmp");
-            MakeMidplaneYpic(DoseSpace, "Y_view_Dosespace.bmp");
-            MakeMidplaneZpic(DoseSpace, "Z_view_Dosespace.bmp");
+            //MakeMidplaneXPic(DoseSpace, "X_view_Dosespace.bmp");
+            //MakeMidplaneYpic(DoseSpace, "Y_view_Dosespace.bmp");
+            //MakeMidplaneZpic(DoseSpace, "Z_view_Dosespace.bmp");
 
             return DoseSpace;
         }
@@ -914,6 +931,7 @@ namespace TomosurgeryAlpha
             WriteFloatArray2BMP(Zdds, "Z_midplane_DS.bmp");
             MakeComparisonPic(Z, Zdds, "Z_midplane_comparison.bmp");
         }
+
 
 
         private float[][,] PrepareWeighted_DS_GPU(double[] weights, string subfolder, float[][,] DDS)
@@ -976,7 +994,8 @@ namespace TomosurgeryAlpha
                 {                    
                     int whichz = SlicePositions[s] - (DCT / 2);
                     float[] slicedose = LoadSliceDose(s, subfolder);
-                    slicedose = Matrix.Normalize(slicedose);
+                    //slicedose.slicedose = Matrix.Normalize(slicedose);
+                    //Matrix.Normalize(ref slicedose);
                     //FindSliceDoseCoverage(Matrix.ScalarMultiply(slicedose,(float)SliceWeights[s]), s, 0.5, DDS);
                     //Debug.WriteLineIf(slicedose.GetLength(0) != weighted_slicedoses.GetLength(0)*x*y, "slicedose not equal to weighted_slicedose in PrepareWeighted_DS()!!!!!");
                     //Debug.WriteLine(slicedose.Sum());
@@ -1007,7 +1026,9 @@ namespace TomosurgeryAlpha
         {
             string filename = String.Concat("slice_", which_slice);
             string path = System.IO.Path.Combine(subfolder, filename);
-            return Matrix.Normalize(ReadSliceDoseFromFile(path));
+            float[] d = ReadSliceDoseFromFile(path);
+            Matrix.Normalize(ref d);
+            return d;
         }
 
         private int FindStartZ(int s)
@@ -1090,9 +1111,15 @@ namespace TomosurgeryAlpha
                     {
                         dose = sd[k][i,j];
                         dds_value = DDS[k][i, j];
-                        if (dds_value > ToleranceDose && dose < 0.5)
-                            Uncovered++;
-                        if (dose >= iso)
+                        if (dose < iso)
+                        {
+                            if (dds_value > ToleranceDose)
+                            {
+                                TumorVol++;
+                                Uncovered++;
+                            }
+                        }
+                        else if (dose >= iso)
                         {
                             RxVolume++;
                             if (dds_value > ToleranceDose)
@@ -1101,11 +1128,7 @@ namespace TomosurgeryAlpha
                                 LesionRx++;
                             }
                         }
-                        else if (dose < iso)
-                        {
-                            if (dds_value > ToleranceDose)
-                                TumorVol++;
-                        }
+                       
                     }           
             double LesionRxoverTumorVol = LesionRx / TumorVol;
             double LesionRxoverRxVol = LesionRx / RxVolume;
@@ -1220,13 +1243,13 @@ namespace TomosurgeryAlpha
         private void WriteFloatArray2BMP(float[,] temp, string p)
         {
             string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
-            float[,] temp2 = (float[,])Matrix.Normalize(temp).Clone();
+            float max = Matrix.FindMax(temp);
             int color = 0;
-            Bitmap b = new Bitmap(temp.GetLength(0), temp.GetLength(1));
-            for (int j = 0; j < temp.GetLength(1); j++)
-                for (int i = 0; i < temp.GetLength(0); i++)
+            Bitmap b = new Bitmap(temp.GetLength(1), temp.GetLength(0));
+            for (int j = 0; j < temp.GetLength(0); j++)
+                for (int i = 0; i < temp.GetLength(1); i++)
                 {
-                    color = (int)(temp2[i, j] * 255);
+                    color = (int)((temp[j, i]/max) * 255);
                     b.SetPixel(i, j, Color.FromArgb(color, color, color));
                 }
             b.Save(path);
@@ -1267,6 +1290,11 @@ namespace TomosurgeryAlpha
         #endregion
 
         #region Helper methods that Read/Write dose to files
+
+        public void FindMaxDose()
+        {
+            max = Matrix.FindMax(DoseSpace);
+        }
 
         /// <summary>
         /// Takes in a slice 1D float matrix, and adds it to the global dosespace array for final calculation. Called by 

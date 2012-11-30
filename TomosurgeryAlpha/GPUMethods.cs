@@ -149,7 +149,8 @@ namespace TomosurgeryAlpha
         public static void LoadOriginalDSFromFile(string filename, string folderpath)
         {
             string path = System.IO.Path.Combine(folderpath, filename);
-            originalds = Matrix.Normalize(PathSet.ReadDoseSpaceFromFile(path));
+            originalds = PathSet.ReadDoseSpaceFromFile(path);
+            Matrix.Normalize(ref originalds);
         }
 
         public static float[] WeightOriginalDS(int[] SlicePositions, double[] weights, int[] size, int DCT, string folderpath)
@@ -215,7 +216,8 @@ namespace TomosurgeryAlpha
                     
                     filename = String.Concat("slice_", s);
                     string path = System.IO.Path.Combine(folderpath, filename);
-                    slicedose = Matrix.Normalize(PathSet.ReadSliceDoseFromFile(path));
+                    slicedose = PathSet.ReadSliceDoseFromFile(path);
+                    Matrix.Normalize(ref slicedose);
 
                     
                     

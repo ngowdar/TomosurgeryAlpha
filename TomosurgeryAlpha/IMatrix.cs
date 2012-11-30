@@ -53,6 +53,12 @@ namespace TomosurgeryAlpha
             return (float[])Array.CreateInstance(typeof(float), xyz);
         }
 
+        public static void Zero1DFloat(ref float[] d)
+        {            
+            for (int i = 0; i < d.GetLength(0); i++)
+                d[i] = 0.0f;
+        }
+
         public static float[][] ZeroJaggedFloat(int z, int xy)
         {
             float[][] f = new float[z][];
@@ -257,6 +263,31 @@ namespace TomosurgeryAlpha
             return result;
         }
 
+        /// <summary>
+        /// Method to convert the 1D method to a jagged 3D array (float[][,]). Same as EnlargeAndCenter(), but without
+        /// adding a padding region.
+        /// </summary>
+        /// <param name="dd"></param>
+        /// <param name="sizex"></param>
+        /// <param name="sizey"></param>
+        /// <param name="sizez"></param>
+        /// <returns></returns>
+        public static float[][,] ConvertTo3D(float[] dd, int sizex, int sizey, int sizez)
+        {
+            float[][,] output = new float[sizez][,];            
+            for (int k = 0; k < sizez; k++)
+            {
+                float[,] s = new float[sizex, sizey];
+                for (int j = 0; j < sizey; j++)
+                    for (int i = 0; i < sizex; i++)
+                    {
+                        s[i, j] = dd[(k * sizex * sizey) + (j * sizex) + i];
+                    }
+                output[k] = s;
+            }
+            return output;
+        }
+
         //Added 10/17/2012
         public static float[][,] EnlargeAndCenter(float[] dd, int padsize, int sizex, int sizey, int sizez)
         {
@@ -378,7 +409,7 @@ namespace TomosurgeryAlpha
             return max;
         }
 
-        public static float[,] Normalize(float[,] d)
+        public static void Normalize(ref float[,] d)
         {
             float max = FindMax(d);
             float divisor;
@@ -387,6 +418,18 @@ namespace TomosurgeryAlpha
             else
                 divisor = 1 / FindMax(d);            
             
+            d = ScalarMultiply(d, divisor);
+        }
+
+        public static float[,] Normalize(float[,] d)
+        {
+            float max = FindMax(d);
+            float divisor;
+            if (max <= 0)
+                divisor = 1.0f;
+            else
+                divisor = 1 / FindMax(d);
+
             return ScalarMultiply(d, divisor);
         }
 
@@ -426,6 +469,20 @@ namespace TomosurgeryAlpha
                 d[k] = ScalarMultiply(d[k], divisor);
             }
             return d;
+        }
+
+        public static float[,] NormalizeBy(float[,] d, float max)
+        {
+            float divisor;
+            if (max <= 0)
+            {
+                divisor = 1.0f;                
+            }
+            else
+                divisor = 1 / max;
+                        
+            return ScalarMultiply(d, divisor);
+            
         }
 
         public static float[,] ScalarMultiply(float[,] a, float scalar)
@@ -727,15 +784,14 @@ namespace TomosurgeryAlpha
             return window;
         }
 
-        internal static float[] Normalize(float[] img)
+        internal static void Normalize(ref float[] img)
         {            
-            float[] n = new float[img.GetLength(0)];
+            //float[] n = new float[img.GetLength(0)];
             float max = img.Max();
-            Parallel.For(0, img.GetLength(0), (i) =>
-                {
-                    n[i] = img[i] / max;
-                });
-            return n;
+            for (int i = 0; i < img.GetLength(0); i++)
+            {
+                img[i] = img[i] / max;
+            }           
         }
 
         internal static float[,] Zeroes(int p1, int p2)

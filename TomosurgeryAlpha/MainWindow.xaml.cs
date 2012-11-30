@@ -53,7 +53,9 @@ namespace TomosurgeryAlpha
         bool AlignmentOn = false;
         public Coordinates LGKcoords;
         public double DICOM_aspectMultiplier = 1.0;
-        public double Plan_aspectMultiplier = 1.0;
+        public double Plan_aspectMultiplier_x = 1.0;
+        public double Plan_aspectMultiplier_y = 1.0;
+        public bool Normalize = false;
         
         public MainWindow()
         {
@@ -591,8 +593,8 @@ namespace TomosurgeryAlpha
 
         private void AdjustCursorSize()
         {
-            cursor_ellipse.Height = (int)(cursor_ellipse.Height / Plan_aspectMultiplier);
-            cursor_ellipse.Width = (int)(cursor_ellipse.Width / Plan_aspectMultiplier);
+            cursor_ellipse.Height = (int)(cursor_ellipse.Height / Plan_aspectMultiplier_y);
+            cursor_ellipse.Width = (int)(cursor_ellipse.Width / Plan_aspectMultiplier_x);
             
         }
 
@@ -688,35 +690,40 @@ namespace TomosurgeryAlpha
             RasterPath rp = (RasterPath)PS.RasterPaths[GetCurrentSlice()];
             int zpos = PS.SlicePositions[GetCurrentSlice()];
             PointF[] points = rp.ReturnSinglePoints();
-            float[] img = SS.f_structurearray[zpos]; bool dp = false;
+            float[,] img = SS.fj_Tumor[zpos];
+            //float[] img = SS.f_structurearray[zpos]; 
+            bool dp = false;
             if (plan_dpRB.IsChecked == true && rp.dosespace != null)
             {
-                img = rp.dosespace;
+                img = Convert1Dto2D(rp.dosespace, img.GetLength(0), img.GetLength(1));
                 dp = true;
             }
             //float max = img.Max();
-            int sizex = StructureSet.BIG_dim[0]; int sizey = StructureSet.BIG_dim[1];
+            int sizex = img.GetLength(0); 
+            int sizey = img.GetLength(1);
             DisplayImageSizeInfo(sizex, sizey);
-            Plan_aspectMultiplier = (Math.Sqrt(img.GetLength(0)) / plan_imgbox.Height);
+            Plan_aspectMultiplier_x = img.GetLength(0) / plan_imgbox.Width;
+            Plan_aspectMultiplier_y = img.GetLength(1) / plan_imgbox.Height;
             //AdjustCursorSize();
-            img = Matrix.Normalize(img);
+            //img = Matrix.Normalize(img);
+            Matrix.Normalize(ref img);
             //float sum = img.Sum();
-            wb_Plan = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);            
+            wb_Plan = new WriteableBitmap(sizey, sizex, 96, 96, PixelFormats.Bgr32, null);            
             plan_imgbox.Source = wb_Plan;
             wb_Plan.Lock();
 
             unsafe
             {
                 //First draw the structure slice as a background
-                for (int y = 0; y < sizey; y++)
-                    for (int x = 0; x < sizex; x++)
+                for (int y = 0; y < sizex; y++)
+                    for (int x = 0; x < sizey; x++)
                     {
 
                         int pBackBuffer = (int)wb_Plan.BackBuffer;
                         pBackBuffer += y * wb_Plan.BackBufferStride;
                         pBackBuffer += x * 4;
                         int value; int alpha;                        
-                        alpha = (int)Math.Round((img[x + y * sizex])*255);
+                        alpha = (int)Math.Round((img[y, x]) * 255);
                         if (!dp)
                         {
                             if (alpha > 0)
@@ -742,8 +749,8 @@ namespace TomosurgeryAlpha
                         PointF[] circlepoints = CreateShotMarker(pf, 3);
                         foreach (PointF p in circlepoints)
                         {
-                            int x = (int)Math.Round(p.X);
-                            int y = (int)Math.Round(p.Y);
+                            int y = (int)Math.Round(p.X);
+                            int x = (int)Math.Round(p.Y);
 
                             int pBackBuffer = (int)wb_Plan.BackBuffer;
                             pBackBuffer += y * wb_Plan.BackBufferStride;
@@ -760,7 +767,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, sizex, sizey));
+                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, sizey, sizex));
             }
             catch (Exception ex)
             {
@@ -793,24 +800,25 @@ namespace TomosurgeryAlpha
                 structureimg = SS.fj_CS[slice];
             else
                 structureimg = new float[StructureSet.BIG_dim[0], StructureSet.BIG_dim[1]];
-            int sizex = StructureSet.BIG_dim[0];
-            int sizey = StructureSet.BIG_dim[1];
+            int sizex = structureimg.GetLength(0);
+            int sizey = structureimg.GetLength(1);
+            StructureSet.BIG_dim = StructureSet.SS_dim;
             DisplayImageSizeInfo(structureimg.GetLength(0), structureimg.GetLength(1));
             
-            wb_DDS = new WriteableBitmap(sizex, sizey, 96, 96, PixelFormats.Bgr32, null);
+            wb_DDS = new WriteableBitmap(sizey, sizex, 96, 96, PixelFormats.Bgr32, null);
             //int max = (int)structureimg.Max();
             DDS_imgbox.Source = wb_DDS;
             wb_DDS.Lock();
             unsafe
             {
-                for (int y = 0; y < sizey; y++)
-                    for (int x = 0; x < sizex; x++)
+                for (int y = 0; y < sizex; y++)
+                    for (int x = 0; x < sizey; x++)
                     {
 
                         int pBackBuffer = (int)wb_DDS.BackBuffer;
                         pBackBuffer += y * wb_DDS.BackBufferStride;
                         pBackBuffer += x * 4;
-                        int value = (int)structureimg[x,y];
+                        int value = (int)structureimg[y,x];
                         int alpha; int color_data=0;
 
                         if (value > 0)
@@ -849,7 +857,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_DDS.AddDirtyRect(new Int32Rect(0, 0, sizex, sizey));
+                wb_DDS.AddDirtyRect(new Int32Rect(0, 0, sizey, sizex));
             }
             catch (Exception ex)
             {
@@ -941,6 +949,7 @@ namespace TomosurgeryAlpha
         private void Display2DFloat(float[,] f)
         {
             DisplayImageSizeInfo(f.GetLength(0), f.GetLength(1));
+            
             //f = Matrix.Normalize(f);
             bool viewiso = false;
             bool viewcov = false;
@@ -952,21 +961,21 @@ namespace TomosurgeryAlpha
             double default_rx_dose = 0.5;
 
             //int iso = (int)Math.Round(maxvalue*default_rx_dose);
-            wb_DS = new WriteableBitmap(f.GetLength(0), f.GetLength(1), 96, 96, PixelFormats.Bgr32, null);
+            wb_DS = new WriteableBitmap(f.GetLength(1), f.GetLength(0), 96, 96, PixelFormats.Bgr32, null);
             DS_imgbox.Source = wb_DS;
             wb_DS.Lock();
 
             unsafe
             {
 
-                for (int j = 0; j < f.GetLength(1); j++)
-                    for (int i = 0; i < f.GetLength(0); i++)
+                for (int j = 0; j < f.GetLength(0); j++)
+                    for (int i = 0; i < f.GetLength(1); i++)
                     {
                         int pBackBuffer = (int)wb_DS.BackBuffer;
                         pBackBuffer += j * wb_DS.BackBufferStride;
                         pBackBuffer += i * 4;
                         int value; int alpha;
-                        alpha = (int)Math.Round((f[i,j]) * 255);
+                        alpha = (int)Math.Round((f[j,i]) * 255);
                         int color_data = 0;
                         if (viewiso == true && alpha > (default_rx_dose * 255))
                         {   
@@ -987,7 +996,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_DS.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(0), f.GetLength(1)));
+                wb_DS.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(1), f.GetLength(0)));
             }
             catch (Exception ex)
             {
@@ -1163,12 +1172,13 @@ namespace TomosurgeryAlpha
                     slider2.Maximum = SS.fj_Tumor.GetLength(0)-1;
                 }
                 DisplayStructure(slice);
-                DDS_z_lbl.Content = "Z: " + ((decimal)StructureSet.f_global_zoffset - (decimal)0.25*((decimal)Math.Round(slider2.Value, 2) - StructureSet.padsize));
+                DDS_z_lbl.Content = "Z: " + ((decimal)StructureSet.f_global_zoffset - (decimal)0.25*((decimal)Math.Round(slider2.Value, 2)));
                 DDS_index_lbl.Content = "Actual Z: " + slice;
             }
 
             if (tabControl1.SelectedIndex == 2) //"DS" tab
             {
+                float[,] img;
                 if (dicomdose_rb_btn.IsChecked == true)
                 {
                     //slider2.Minimum = Math.Abs((float)StructureSet.f_global_zoffset - (float)DICOMDoseFile.doseoffset[2]);
@@ -1179,20 +1189,36 @@ namespace TomosurgeryAlpha
                     {
                         slider2.Minimum = 0;
                         slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
-                        Display2DFloat(DICOMDoseFile.OriginalDose[slice]);
+                        if (Normalize == true)
+                            img = Matrix.NormalizeBy(DICOMDoseFile.OriginalDose[slice], 65535.0f);
+                        else
+                            img = DICOMDoseFile.OriginalDose[slice];
+                        //Display2DFloat(DICOMDoseFile.OriginalDose[slice]);
+                        Display2DFloat(img);
                     }
                     else if (newdose_rb_btn.IsChecked == true)
                     {
                         slider2.Minimum = 0;
                         slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
-                        Display2DFloat(DICOMDoseFile.Dose[slice]);
+                        //Display2DFloat(DICOMDoseFile.Dose[slice]);
+                        if (Normalize == true)
+                            img = Matrix.NormalizeBy(DICOMDoseFile.Dose[slice], 65535.0f);
+                        else
+                            img = DICOMDoseFile.Dose[slice];
+                        Display2DFloat(img);
                     }
                 }
                 else if (PS != null)
                 {
                     slider2.Minimum = 0;
                     slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
-                    Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+                    //Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
+                    
+                    if (Normalize == true)
+                        img = Matrix.NormalizeBy(PS.DoseSpace[GetCurrentSlice()], PS.max);
+                    else
+                        img = PS.DoseSpace[GetCurrentSlice()];
+                    Display2DFloat(img);
                     DS_z_lbl.Content = slice;
                 }
             }
@@ -1669,6 +1695,29 @@ namespace TomosurgeryAlpha
             return (RasterPath)PS.RasterPaths[GetCurrentSlice()];
         }
 
+        private void ShiftRasterLines(int d)
+        {
+            RasterPath rp = GetCurrentSliceRP();
+            int[] bounds = rp.boundaries;
+            for (int i = 0; i < rp.Lines.GetLength(0); i++)
+            {
+                int start = rp.boundaries[0];
+                int end = rp.boundaries[1];
+                if (rp.Lines[i] + d >= end)
+                    rp.Lines[i] = start + (d-1);
+                else if (rp.Lines[i] + d <= start)
+                    rp.Lines[i] = end + (d+1);
+                else
+                    rp.Lines[i] = rp.Lines[i] + d;
+                rp.Lines.ToArray();
+            }
+            Array.Sort(rp.Lines.ToArray());
+            rp.FindAllShotPoints();
+            rp.Calculate2DDoseSpace(DK.midplane);
+            rp.CreateSliceInfo();
+            DisplayPlan();
+        }
+
         private void UpdateCurrentSlicePaths()
         {
             RasterPath rp = GetCurrentSliceRP();
@@ -1798,7 +1847,7 @@ namespace TomosurgeryAlpha
         {
             plantimer = new Stopwatch();
             plantimer.Start();
-            SetWorkingDirectory(); 
+            
             PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
             PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
             PathSet.line_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
@@ -1816,7 +1865,9 @@ namespace TomosurgeryAlpha
             if (IsPathSetCreated)
                 Opt_btn.IsEnabled = true;
             AdjustCursorSize();
-            plantimer.Stop();
+            SetWorkingDirectory();
+            Debug.WriteLine("Current Plantimer: " + plantimer.Elapsed);
+            //plantimer.Stop();
         }
 
         private void UpdateTextBlock2(string update)
@@ -1835,13 +1886,17 @@ namespace TomosurgeryAlpha
         }
 
         private void SetWorkingDirectory()
-        {            
-                string path = LoadConfig();
+        {
+            string path;
+            if (PathSet.ActiveDirectory != null)
+            {
+                PS.folderpath = PathSet.ActiveDirectory;
+            }
+            else
+            {
+                path = LoadConfig();
                 PathSet.ActiveDirectory = path;
-            if (PS != null)
-                PS.folderpath = path;
-
-           
+            }                     
         }
 
         private string LoadConfig()
@@ -1971,9 +2026,9 @@ namespace TomosurgeryAlpha
         private void plan_imgbox_MouseMove_1(object sender, MouseEventArgs e)
         {
             System.Windows.Point p = e.GetPosition(plan_imgbox);
-            System.Windows.Point aspectPoint = new System.Windows.Point(p.X * Plan_aspectMultiplier, p.Y * Plan_aspectMultiplier);
-            int halfpoint = (int)((15 * Plan_aspectMultiplier - 1)/2);
-            cursor_ellipse.Arrange(new Rect(p.X - halfpoint, p.Y - halfpoint, (int)(15*Plan_aspectMultiplier), (int)(15*Plan_aspectMultiplier)));
+            System.Windows.Point aspectPoint = new System.Windows.Point(p.X * Plan_aspectMultiplier_x, p.Y * Plan_aspectMultiplier_y);
+            int halfpoint = (int)((15 * Plan_aspectMultiplier_x - 1)/2);
+            cursor_ellipse.Arrange(new Rect(p.X - halfpoint, p.Y - halfpoint, (int)(15*Plan_aspectMultiplier_x), (int)(15*Plan_aspectMultiplier_y)));
             if (e.LeftButton == MouseButtonState.Pressed)
                 DrawCirclePoints(e.GetPosition(plan_imgbox).X, e.GetPosition(plan_imgbox).Y);
             //canvas1.Arrange(new Rect(p.X, p.Y, 15, 15));
@@ -2302,7 +2357,7 @@ namespace TomosurgeryAlpha
         public void DisplayDose(float[,] d)
         {
             DisplayImageSizeInfo(d.GetLength(0), d.GetLength(1));
-            d = Matrix.Normalize(d);
+            //d = Matrix.Normalize(d);
             Display2DFloat(d);
         }
 
@@ -2346,6 +2401,26 @@ namespace TomosurgeryAlpha
             slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
             Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
         }
+
+        private void Normalized_chkbox_Checked(object sender, RoutedEventArgs e)
+        {
+            if (Normalize == false)
+                Normalize = true;
+            else if (Normalize == true)
+                Normalize = false;
+        }
+
+        private void Shift_down_btn_Click(object sender, RoutedEventArgs e)
+        {
+            ShiftRasterLines(-1);
+        }
+
+        private void Shift_up_btn_Click(object sender, RoutedEventArgs e)
+        {
+            ShiftRasterLines(1);
+        }
+
+      
 
         
 

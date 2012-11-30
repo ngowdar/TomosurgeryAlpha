@@ -73,10 +73,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ActiproSoftware.Editors.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
-    <Reference Include="ActiproSoftware.Gauge.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
-    <Reference Include="ActiproSoftware.Shared.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
-    <Reference Include="ActiproSoftware.Views.Wpf, Version=11.2.552.0, Culture=neutral, PublicKeyToken=36ff2196ab5654b9" />
     <Reference Include="Cloo, Version=0.9.1.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>Resources\Cloo.dll</HintPath>

@@ -105,8 +105,9 @@
                     <RadioButton x:Name="plandose_rb_btn" Content="Plan dose" HorizontalAlignment="Left" Margin="522,457,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="plandose_rb_btn_Copy_Checked"/>
                     <Label Content="Actual Z:" Height="28" HorizontalAlignment="Left" Margin="528,120,0,0" x:Name="DS_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" FontSize="11" />
                     <CheckBox x:Name="ViewCoverage_chkbox" Content="Show Iso Cov." HorizontalAlignment="Left" Margin="522,397,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
-                    <CheckBox x:Name="origdose_rb_btn" Content="Original" HorizontalAlignment="Left" Margin="522,336,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="origdose_rb_btn_Checked" IsEnabled="False"/>
+                    <CheckBox x:Name="origdose_rb_btn" HorizontalAlignment="Left" Margin="522,335,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="origdose_rb_btn_Checked" IsEnabled="False" Width="61" Content="Original"/>
                     <CheckBox x:Name="newdose_rb_btn" Content="Processed" HorizontalAlignment="Left" Margin="522,356,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="newdose_rb_btn_Checked" IsEnabled="False"/>
+                    <CheckBox x:Name="Normalized_chkbox" Content="Normalized" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="Normalized_chkbox_Checked" Margin="523,313,0,0" Width="95"/>
 
                 </Grid>
             </TabItem>
@@ -144,7 +145,9 @@
                     <RadioButton Content="Structure" Height="16" HorizontalAlignment="Left" Margin="524,332,0,0" Name="plan_strRB" VerticalAlignment="Top" Width="78" IsChecked="True" FontFamily="Consolas" Foreground="#FFE4E1E1" />
                     <RadioButton Content="DosePreview" Height="16" HorizontalAlignment="Left" Margin="524,354,0,0" Name="plan_dpRB" VerticalAlignment="Top" Width="88" IsEnabled="False" Checked="plan_dpRB_Checked" FontFamily="Consolas" Foreground="#FFE4E1E1" />
                     <Button Content="Re-Dose" Height="23" HorizontalAlignment="Left" IsEnabled="True" Margin="524,389,0,0" Name="plan_dose_btn" VerticalAlignment="Top" Width="88" Click="plan_dose_btn_Click" />
-                    
+                    <Button Content="Shift Up (+)" Height="23" HorizontalAlignment="Left" IsEnabled="True" Margin="524,432,0,0" x:Name="Shift_up_btn" VerticalAlignment="Top" Width="88" Click="Shift_up_btn_Click" />
+                    <Button Content="Shift Down (+)" Height="23" HorizontalAlignment="Left" IsEnabled="True" Margin="524,460,0,0" x:Name="Shift_down_btn" VerticalAlignment="Top" Width="88" Click="Shift_down_btn_Click" />
+
                 </Grid>
             </TabItem>
             <Grid Margin="10,10,0,2"/>

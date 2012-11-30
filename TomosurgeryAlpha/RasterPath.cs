@@ -52,6 +52,7 @@ namespace TomosurgeryAlpha
         public static int ComparisonKernelSize = 20;
         public const int LineSidePadding = 12;
         public const int LineEdgePadding = 8;
+        public int[] Lines;
         public int NumOfLines;
         public int NumOfShots;
         public double coverage;
@@ -276,25 +277,28 @@ namespace TomosurgeryAlpha
         public void FindAllShotPoints()
         {
             //Get slice boundaries first
-            int[] boundaries = FindSliceBoundaries(slice);
+            boundaries = FindSliceBoundaries(slice);
             //TODO: jhg
             //Get line positions for the slice
-            int[] lines = LineSpacer(boundaries[0], boundaries[1]);
-            WriteArrayAsList("Line locations: ", (int[])lines.Clone());
-            shot_points = new PointF[lines.GetLength(0)][];
-            NumOfShots = 0;
-            for (int i = 0; i < lines.GetLength(0); i++)
-            {
-                int[] ybounds = LineBoundaries(lines[i]);
-                int[] lineshots = ShotSpacer(ybounds[0], ybounds[1]);
-                PointF[] PF_shots = new PointF[lineshots.GetLength(0)];
-                for (int m = 0; m < lineshots.GetLength(0); m++)
+            if (Lines == null)
+                Lines = LineSpacer(boundaries[0], boundaries[1]);
+            
+                WriteArrayAsList("Line locations: ", (int[])Lines.Clone());
+                shot_points = new PointF[Lines.GetLength(0)][];
+                NumOfShots = 0;
+                for (int i = 0; i < Lines.GetLength(0); i++)
                 {
-                    PF_shots[m] = new PointF(lines[i], lineshots[m]);
+                    int[] ybounds = LineBoundaries(Lines[i]);
+                    int[] lineshots = ShotSpacer(ybounds[0], ybounds[1]);
+                    PointF[] PF_shots = new PointF[lineshots.GetLength(0)];
+                    for (int m = 0; m < lineshots.GetLength(0); m++)
+                    {
+                        PF_shots[m] = new PointF(Lines[i], lineshots[m]);
+                    }
+                    shot_points[i] = PF_shots;
+                    NumOfShots += lineshots.GetLength(0);
                 }
-                shot_points[i] = PF_shots;
-                NumOfShots += lineshots.GetLength(0);
-            }
+            
         }
         private float[] InitWeightArray(float min, float max)
         {
@@ -436,12 +440,16 @@ namespace TomosurgeryAlpha
                             continue;
                         //Add the final result
                         index = ds_x + StructureSet.BIG_dim[0] * ds_y;
-                        dosespace[index] += dosemidplane[i, j] * weight[k];
+                        if (index < 0 || index > dosespace.GetLength(0))
+                            continue;
+                        else
+                            dosespace[index] += dosemidplane[i, j] * weight[k];
                     
                     }//);
                 }
                        //NormalizeDose();
-            dosespace = Matrix.Normalize(dosespace);
+            //dosespace = Matrix.Normalize(dosespace);
+            Matrix.Normalize(ref dosespace);
             Calculate2DCoverage(0.5f);
         }                
         #endregion        
@@ -472,7 +480,7 @@ namespace TomosurgeryAlpha
                 ds[i] = 0.0f;
             dosemidplane = Matrix.Normalize(dosemidplane);
             ds = PrepareDS(ds, weight, 1.0f);
-            ds = Normalize(ds);
+            //ds = Normalize(ds);
 
             double[] m = CalculateIterationCoverage(ds, temp_slice, 0.5f); //TODO: Take this out.            
             WriteFloatArray2BMP(ds, "starting_ds.bmp");
@@ -745,10 +753,15 @@ namespace TomosurgeryAlpha
                         //Finds the coordinates relative to dosespace
                         ds_x = (int)((PointF)shots[k]).X - ((doseN - 1) / 2) + i;
                         ds_y = (int)((PointF)shots[k]).Y - ((doseN - 1) / 2) + j;
-
-                        //Add the final result
                         index = ds_x + (StructureSet.BIG_dim[0] * ds_y);
-                        ds[index] += dosemidplane[i, j] * weight[k];
+                        if (index < 0 || index >= ds.GetLength(0))
+                            continue;
+                        else
+                        {
+                            //Add the final result
+                            
+                            ds[index] += dosemidplane[i, j] * weight[k];
+                        }
 
                     }//);
                 }
@@ -779,18 +792,22 @@ namespace TomosurgeryAlpha
 
                         //Finds appropriate index in ds
                         index = ds_x + (StructureSet.BIG_dim[0] * ds_y);
+                        if (index < 0 || index >= ds.GetLength(0))
+                            continue;
+                        else
+                        {
 
-                        /*Each pixel may have dose contributions from multiple shots. Therefore, we cannot apply a global 
-                         * weight change by setting the pixel = to the newest weight. We also cannot simply add the new weight,
-                         * because this wouldn't alter the weight that is already applied. 
-                         * 
-                         * Therefore, the old weighted contribution must be removed (leaving any other dose contributions intact)
-                         * and then the recent weight applied. In other words, only the incremental weight difference is applied (+ or -)*/
-                        ds[index] += (dosemidplane[i, j] * (recent_weight[k]));
-                        if (ds[index] < 0)
-                            ds[index] = (dosemidplane[i, j] * recent_weight[k]);
+                            /*Each pixel may have dose contributions from multiple shots. Therefore, we cannot apply a global 
+                             * weight change by setting the pixel = to the newest weight. We also cannot simply add the new weight,
+                             * because this wouldn't alter the weight that is already applied. 
+                             * 
+                             * Therefore, the old weighted contribution must be removed (leaving any other dose contributions intact)
+                             * and then the recent weight applied. In other words, only the incremental weight difference is applied (+ or -)*/
+                            ds[index] += (dosemidplane[i, j] * (recent_weight[k]));
+                            if (ds[index] < 0)
+                                ds[index] = (dosemidplane[i, j] * recent_weight[k]);
 
-
+                        }
 
                     }//);
                 }
@@ -945,7 +962,8 @@ namespace TomosurgeryAlpha
         private void WriteFloatArray2BMP(float[] temp, string p)
         {
             string path = System.IO.Path.Combine(PathSet.ActiveDirectory, p);
-            float[] temp2 = (float[])Matrix.Normalize(temp).Clone(); 
+            float[] temp2 = (float[])temp.Clone();
+            Matrix.Normalize(ref temp2);
             int color = 0;
             //int size = (int)Math.Sqrt(temp.GetLength(0));
             Bitmap b = new Bitmap(X, Y);
@@ -974,18 +992,25 @@ namespace TomosurgeryAlpha
                 {
                     for (int j = 0; j < N; j++)
                         for (int i = 0; i < N; i++)
-                            Parallel.For(0, shots.GetLength(0), (w) =>
+                            for (int w = 0; w < shots.GetLength(0); w++)
                             {
                                 PointF shot = shots[w];
                                 PointF center = new PointF((N - 1) / 2, (N - 1) / 2);
                                 //PointF FDP = FindFirstExistingDosePixel(shot, new PointF(xsize, ysize));
                                 //PointF LDP = FindLastExistingDosePixel(shot, new PointF(xsize, ysize));
                                 PointF FDP = new PointF(shot.X - center.X, shot.Y - center.Y);
-                                float dose = dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
+                                float dose;
                                 int index = (k * xsize * ysize) + (((int)FDP.Y + j) * xsize) + ((int)FDP.X + i);
-                                slicedose[index] += dose;
+                                if (index < 0 || index >= slicedose.GetLength(0))
+                                    continue;
+                                else
+                                {
+                                    dose = dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * weight[w];
+                                    slicedose[index] += dose;
+                                }
+                                    
                                 //
-                            });
+                            }
                 }
             //s.Stop(); Debug.WriteLine("Calculate and save doses takes: " + s.ElapsedMilliseconds);
             //s.Reset(); s.Start();

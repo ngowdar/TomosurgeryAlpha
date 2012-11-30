@@ -21,12 +21,14 @@ namespace TomosurgeryAlpha
         public static void AnalyzeDICOMdose(DICOMDoseFile ddf, StructureSet SS)
         {
             
-            float[][,] tumor = SS.GetTumorOnly(StructureSet.originalTumor);
-            float[][,] cs = SS.GetCSOnly(StructureSet.originalTumor);
-            float[][,] dose = DICOMDoseFile.OriginalDose;
+            float[][,] tumor;            
+            float[][,] cs;
+            SS.GetCSOnly(out cs, StructureSet.originalTumor);
+            SS.GetTumorOnly(out tumor, StructureSet.originalTumor);
+            float[][,] dose = Matrix.TransposeMatrix(DICOMDoseFile.OriginalDose);
             double maxdose = FindMaxDose(dose);
             float rxdose = (float)(0.5 * maxdose); float toldose = (float)(0.3 * maxdose);
-            dose = Matrix.Normalize(dose);            
+            //dose = Matrix.Normalize(dose);            
 
             double isovol = 0; double isotumorvol = 0;
             double toldosevol = 0; double tolcsvol = 0;
@@ -53,8 +55,8 @@ namespace TomosurgeryAlpha
                                 tolcsvol++;
                         }
                     }
-            GetDVH(tumor, dose);
-            System.Diagnostics.Debug.Print(String.Concat("DVH Volume covered by 50% dose: ", GetVolumeCoveredByIso(0.5f)));
+            GetDVH(dose, tumor);
+            System.Diagnostics.Debug.WriteLine("DVH Volume covered by 50% dose: " + DVH[50] + "//" + DVH[1] + " = " + DVH[50]/DVH[1]);
 
 
             AnalysisInfo ai = new AnalysisInfo();
@@ -79,10 +81,12 @@ namespace TomosurgeryAlpha
                 for (int j = 0; j < dose[0].GetLength(1); j++)
                     for (int i = 0; i < dose[0].GetLength(0); i++)
                     {
-                        if (tumor[k][i, j] > 0)
+                        float tumor_state = tumor[k][i, j];
+                        float dose_value = dose[k][i, j];
+                        if (tumor_state > 0)
                         {
-                            int d = (int)(Math.Round(100 * dose[k][i, j], 0));
-                            for (int x = 0; x < d; d++)
+                            int d = (int)(Math.Round(100.0 * dose_value));
+                            for (int x = 0; x < d; x++)
                             {
                                 DVH[x] += 1;
                             }
@@ -96,7 +100,7 @@ namespace TomosurgeryAlpha
             int d = (int)Math.Round(100*iso,0);
             for (int i = 0; i < 100; i++)
             {
-                if (i < d)
+                if (DVH[i] < d)
                 {
                     totalvol++;
                     isovol++;
@@ -256,7 +260,7 @@ namespace TomosurgeryAlpha
 
         private static void AnalyzeLesionCoverage(float[][,] ds, float[][,] tumor, int startingz)
         {
-            ds = Matrix.Normalize(ds);
+            //ds = Matrix.Normalize(ds);
             lesionvolume = 0; totalvolcoveredbyrx = 0; lesioncoveragebyrx = 0;
             int zmid1 = (ds.GetLength(0) / 2); int zmid2 = tumor.GetLength(0) / 2;
             Matrix.WriteFloatArray2BMP(ds[zmid1], "DS_halfslice.bmp");
@@ -284,7 +288,7 @@ namespace TomosurgeryAlpha
         
         public static void AnalyzeMaskCoverage(float[][,] ds, float[][,] mask, double rxlevel)
         {
-            ds = Matrix.Normalize(ds);
+            //ds = Matrix.Normalize(ds);
             maskvolume = 0; maskcoveragebyrx = 0;
             int zmid2 = mask.GetLength(0) / 2;            
             Matrix.WriteFloatArray2BMP(mask[zmid2], "Tumor_halfslice.bmp");
