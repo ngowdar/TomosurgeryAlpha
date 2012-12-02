@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace TomosurgeryAlpha
 {
@@ -17,6 +18,37 @@ namespace TomosurgeryAlpha
         static double maskvolume;
         static double maskcoveragebyrx;
         public static DICOMDoseFile ddf;
+
+        public static void CreateReportFile(string name)
+        {
+            string path = "report.txt";
+            path = System.IO.Path.Combine(PathSet.ActiveDirectory, path);
+            FileStream fs = new FileStream(path, FileMode.Create);
+            StreamWriter tw = new StreamWriter(fs);
+            tw.WriteLine("====================" + name + " Report" + "====================");
+            tw.Close();
+            fs.Close();
+        }
+
+        public static void AddLineToReport(string s)
+        {
+            string path = "report.txt";
+            path = System.IO.Path.Combine(PathSet.ActiveDirectory, path);
+            bool exists = System.IO.File.Exists(path);
+            if (System.IO.File.Exists(path))
+            {
+                FileStream fs = new FileStream(path, FileMode.Append);
+                StreamWriter tw = new StreamWriter(fs);
+                tw.WriteLine(s);
+                tw.Close();
+                fs.Close();
+            }
+            else
+            {
+                CreateReportFile("Unnamed");
+                AddLineToReport(s);
+            }
+        }
 
         public static void AnalyzeDICOMdose(DICOMDoseFile ddf, StructureSet SS)
         {
@@ -307,8 +339,19 @@ namespace TomosurgeryAlpha
             }
         }
 
-        
 
+
+
+        internal static void AddAnalysisReport()
+        {            
+            AddLineToReport("================ANALYSIS===================");
+            AddLineToReport("Lesion Size: " + lesionvolume);
+            AddLineToReport("Rx Volume: " + totalvolcoveredbyrx);
+            AddLineToReport("Tumor Volume covered by Rx: " + lesioncoveragebyrx);
+            AddLineToReport("Shell Volume: " + maskvolume);
+            AddLineToReport("Percent volume covered by shell: " + (maskcoveragebyrx / maskvolume));
+            AddLineToReport("===========================================");
+        }
     }
 
     public struct AnalysisInfo

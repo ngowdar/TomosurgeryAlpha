@@ -48,6 +48,7 @@ namespace TomosurgeryAlpha
 
                 //WriteDoseToFile(dosesavepath);
                 DEBUG_WriteFileSummary();
+                
             }
             else
             {
@@ -143,6 +144,17 @@ namespace TomosurgeryAlpha
             Debug.WriteLine("Saved to: " + dosesavepath);
             Debug.WriteLine("Maximum value: " + Matrix.FindMax(OriginalDose));
             Debug.WriteLine("------------------------------");
+
+            Analysis.AddLineToReport("====================LOADED DICOM DOSE FILE===========================");
+            Analysis.AddLineToReport("Rows x Columns x NumFrames: " + rows + " x " + columns + " x " + numframes);
+            Analysis.AddLineToReport("Offset Vector: < " + doseoffset[0] + ", " + doseoffset[1] + ", " + doseoffset[2] + " > ");
+            Analysis.AddLineToReport("Scaling: " + scaling);
+            Analysis.AddLineToReport("ZStart: " + ZStart);
+            Analysis.AddLineToReport("Saved to: " + dosesavepath);
+            Analysis.AddLineToReport("Maximum value: " + Matrix.FindMax(OriginalDose));
+            Analysis.AddLineToReport("======================================================================");
+
+
         }
 
         public void WriteDoseToFile(string path)

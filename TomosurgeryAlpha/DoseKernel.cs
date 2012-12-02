@@ -83,12 +83,13 @@ namespace TomosurgeryAlpha
 
         private void Create8mmKernel()
         {
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_head.bin"))
+            string[] names = this.GetType().Assembly.GetManifestResourceNames();
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_head.bin"))
             using (StreamReader head = new StreamReader(stream))
             {
                 LoadHeader(head);
             }
-            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("8mm_dose.bin"))
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_dose.bin"))
             using (StreamReader t = new StreamReader(s))
             {
                 LoadDose(t);

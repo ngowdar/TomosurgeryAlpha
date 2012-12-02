@@ -169,12 +169,19 @@
                     </LinearGradientBrush>
                 </TabItem.Background>
                 <Grid>
-                    <DataGrid x:Name="Analysis_datagrid" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="403" Width="598" Background="#FF292929"/>
-                    <Button x:Name="clearhistory_btn" Content="Clear History" HorizontalAlignment="Left" Margin="505,418,0,0" VerticalAlignment="Top" Width="103" Click="clearhistory_btn_Click"/>
-                    <Button x:Name="Load_dosespace_btn" Content="Load..." HorizontalAlignment="Left" Margin="10,418,0,0" VerticalAlignment="Top" Width="75" IsCancel="True" Click="Load_dosespace_btn_Click"/>
-                    <Button x:Name="run_analysis_btn" Content="Run Analysis" HorizontalAlignment="Left" Margin="251,418,0,0" VerticalAlignment="Top" Width="142" Click="run_analysis_btn_Click"/>
-                    <Button x:Name="run_DDF_analysis_btn" Content="Run DICOM Analysis" HorizontalAlignment="Left" Margin="251,448,0,0" VerticalAlignment="Top" Width="142" Click="run_DDF_analysis_btn_Click"/>
-                    
+                    <DataGrid x:Name="Analysis_datagrid" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="156" Width="598" Background="#FF292929"/>
+                    <Button x:Name="clearhistory_btn" Content="Clear History" HorizontalAlignment="Left" Margin="426,171,0,0" VerticalAlignment="Top" Width="103" Click="clearhistory_btn_Click"/>
+                    <Button x:Name="Load_dosespace_btn" Content="Load Dose File..." HorizontalAlignment="Left" Margin="10,171,0,0" VerticalAlignment="Top" Width="117" IsCancel="True" Click="Load_dosespace_btn_Click"/>
+                    <Button x:Name="run_analysis_btn" Content="Run Analysis" HorizontalAlignment="Left" Margin="132,171,0,0" VerticalAlignment="Top" Width="142" Click="run_analysis_btn_Click"/>
+                    <Button x:Name="run_DDF_analysis_btn" Content="Run DICOM Analysis" HorizontalAlignment="Left" Margin="279,171,0,0" VerticalAlignment="Top" Width="142" Click="run_DDF_analysis_btn_Click"/>
+                    <TextBox x:Name="DoseRate_txtbox" HorizontalAlignment="Left" Height="23" Margin="121,244,0,0" TextWrapping="Wrap" Text="3.82" VerticalAlignment="Top" Width="57" TextAlignment="Right" Background="#FF080000" Foreground="#FFE9ECFB" FontFamily="Lato Black" FontSize="18"/>
+                    <TextBox x:Name="MaxDose_txtbox" HorizontalAlignment="Left" Height="23" Margin="121,272,0,0" TextWrapping="Wrap" Text="20" VerticalAlignment="Top" Width="57" TextAlignment="Right" Background="#FF080000" Foreground="#FFE9ECFB" FontFamily="Lato Black" FontSize="18"/>
+                    <Button x:Name="BeamOnTime_btn" Content="Calculate Time" HorizontalAlignment="Left" Margin="121,317,0,0" VerticalAlignment="Top" Width="122" Click="BeamOnTime_btn_Click"/>
+                    <Label x:Name="Gy_lbl" Content="Gy / Min" HorizontalAlignment="Left" Margin="183,240,0,0" VerticalAlignment="Top" Foreground="#FFE9ECFB" FontFamily="Lato Black" FontSize="18"/>
+                    <Label x:Name="Gy_lbl_Copy" Content="Gy (MAX)" HorizontalAlignment="Left" Margin="183,268,0,0" VerticalAlignment="Top" Foreground="#FFE9ECFB" FontFamily="Lato Black" FontSize="18"/>
+                    <Label x:Name="TotalBeamOnTime_lbl" Content="Total Beam-On Time: " HorizontalAlignment="Left" Margin="289,254,0,0" VerticalAlignment="Top" Foreground="#FFF1695B" FontFamily="Lato Black" FontSize="18"/>
+                    <Label x:Name="Time_lbl" Content="0.0 mins" HorizontalAlignment="Left" Margin="480,254,0,0" VerticalAlignment="Top" Foreground="#FFF1695B" FontFamily="Lato Black" FontSize="18" Width="115"/>
+
 
                 </Grid>
             </TabItem>
@@ -197,7 +204,7 @@
                 <MenuItem Header="Load Test File..." Foreground="#FFF14242" x:Name="LoadTest_menu" Click="LoadTest_menu_Click" />
                 <MenuItem Header="Load Dose Kernel..." x:Name="LoadDose_menu" Foreground="#FFF32C2C"  >
                     <Button x:Name="Select4mmDefault" Content="4mm Default" Click="Select4mmDefault_Click"/>
-                    <Button Content="8mm Default"/>
+                    <Button x:Name="Select8mmDefault" Content="8mm Default" Click="Select8mmDefault_Click"/>
                     <Button Content="16mm Default"/>
                     <Button Content="From file..." Click="LoadDose_menu_Click"/>
                 </MenuItem>

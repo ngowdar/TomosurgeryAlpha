@@ -185,6 +185,8 @@
     <None Include="Resources\.svn\text-base\EvilDicom.dll.svn-base" />
     <EmbeddedResource Include="Resources\4mm_dose.bin" />
     <EmbeddedResource Include="Resources\4mm_head.bin" />
+    <EmbeddedResource Include="Resources\8mm_dose.bin" />
+    <EmbeddedResource Include="Resources\8mm_head.bin" />
     <None Include="Resources\dicomdictionary.bin" />
   </ItemGroup>
   <ItemGroup>

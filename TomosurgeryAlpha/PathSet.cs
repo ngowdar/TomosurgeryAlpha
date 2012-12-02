@@ -43,7 +43,7 @@ namespace TomosurgeryAlpha
         public static int CSvolCount;
         public ArrayList RasterPaths; //Collection of objects representing each slice
         public static string ActiveDirectory;
-        public int DoseCalculationThickness; //How much of the dose kernel to use in calculation
+        
         public static int DCT; //static version of dosecalcthickness
         public static int StepSize;
         public static int RasterWidth;        
@@ -79,7 +79,7 @@ namespace TomosurgeryAlpha
 
 
         #region Constructors
-        public PathSet(float[][,] f, int sthick, int tolthick, DoseKernel dk, StructureSet ss)
+        public PathSet(float[][,] f, int sthick, int tolthick, int padding, DoseKernel dk, StructureSet ss)
         {
             
             X = f[0].GetLength(0); Y = f[0].GetLength(1); Z = f.GetLength(0);
@@ -90,7 +90,7 @@ namespace TomosurgeryAlpha
             SliceThickness = sthick;
             DCT = SliceThickness * 2;
             TolThickness = tolthick;
-            CalculateNumSlices(10);
+            CalculateNumSlices(padding);
             
             RasterPaths = new ArrayList();
             for (int i = 0; i < NumSlices; i++)
@@ -107,6 +107,18 @@ namespace TomosurgeryAlpha
             int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1); int z = DoseSpace.GetLength(0);
             DoseSpace = GPU.BackTo3D(ReadDoseSpaceFromFile(dosespace_path),x,y,z);            
         }
+
+        public void WritePathSetInfoToReport()
+        {
+            Analysis.AddLineToReport("==============PLAN SUMMARY================");
+            Analysis.AddLineToReport("Slice Thickness: " + SliceThickness);
+            Analysis.AddLineToReport("Dose Calculation Thickness: " + DCT);
+            Analysis.AddLineToReport("Number of Slices: " + NumSlices);
+            Analysis.AddLineToReport(WriteArrayAsList("Tumor boundaries: ", boundaries));
+
+            Analysis.AddLineToReport("==========================================");
+        }
+
         private void AttachHandlers()
         {
 
@@ -596,13 +608,24 @@ namespace TomosurgeryAlpha
             
         }
 
-        private void WriteArrayAsList(string prefix, double[] f)
+        private string WriteArrayAsList(string prefix, double[] f)
         {
             string output = prefix + ": [" + Math.Round(f[0], 2);
             for (int i = 1; i < f.GetLength(0); i++)
                 output += ", " + Math.Round(f[i], 2);
             output += "]";
             Debug.WriteLine(output);
+            return output;
+        }
+
+        private string WriteArrayAsList(string prefix, int[] f)
+        {
+            string output = prefix + ": [" + f[0];
+            for (int i = 1; i < f.GetLength(0); i++)
+                output += ", " + f[i];
+            output += "]";
+            Debug.WriteLine(output);
+            return output;
         }
 
         private void ReviseWeighted_DS(double[] recent_weights, double[] old_weights, string folderpath)
@@ -967,7 +990,7 @@ namespace TomosurgeryAlpha
             int z = DoseSpace.GetLength(0);
             for (int k = 0; k < weighted_slicedoses.GetLength(0); k++)
                 weighted_slicedoses[k] = Matrix.Zeroes(x,y);
-            PathSet.DCT = DCT;
+            //PathSet.DCT = DCT;
             if (GPU.GPUenabled)
             {
                 float[][,] GPUsd = new float[DoseSpace.GetLength(0)][,];
@@ -1296,6 +1319,8 @@ namespace TomosurgeryAlpha
             max = Matrix.FindMax(DoseSpace);
         }
 
+        
+
         /// <summary>
         /// Takes in a slice 1D float matrix, and adds it to the global dosespace array for final calculation. Called by 
         /// AssembleFinalDoseMatrix(). If dosespace is null, it will create the slice, else it will add
@@ -1306,6 +1331,16 @@ namespace TomosurgeryAlpha
         public float[][,] WriteSliceDoseToDoseSpace(float[] slicedose, float[][,] output_ds, int which_slice)
         {            
             int TranslateZBy = SlicePositions[which_slice] - (DCT/2); // <- NEED TO CHANGE APPROPRIATELY
+            int StartAt = 0;
+            int EndAt = DCT;
+            if (TranslateZBy < 0)
+            {
+                StartAt += (-1) * (TranslateZBy);
+                TranslateZBy = 0;
+            }
+            if ((TranslateZBy + DCT) >= output_ds.GetLength(0))
+                EndAt = (output_ds.GetLength(0) - TranslateZBy);            
+                
             //int startz = SlicePositions[which_slice] - DCT/2;
 
             //NEED TO ADD BOUNDARY CONDITION in case slice position trims off some of the dose slab.
@@ -1316,19 +1351,21 @@ namespace TomosurgeryAlpha
                //return GPU.AddToDoseSpace(slicedose, output_ds, TranslateZBy, 1.0f);
             //else
                 
-            {
-                Parallel.For(0, DCT, (z) =>
+            
+            //Parallel.For(0, DCT, (z) =>
+                //Parallel.For(StartAt, EndAt, (z) =>
+            for (int z = StartAt; z < EndAt; z++)
                     {
-                        int current_z = TranslateZBy + z;
+                        int current_z = TranslateZBy + z;                        
                         if (output_ds[current_z] == null)
                             output_ds[current_z] = Matrix.Zeroes(output_ds[0].GetLength(0), output_ds[0].GetLength(1));                        
                         output_ds[current_z] = Matrix.Add(output_ds[current_z], GrabSlice(slicedose, z, volume[0].GetLength(0), volume[0].GetLength(1)));
                         int dssum = Matrix.SumAll(output_ds[current_z]);
                         //WriteFloatArray2BMP(output_ds[current_z], "ds_z_" + z + "_" + dssum + ".bmp");
                         //WriteFloatArray2BMP(GrabSlice(slicedose, z, output_ds[0].GetLength(0), output_ds[0].GetLength(1)), "sd_z_" + z + ".bmp");
-                    });
+                    }//);
                 return output_ds;
-            }
+            
 
             
         }

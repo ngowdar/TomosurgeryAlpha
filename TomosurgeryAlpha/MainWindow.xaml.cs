@@ -1436,7 +1436,7 @@ namespace TomosurgeryAlpha
             RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
             //double sum1 = Matrix.SumAll(SS.fj_Tumor);
             //double sum2 = SS.f_structurearray[130].Sum();
-            PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), DK, SS);
+            PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), Convert.ToInt16(txt_edgepadding.Text), DK, SS);
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
                slider2.Minimum = 0;
@@ -1621,11 +1621,11 @@ namespace TomosurgeryAlpha
             int rastwidth = Convert.ToInt16(txt_rasterwidth.Text);
             int slicethick = Convert.ToInt16(txt_slicethickness.Text);
             slider_stepsize.Minimum = 1;
-            slider_stepsize.Maximum = stepsize * 1.5;
+            slider_stepsize.Maximum = 40;
             slider_rasterwidth.Minimum = 1;
-            slider_rasterwidth.Maximum = rastwidth * 1.5;
+            slider_rasterwidth.Maximum = 40;
             slider_slicethickness.Minimum = 1;
-            slider_slicethickness.Maximum = slicethick * 1.5;
+            slider_slicethickness.Maximum = 40;
         }
 
         
@@ -2087,9 +2087,24 @@ namespace TomosurgeryAlpha
             Load4mmDefault();
         }
 
+        private void Select8mmDefault_Click(object sender, RoutedEventArgs e)
+        {
+            Load8mmDefault();
+        }      
+
         private void Load4mmDefault()
         {
             DK = new DoseKernel(4);
+            plan_dpRB.IsEnabled = true;
+            IsDoseLoaded = true;
+            RasterPath.doseN = DoseKernel.N;
+            RasterPath.N = DoseKernel.N;
+            AddDoseLoadedToListBox();
+        }
+
+        private void Load8mmDefault()
+        {
+            DK = new DoseKernel(8);
             plan_dpRB.IsEnabled = true;
             IsDoseLoaded = true;
             RasterPath.doseN = DoseKernel.N;
@@ -2144,7 +2159,13 @@ namespace TomosurgeryAlpha
         {
             SetUpAnalysis();
             Analysis_datagrid.ItemsSource = GetAnalysisInfo();
+            Analysis.AddAnalysisReport();
+
         }
+
+        
+
+        
 
         private void clearhistory_btn_Click(object sender, RoutedEventArgs e)
         {
@@ -2197,10 +2218,33 @@ namespace TomosurgeryAlpha
                         double weight = rp.weight[shot] * sliceweight;
                         PointF p = rp.shots[shot];
                         string sep = ", ";
-                        bw.WriteLine(p.X + sep + p.Y + sep + PS.SlicePositions[i] + sep + weight + ";");
+                        bw.WriteLine(p.X + sep + p.Y + sep + PS.SlicePositions[i] + sep + Math.Round(weight,2) + ";");
                     }
                 }
             }
+        }
+
+        public double BeamOnTime(double doserate, double MaxGy)
+        {
+            /*
+             * To calculate beam-on time, take max gray level (ex: 40 Gy). Find out how many minutes it takes to put down 
+             * the max level by dividing by the doserate at the center of the isocenter. That number of minutes corresponds
+             * to a dose of 1.0, the max normalized dose. Then the beam-on time of subsequent shots should just be the weight x that value.
+             */
+
+            double MinutesToMax = MaxGy / doserate;
+            double BeamOnTime = 0;
+            for (int i = 0; i < PS.RasterPaths.Count; i++)
+            {
+                double sliceweight = PS.SliceWeights[i];
+                RasterPath rp = (RasterPath)PS.RasterPaths[i];
+                for (int shot = 0; shot < rp.shots.GetLength(0); shot++)
+                {
+                    double weight = rp.weight[shot] * sliceweight;
+                    BeamOnTime += (weight * MinutesToMax);
+                }
+            }
+            return BeamOnTime;
         }
 
         private void export_shots_btn_Click(object sender, RoutedEventArgs e)
@@ -2420,7 +2464,16 @@ namespace TomosurgeryAlpha
             ShiftRasterLines(1);
         }
 
-      
+        private void BeamOnTime_btn_Click(object sender, RoutedEventArgs e)
+        {
+            double doserate = Convert.ToDouble(DoseRate_txtbox.Text);
+            double maxdose = Convert.ToDouble(MaxDose_txtbox.Text);
+            double time = BeamOnTime(Convert.ToDouble(DoseRate_txtbox.Text), Convert.ToDouble(MaxDose_txtbox.Text));
+            Analysis.AddLineToReport("For max dose " + maxdose + " at " + doserate + " Gy/min, TOTAL BEAM-ON TIME ==> " + time);
+            Time_lbl.Content = "" + Math.Round(time, 2) + " mins";
+        }
+
+        
 
         
 
