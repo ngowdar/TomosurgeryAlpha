@@ -46,7 +46,7 @@ namespace TomosurgeryAlpha
 
                 dosesavepath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");
 
-                //WriteDoseToFile(dosesavepath);
+                WriteDoseToFile(dosesavepath);
                 DEBUG_WriteFileSummary();
                 
             }
@@ -171,14 +171,10 @@ namespace TomosurgeryAlpha
             //total length
             //10 elements in***
             //start dose data here.
-
-            FileStream ff;
-            if (System.IO.File.Exists(path))
-                ff = new FileStream(path, FileMode.Truncate, FileAccess.Write);
-            else
-                ff = new FileStream(path, FileMode.Create, FileAccess.Write);
-            using (ff)
-            using (StreamWriter ds = new StreamWriter(ff))
+            string headerpath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseHeader.txt");
+            FileStream hh = new FileStream(headerpath, FileMode.Create, FileAccess.Write);
+            using (hh)
+            using (StreamWriter ds = new StreamWriter(hh))
             {
                 ds.WriteLine(rows);
                 ds.WriteLine(columns);
@@ -189,6 +185,17 @@ namespace TomosurgeryAlpha
                 ds.WriteLine(scaling);
                 ds.WriteLine(ZStart);
                 ds.WriteLine(OriginalDose.GetLength(0));
+            }
+
+            FileStream ff;
+            if (System.IO.File.Exists(path))
+                ff = new FileStream(path, FileMode.Truncate, FileAccess.Write);
+            else
+                ff = new FileStream(path, FileMode.Create, FileAccess.Write);
+            using (ff)
+            using (StreamWriter ds = new StreamWriter(ff))
+            {
+                
                 for (int k = 0; k < OriginalDose.GetLength(0); k++)
                     for (int j = 0; j < OriginalDose[0].GetLength(1); j++)
                         for (int i = 0; i < OriginalDose[0].GetLength(0); i++)

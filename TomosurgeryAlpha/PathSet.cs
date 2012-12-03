@@ -54,6 +54,9 @@ namespace TomosurgeryAlpha
         public float[][,] dds_nondilated;
         public float[][,] DoseSpace; //The actual final dosespace matrix containing the real dose.
         public float max;
+        public int[] ReferencePoint;
+        public double[] ReferenceWeights;
+        public double[] ReferenceValues;
         public int[] SlicePositions; //The centered z-indexes of each slice location
         public double[] SliceWeights; //Weights, from 0 to 1, of each slice. Calculated from Step 2.
         public double[][] OldSliceCoverage;
@@ -896,9 +899,11 @@ namespace TomosurgeryAlpha
         public float[][,] RetrieveFinalizedDoseSpace()
         {                        
             DoseSpace = PrepareWeighted_DS(SliceWeights, folderpath);
+            FindMaxDoseVoxel();
+            FindReferenceContributions(ReferencePoint, folderpath);            
             //DoseSpace = PrepareWeighted_DS_GPU(SliceWeights, folderpath, DDS);
            // WriteFloatArray2BMP(DoseSpace[DoseSpace.GetLength(0) / 2], "PS_778_ds_midplane.bmp");
-            Debug.WriteLine("Before Normalization: ");
+            //Debug.WriteLine("Before Normalization: ");
             //FindTotalCoverage(0.5, DoseSpace, DDS, SliceWeights);
             //DoseSpace = Matrix.Normalize(DoseSpace);
             //Debug.WriteLine("After Normalization: ");
@@ -909,6 +914,8 @@ namespace TomosurgeryAlpha
 
             return DoseSpace;
         }
+
+        
 
         
 
@@ -1014,15 +1021,29 @@ namespace TomosurgeryAlpha
                 //cputimer.Start();
                 Debug.Write("Preparing weighted DS.");
                 for (int s = 0; s < NumSlices; s++)
-                {                    
-                    int whichz = SlicePositions[s] - (DCT / 2);
-                    float[] slicedose = LoadSliceDose(s, subfolder);
-                    //slicedose.slicedose = Matrix.Normalize(slicedose);
-                    //Matrix.Normalize(ref slicedose);
-                    //FindSliceDoseCoverage(Matrix.ScalarMultiply(slicedose,(float)SliceWeights[s]), s, 0.5, DDS);
-                    //Debug.WriteLineIf(slicedose.GetLength(0) != weighted_slicedoses.GetLength(0)*x*y, "slicedose not equal to weighted_slicedose in PrepareWeighted_DS()!!!!!");
-                    //Debug.WriteLine(slicedose.Sum());
-                    Parallel.For(0, DCT, (k) =>
+                {
+                    int whichz = SlicePositions[s] - (DCT / 2); // <- NEED TO CHANGE APPROPRIATELY
+                    int StartAt = 0;
+                    int EndAt = DCT;
+                    if (whichz < 0)
+                    {
+                        StartAt += (-1) * (whichz);
+                        whichz = 0;
+                    }
+                    if ((whichz + DCT) >= weighted_slicedoses.GetLength(0))
+                        EndAt = (weighted_slicedoses.GetLength(0) - whichz);    
+
+                    //int whichz = SlicePositions[s] - (DCT / 2);
+                    float[] slicedose = LoadSliceDose(s, subfolder);                    
+                    //Parallel.For(0, DCT, (k) =>
+                    //    {
+                    //        for (int j = 0; j < y; j++)
+                    //            for (int i = 0; i < x; i++)
+                    //            {
+                    //                weighted_slicedoses[whichz + k][i, j] += (slicedose[(k * x * y) + (j * x) + i] * (float)weights[s]);
+                    //            }
+                    //    });
+                    Parallel.For(StartAt, EndAt, (k) =>
                         {
                             for (int j = 0; j < y; j++)
                                 for (int i = 0; i < x; i++)
@@ -1035,6 +1056,8 @@ namespace TomosurgeryAlpha
                     Debug.Write(".");
                 }
                 Debug.Write("done.");
+                
+
                 //Just took these out 10/15/2012, put back in if above doesn't work.
                 //slicedose = Matrix.ScalarMultiply(slicedose, (float)weights[s]);                        
                 //DoseSpace = WriteSliceDoseToDoseSpace(slicedose, DoseSpace, s);
@@ -1043,6 +1066,72 @@ namespace TomosurgeryAlpha
                 //Debug.WriteLine("GPU_sum: " + Matrix.SumAll(GPUsd));
                 return weighted_slicedoses;
             }
+        }
+
+        public void FindReferenceContributions(int[] refpoint, string subfolder)
+        {
+            int x = DoseSpace[0].GetLength(0); int y = DoseSpace[0].GetLength(1);
+            int z = DoseSpace.GetLength(0);
+            int refindex = (refpoint[2]*x*y)+(refpoint[1]*x)+refpoint[0];
+            ReferenceWeights = new double[NumSlices];
+            ReferenceValues = new double[NumSlices];
+            for (int s = 0; s < NumSlices; s++)
+            {
+                ReferenceWeights[s] = 0.0;
+                ReferenceValues[s] = 0.0;
+                int whichz = SlicePositions[s] - (DCT / 2);
+                float[] slicedose = LoadSliceDose(s, subfolder);                
+                Parallel.For(0, DCT, (k) =>
+                {                    
+                        for (int j = 0; j < y; j++)                        
+                            for (int i = 0; i < x; i++)
+                            {
+                                int tempindex = ((whichz+k) * x * y) + (j * x) + i;
+                                if (tempindex == refindex)
+                                {
+                                    ReferenceWeights[s] = SliceWeights[s];
+                                    ReferenceValues[s] = slicedose[(k * x * y) + (j * x) + i];
+                                }
+                                else
+                                    continue;                                
+                            }
+                });
+            }
+            Debug.WriteLine(WriteArrayAsList("Reference Point: ", ReferencePoint));
+            Debug.WriteLine("Slice contributions to reference point: ");
+            for (int s = 0; s < NumSlices; s++)
+            {
+                Debug.WriteLine("Slice " + s + ": " + ReferenceValues[s] + " x (Weight: " + ReferenceWeights[s] + ") = " + Math.Round(ReferenceWeights[s] * ReferenceValues[s], 3));
+            }
+        }
+
+        public void FindDoseContributionsToReferencePoint(double[] normweights, double doserate, double max)
+        {
+            double[] DoseContributions = new double[NumSlices];
+            double sum = 0;
+            for (int s = 0; s < NumSlices; s++)
+            {
+                DoseContributions[s] = ReferenceValues[s] * normweights[s];
+                sum += DoseContributions[s];
+                Debug.WriteLine("Slice " + s + ": " + Math.Round(ReferenceValues[s],3) + " x (Weight: " + Math.Round(normweights[s],3) + ") = " + Math.Round(DoseContributions[s], 3));                
+            }
+            Debug.WriteLine("Doserate: " + doserate);
+            Debug.WriteLine("Max Dose: " + max);
+            Debug.WriteLine(WriteArrayAsList("Contributions: ", DoseContributions));
+            Debug.WriteLine("Total = " + Math.Round(sum, 3));
+        }
+
+        public double[] FindSliceWeightsForMaxDose(double max)
+        {
+            double sum = 0;
+            double weight_multiplier = 0;
+            for (int s = 0; s < NumSlices; s++)
+                sum += ReferenceValues[s] * ReferenceWeights[s];
+            weight_multiplier = (max / sum);
+            double[] NormalizedWeights = new double[NumSlices];
+            for (int s = 0; s < NumSlices; s++)
+                NormalizedWeights[s] = SliceWeights[s] * weight_multiplier;
+            return NormalizedWeights;
         }
 
         private float[] LoadSliceDose(int which_slice, string subfolder)
@@ -1317,9 +1406,28 @@ namespace TomosurgeryAlpha
         public void FindMaxDose()
         {
             max = Matrix.FindMax(DoseSpace);
+            ReferencePoint = new int[3];
+            ReferencePoint = FindMaxDoseVoxel();
         }
 
-        
+        public int[] FindMaxDoseVoxel()
+        {
+            int[] point = new int[3]; float max = 0;
+            for (int k = 0; k < DoseSpace.GetLength(0); k++)
+                for (int j = 0; j < DoseSpace[0].GetLength(1); j++)
+                    for (int i = 0; i < DoseSpace[0].GetLength(0); i++)
+                        {
+                            float dose = DoseSpace[k][i,j];
+                            if (dose > max)
+                            {
+                                max = dose;
+                                point = new int[3]{i, j, k};
+                            }
+                        }
+            return point;
+        }
+
+
 
         /// <summary>
         /// Takes in a slice 1D float matrix, and adds it to the global dosespace array for final calculation. Called by 
