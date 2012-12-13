@@ -220,11 +220,11 @@ namespace TomosurgeryAlpha
         {
             int value;            
             value = (int)Math.Round(slider2.Value);
-            UpdatePositionInfo(value, (int)slider2.Maximum);
+            UpdateZPositionInfo(value, (int)slider2.Maximum);
             return value;
         }
 
-        public void UpdatePositionInfo(int pos, int of)
+        public void UpdateZPositionInfo(int pos, int of)
         {
             string s = "" + pos + " of " + of;
             zpos_index_lbl.Content = s;
@@ -683,19 +683,43 @@ namespace TomosurgeryAlpha
             structure_size_lbl.Content = s;
         }
 
-        public void DisplayPlan()
+        public void SetCoverageLabelColor(double cov)
         {
+            byte r = 0; byte g = 0;
             
-            UpdateSliceLabels();
+            if (cov > 0.8)
+            {
+                if (cov > 0.9)
+                {
+                    r = 255;
+                    g=(byte)Math.Round(((cov-0.9)/0.1)*255);
+                }
+                else
+                    r = (byte)Math.Round(((cov-0.8)/0.1)*255);
+            }
+            System.Windows.Media.SolidColorBrush scb = new SolidColorBrush(System.Windows.Media.Color.FromRgb((byte)(255-r),(byte)(0+g),0));
+            RealtimeCoverage_lbl.Foreground = scb;
+            RealtimeCoverage_lbl.Content = "Max Potential Coverage: " + Math.Round(cov, 2);
+        }
+
+        public void DisplayPlan()
+        {            
+            //UpdateSliceLabels();
             RasterPath rp = (RasterPath)PS.RasterPaths[GetCurrentSlice()];
+            double cov = rp.info.Coverage;
+            SetCoverageLabelColor(cov);
+            sliceindicator_lbl.Content = "Slice: " + rp.WhichSlice;
+
+
             int zpos = PS.SlicePositions[GetCurrentSlice()];
             PointF[] points = rp.ReturnSinglePoints();
             float[,] img = SS.fj_Tumor[zpos];
+            float[,] doseimg = new float[img.GetLength(0),img.GetLength(1)];
             //float[] img = SS.f_structurearray[zpos]; 
             bool dp = false;
             if (plan_dpRB.IsChecked == true && rp.dosespace != null)
             {
-                img = Convert1Dto2D(rp.dosespace, img.GetLength(0), img.GetLength(1));
+                doseimg = Convert1Dto2D(rp.dosespace, img.GetLength(0), img.GetLength(1));
                 dp = true;
             }
             //float max = img.Max();
@@ -722,26 +746,36 @@ namespace TomosurgeryAlpha
                         int pBackBuffer = (int)wb_Plan.BackBuffer;
                         pBackBuffer += y * wb_Plan.BackBufferStride;
                         pBackBuffer += x * 4;
-                        int value; int alpha;                        
-                        alpha = (int)Math.Round((img[y, x]) * 255);
-                        if (!dp)
+                        int value; int alpha = 0; int red = 0;
+                        value = (int)Math.Round((img[y, x]) * 255);
+                        int color_data=0;
+                        if (dp)
                         {
-                            if (alpha > 0)
+                            int dose = (int)Math.Round(doseimg[y, x]);
+                            if (dose > 0.5)
+                                red = (int)Math.Round(0.8 * 255);
+                            if (value > 0)
+                                alpha = 255;
+                            color_data = red << 16;
+                            color_data |= alpha << 8;
+                            color_data |= alpha << 0;
+                        }
+                        else if (!dp)
+                        {
+                            if (value > 0)
                                 alpha = 255;
                             else
                                 alpha = 0;
+                            color_data = 0 << 16;
+                            color_data |= alpha << 8;
+                            color_data |= alpha << 0;
                         }
-
-                        //int color_data = red_colormap[alph] << 16; // R
-                        //color_data |= green_colormap[alph] << 8;   // G
-                        //color_data |= blue_colormap[alph] << 0;   // B
-                        int color_data = 0 << 16;
-                        color_data |= alpha << 8;
-                        color_data |= alpha << 0;
-
+                        
+ 
                         // Assign the color data to the pixel.
                         *((int*)pBackBuffer) = color_data;
                     }
+                
 
                 //Overlay the planned points
                 foreach(PointF pf in points)
@@ -756,8 +790,8 @@ namespace TomosurgeryAlpha
                             pBackBuffer += y * wb_Plan.BackBufferStride;
                             pBackBuffer += x * 4;
 
-                            int color_data = 255 << 16; // R
-                            color_data |= 0 << 8;   // G
+                            int color_data = 0 << 16; // R
+                            color_data |= 255 << 8;   // G
                             color_data |= 0 << 0;   // B
 
                             // Assign the color data to the pixel.
@@ -1229,12 +1263,14 @@ namespace TomosurgeryAlpha
                 }
             }
 
-            if (tabControl1.SelectedIndex == 3)
+            if (tabControl1.SelectedIndex == 3) //i.e. the "Plan" tab
             {
                 if (PS != null)
                 {
                     slider2.Minimum = 0;
                     slider2.Maximum = PathSet.NumSlices - 1;
+                    dataGrid1.SelectedIndex = GetCurrentSlice();
+                    UpdateSliceLabels();
                     DisplayPlan();
                 }
             }
@@ -1440,9 +1476,10 @@ namespace TomosurgeryAlpha
         {
             RasterPath.StepSize = Convert.ToInt16(txt_stepsize.Text);
             RasterPath.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
+            int padding = Convert.ToInt16(txt_slicethickness.Text) / 2;
             //double sum1 = Matrix.SumAll(SS.fj_Tumor);
             //double sum2 = SS.f_structurearray[130].Sum();
-            PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), Convert.ToInt16(txt_edgepadding.Text), DK, SS);
+            PS = new PathSet(SS.fj_Tumor,Convert.ToInt16(txt_slicethickness.Text),Convert.ToInt16(txt_slicethickness.Text), padding, DK, SS);
                AttachPSHandlers();               
                tabControl1.SelectedIndex = 3;
                slider2.Minimum = 0;
@@ -1658,6 +1695,31 @@ namespace TomosurgeryAlpha
         private void slider_stepsize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             txt_stepsize.Text = slider_stepsize.Value.ToString();
+
+            //Adjust padding appropriately with stepsize
+            //Find proportion of max first
+            if (slider_edgepad != null)
+            {
+                double edgeratio = Convert.ToDouble(txt_edgepadding.Text) / slider_edgepad.Value;
+                double sideratio = Convert.ToDouble(txt_sidepad.Text) / slider_sidepad.Value;
+                slider_edgepad.Minimum = 1.0;
+                slider_sidepad.Minimum = 1.0;
+                slider_edgepad.Maximum = slider_stepsize.Value;
+                slider_sidepad.Maximum = slider_stepsize.Value;
+
+                if (edgeratio <= 1.0 && edgeratio > 0)
+                    slider_edgepad.Value = (edgeratio * slider_edgepad.Maximum);
+                else
+                    slider_edgepad.Value = slider_edgepad.Maximum / 2;
+
+                if (sideratio <= 1.0 && sideratio > 0)
+                    slider_sidepad.Value = (sideratio * slider_sidepad.Maximum);
+                else
+                    slider_sidepad.Value = slider_sidepad.Maximum / 2;
+
+                txt_sidepad.Text = slider_sidepad.Value.ToString();
+                txt_edgepadding.Text = slider_edgepad.Value.ToString();
+            }
             if (PS != null)
             {
                 if (!PlanOptimized)
@@ -1684,10 +1746,10 @@ namespace TomosurgeryAlpha
                     txt_stepsize.IsEnabled = false;
                     slider_rasterwidth.IsEnabled = false;
                     slider_stepsize.IsEnabled = false;
-                    recalc_btn.IsEnabled = true;
+                    //recalc_btn.IsEnabled = true;
                     redwarn_lbl.IsEnabled = true;
                     redwarn_lbl.Content = "Please click re-plan to see new slice thickness.";
-                    //UpdateCurrentSlicePaths();
+                    UpdateCurrentSlicePaths();
                     RefreshDataGrid();
                 }
                 else if (PlanOptimized)
@@ -1732,7 +1794,9 @@ namespace TomosurgeryAlpha
             RasterPath rp = GetCurrentSliceRP();
             int stepsize = Convert.ToInt16(txt_stepsize.Text);
             int rasterwidth = Convert.ToInt16(txt_rasterwidth.Text);
-            rp.ChangeParamsUpdatePoints(stepsize, rasterwidth);            
+            int edgepad = Convert.ToInt16(txt_edgepadding.Text);
+            int sidepad = Convert.ToInt16(txt_sidepad.Text);
+            rp.ChangeParamsUpdatePoints(stepsize, rasterwidth, edgepad, sidepad);            
             rp.Calculate2DDoseSpace(DK.midplane);
             rp.CreateSliceInfo();
             DisplayPlan();
@@ -1740,9 +1804,9 @@ namespace TomosurgeryAlpha
         
         private void plan_dose_btn_Click(object sender, RoutedEventArgs e)
         {
-            RasterPath rp = GetCurrentSliceRP();
-            rp.Calculate2DDoseSpace(DK.midplane);
-            UpdateCurrentSlicePaths();
+            //RasterPath rp = GetCurrentSliceRP();
+            //rp.Calculate2DDoseSpace(DK.midplane);
+            //UpdateCurrentSlicePaths();
         }
         private void txt_rasterwidth_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -1764,7 +1828,7 @@ namespace TomosurgeryAlpha
             {
                 PS.RecalculateSlices(Convert.ToInt16(txt_slicethickness.Text), Convert.ToInt16(txt_slicethickness.Text));
                 TurnOnSliders();
-                recalc_btn.IsEnabled = false;
+                //recalc_btn.IsEnabled = false;
                 UpdateCurrentSlicePaths();
                 DisplayPlan();
             }
@@ -1845,6 +1909,10 @@ namespace TomosurgeryAlpha
             planshots_lbl.Content = "Shots: " + ((RasterPath)GetCurrentSliceRP()).NumOfLines;
             planslice_lbl.Content = "Slice #: " + (GetCurrentSlice() + 1);
             plansize_lbl.Content = "Size: " + StructureSet.BIG_dim[0] + " x " + StructureSet.BIG_dim[1];
+            slider_edgepad.Value = ((RasterPath)GetCurrentSliceRP()).LineEdgePadding;
+            slider_sidepad.Value = ((RasterPath)GetCurrentSliceRP()).LineSidePadding;
+            txt_edgepadding.Text = slider_edgepad.Value.ToString();
+            txt_sidepad.Text = slider_sidepad.Value.ToString();
         }
 
         private void PlanViewtab_GotFocus(object sender, RoutedEventArgs e)
@@ -1859,8 +1927,8 @@ namespace TomosurgeryAlpha
             
             PathSet.StepSize = Convert.ToInt16(txt_stepsize.Text);
             PathSet.RasterWidth = Convert.ToInt16(txt_rasterwidth.Text);
-            PathSet.line_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
-            PathSet.shot_edgepadding = Convert.ToInt16(txt_edgepadding.Text);
+            PathSet.LineSidePadding = Convert.ToInt16(txt_edgepadding.Text);
+            PathSet.LineEdgePadding = Convert.ToInt16(txt_edgepadding.Text);
             if (PlanOptimized)
             {
                 redwarn_lbl.Content = "";
@@ -1873,7 +1941,7 @@ namespace TomosurgeryAlpha
             CreatePaths();
             if (IsPathSetCreated)
                 Opt_btn.IsEnabled = true;
-            AdjustCursorSize();
+            //AdjustCursorSize();
             SetWorkingDirectory();
             Debug.WriteLine("Current Plantimer: " + plantimer.Elapsed);
             //plantimer.Stop();
@@ -1975,7 +2043,7 @@ namespace TomosurgeryAlpha
             string s = "";
             for (int i = 0; i < pf.GetLength(0); i++)
             {
-                s = "(" + ((PointF)pf[i]).X + ", " + ((PointF)pf[i]).Y + "); W: " + rp.weight[i];
+                s = "(" + ((PointF)pf[i]).X + ", " + ((PointF)pf[i]).Y + "); W: " + rp.ShotWeights[i];
                 listBox2.Items.Add(s);                
             }
         }
@@ -1993,7 +2061,7 @@ namespace TomosurgeryAlpha
                     else
                     {
                         tabControl1.SelectedIndex = 3;
-                        DisplaySingleShot(p, rp.weight[listBox2.SelectedIndex]);
+                        DisplaySingleShot(p, rp.ShotWeights[listBox2.SelectedIndex]);
                     }
                 }
             }
@@ -2117,7 +2185,9 @@ namespace TomosurgeryAlpha
             txt_rasterwidth.Text = "20";
             txt_slicethickness.Text = "20";
             txt_stepsize.Text = "20";
-            txt_edgepadding.Text = "10";
+            txt_edgepadding.Text = "8";
+            txt_sidepad.Text = "8";            
+            RasterPath.ComparisonKernelSize = 30;
         }
 
         private void Load8mmDefault()
@@ -2128,6 +2198,9 @@ namespace TomosurgeryAlpha
             IsDoseLoaded = true;
             RasterPath.doseN = DoseKernel.N;
             RasterPath.N = DoseKernel.N;
+            
+            
+            RasterPath.ComparisonKernelSize = 80;
             AddDoseLoadedToListBox();
 
             //Set parameters to default values for '8mm'
@@ -2137,7 +2210,15 @@ namespace TomosurgeryAlpha
             txt_rasterwidth.Text = "36";
             txt_slicethickness.Text = "36";
             txt_stepsize.Text = "38";
-            txt_edgepadding.Text = "20";                       
+             
+            txt_edgepadding.Text = "8";
+            slider_edgepad.Maximum = Convert.ToInt16(txt_stepsize.Text);
+            slider_sidepad.Minimum = 1.0;
+            slider_edgepad.Value = Convert.ToInt16(txt_edgepadding.Text);
+            txt_sidepad.Text = "10";
+            slider_sidepad.Maximum = Convert.ToInt16(txt_stepsize.Text);
+            slider_sidepad.Minimum = 1.0;
+            slider_sidepad.Value = Convert.ToInt16(txt_sidepad.Text);      
         }
 
         private void CalcSaveDose_btn_Click(object sender, RoutedEventArgs e)
@@ -2166,6 +2247,7 @@ namespace TomosurgeryAlpha
             else if (Analysis.ddf != null)
                 Analysis.RunAnalysis(Analysis.ddf, SS.fj_Tumor, 0.5);
             Analysis_datagrid.ItemsSource = GetAnalysisInfo();
+            
             Analysis.AddAnalysisReport();
         }
 
@@ -2239,7 +2321,7 @@ namespace TomosurgeryAlpha
                     RasterPath rp = (RasterPath)PS.RasterPaths[i];
                     for (int shot = 0; shot < rp.shots.GetLength(0); shot++)
                     {
-                        double weight = rp.weight[shot] * sliceweight;
+                        double weight = rp.ShotWeights[shot] * sliceweight;
                         PointF p = rp.shots[shot];
                         string sep = ", ";
                         bw.WriteLine(p.X + sep + p.Y + sep + PS.SlicePositions[i] + sep + Math.Round(weight,2) + ";");
@@ -2255,8 +2337,8 @@ namespace TomosurgeryAlpha
              * the max level by dividing by the doserate at the center of the isocenter. That number of minutes corresponds
              * to a dose of 1.0, the max normalized dose. Then the beam-on time of subsequent shots should just be the weight x that value.
              */
-            double[] weights = PS.FindSliceWeightsForMaxDose(MaxGy);            
-            double MinutesToMax = 1.0 / doserate;
+            double[] weights = (double[])PS.SliceWeights.Clone();  
+            double MinutesToMax = MaxGy / doserate;
             double BeamOnTime = 0;
             for (int i = 0; i < PS.RasterPaths.Count; i++)
             {
@@ -2264,7 +2346,7 @@ namespace TomosurgeryAlpha
                 RasterPath rp = (RasterPath)PS.RasterPaths[i];
                 for (int shot = 0; shot < rp.shots.GetLength(0); shot++)
                 {
-                    double weight = rp.weight[shot] * sliceweight;
+                    double weight = rp.ShotWeights[shot] * sliceweight;
                     BeamOnTime += (weight * MinutesToMax);
                 }
             }
@@ -2502,6 +2584,73 @@ namespace TomosurgeryAlpha
             Analysis.AddLineToReport("For max dose " + maxdose + " at " + doserate + " Gy/min, TOTAL BEAM-ON TIME ==> " + time);
             Time_lbl.Content = "" + Math.Round(time, 2) + " mins";
         }
+
+        private void slider_sidepad_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            txt_sidepad.Text = slider_sidepad.Value.ToString();
+            if (PS != null)
+            {
+                if (!PlanOptimized)
+                {
+                    //UpdateCurrentSlicePaths();
+                    RefreshDataGrid();
+                    RasterPath rp = GetCurrentSliceRP();
+                    int[] bounds = rp.boundaries;
+                    int start = rp.boundaries[0];
+                    int end = rp.boundaries[1];
+                    rp.Lines = rp.LineSpacer(start, end, Convert.ToInt16(txt_sidepad.Text));
+                    rp.Lines.ToArray();
+
+
+                    rp.FindAllShotPoints();
+                    rp.Calculate2DDoseSpace(DK.midplane);
+                    rp.CreateSliceInfo();
+                    DisplayPlan();
+                }
+                else if (PlanOptimized)
+                {
+                    redwarn_lbl.Content = "Plan already exists! Please click RePlan to see changes";
+                    redwarn_lbl.IsEnabled = true;
+                }
+            }
+        }
+
+        private void slider_edgepad_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            txt_edgepadding.Text = slider_edgepad.Value.ToString();
+            if (PS != null)
+            {
+                if (!PlanOptimized)
+                {
+                    UpdateCurrentSlicePaths();
+                    RefreshDataGrid();
+                    
+                }
+                else if (PlanOptimized)
+                {
+                    redwarn_lbl.Content = "Plan already exists! Please click RePlan to see changes";
+                    redwarn_lbl.IsEnabled = true;
+                }
+            }
+        }
+
+        private void SetRasterConfig_btn_Click(object sender, RoutedEventArgs e)
+        {
+            RasterPath rp = GetCurrentSliceRP();
+            rp.LineSidePadding = Convert.ToInt16(txt_sidepad.Text);
+            rp.LineEdgePadding = Convert.ToInt16(txt_edgepadding.Text);
+            rp.FindAllShotPoints();
+            rp.Calculate2DDoseSpace(DK.midplane);
+            rp.CreateSliceInfo();
+            DisplayPlan();
+        }
+
+       
+       
+
+        
+
+       
 
         
 

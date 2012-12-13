@@ -50,7 +50,11 @@ namespace TomosurgeryAlpha
 
         public static float[] Zero1DFloat(int xyz)
         {
-            return (float[])Array.CreateInstance(typeof(float), xyz);
+            float[] d = new float[xyz];
+            for (int i = 0; i < d.GetLength(0); i++)
+                d[i] = 0.0f;
+            return d;
+            //return (float[])Array.CreateInstance(typeof(float), xyz);
         }
 
         public static void Zero1DFloat(ref float[] d)
@@ -794,6 +798,17 @@ namespace TomosurgeryAlpha
             }           
         }
 
+        internal static double[] Normalize(double[] d)
+        {
+            double[] n = new double[d.GetLength(0)];
+            double max = d.Max();
+            for (int i = 0; i < d.GetLength(0); i++)
+            {
+                n[i] = d[i] / max;
+            }
+            return n;
+        }
+
         internal static float[,] Zeroes(int p1, int p2)
         {
             float[,] output = new float[p1, p2];
@@ -1008,6 +1023,40 @@ namespace TomosurgeryAlpha
                     }
                 output[k] = temp;
             }
+            return output;
+        }
+
+        internal static float FindMin(float[,] slice)
+        {
+            float min = 1000;
+            for (int j = 0; j < slice.GetLength(1); j++)
+                for (int i = 0; i < slice.GetLength(0); i++)
+                {
+                    float s = slice[i, j];
+                    if (s < min)
+                        min = s;
+                }
+            return min;
+        }
+
+        internal static double FindMin(float[][,] DDS)
+        {
+            float min = 1000;
+            for (int k = 0; k < DDS.GetLength(0); k++)
+                for (int j = 0; j < DDS[0].GetLength(1); j++)
+                    for (int i = 0; i < DDS[0].GetLength(0); i++)
+                    {
+                        if (DDS[k][i, j] < min)
+                            min = DDS[k][i, j];
+                    }
+            return min;
+        }
+
+        internal static float[] Normalize(float[] p)
+        {
+            float max = p.Max(); float[] output = new float[p.GetLength(0)];
+            for (int i = 0; i < p.GetLength(0); i++)
+                output[i] = p[i] / max;
             return output;
         }
     }
