@@ -569,39 +569,23 @@ namespace TomosurgeryAlpha
                     {
                         Debug.WriteLine("Stopped bc coverage > 98%, < 0.1% underdosed");
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
+
                     }
                     else if (IterationCoverage == 1.0 && IterationCoverage < coverage) //coverage reversing/oscillating
                     {
                         Debug.WriteLine("Stopped bc coverage > 98%, coverage starting to decrease");
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
-                    }
-                    else if (IterationCoverage < coverage)
-                    {
-                        //if (IterationCoverage < 0.9)
-                        //{
-                        //    double BiggestIndex = Conform_Indices.Max();
-                        //    if (Conform_Indices[MultiplierChoice] < BiggestIndex)
-                        //    {
-                        //        MultiplierChoice = Array.LastIndexOf(Conform_Indices, BiggestIndex);
-                        //        Debug.WriteLine("Reached error asymptote with current index, coverage not great.");
-                        //        Debug.WriteLine("SWITCHING INDEX! MultiplierChoice: " + MultiplierChoice);
-                        //        coverage = Convert.ToDouble(IterationCoverage);
-                        //        continue;
-                        //    }
-                        //    else
-                        //    {
-                        //        Debug.WriteLine("Best possible. Still sucks. Try improving shot coverage first.");
-                        //        break;
-                        //    }
-
-                    }
+                    }                    
                     else if ((Math.Abs(old_error - Error) < .005)) //error isn't changing that much
                     {
                         Debug.WriteLine("Stopped bc error difference negligible");
                         Debug.WriteLine("Error: " + old_error + " --> " + Error);
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
                     }
                     else
@@ -807,30 +791,39 @@ namespace TomosurgeryAlpha
                   
             float max = 0; PointF maxpoint;
 
-            double[] measurements = FindWindowCoverage(DStimesP, DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
+            double[] test_measurements = FindWindowCoverage(DStimesP, DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
             //WriteFloatArray2BMP(DStimesP, "OMG_orig_DStimesP.bmp");
             //WriteFloatArray2BMP(DDStimesP, "OMG_orig_DDS.bmp");
-            WriteArrayAsList("Original measurements: ", measurements);
-            double simplesum = measurements[0];
+            WriteArrayAsList("Original measurements: ", test_measurements);
+            double simplesum = test_measurements[0];
             float maximum = Matrix.FindMax(DStimesP);
-            double RxVolvsTumor = Convert.ToDouble(measurements[1] / measurements[2]); //Isovolume / Tumorvolume
-            double Coverage = Convert.ToDouble(measurements[3] / measurements[2]); //Covered tumor / Totaltumor
-            double BothvsRxVol = Convert.ToDouble(measurements[3] / measurements[1]);
-            double BothvsTumor = Convert.ToDouble(measurements[3] / measurements[2]);
-            double Importance_Factor = measurements[2] / (ComparisonKernelSize * ComparisonKernelSize);
+            double RxVolvsTumor = Convert.ToDouble(test_measurements[1] / test_measurements[2]); //Isovolume / Tumorvolume
+            double Coverage = Convert.ToDouble(test_measurements[3] / test_measurements[2]); //Covered tumor / Totaltumor
+            double BothvsRxVol = Convert.ToDouble(test_measurements[3] / test_measurements[1]);
+            double BothvsTumor = Convert.ToDouble(test_measurements[3] / test_measurements[2]);
+            double Importance_Factor = test_measurements[2] / (ComparisonKernelSize * ComparisonKernelSize);
             double[] Conform_Indices = new double[4] { simplesum, RxVolvsTumor, BothvsTumor, BothvsRxVol };
 
-            Debug.WriteLine("Measurements are: ratio, RxVolume, TumorVol, LesionRx, Uncovered");
+            //Debug.WriteLine("Measurements are: ratio, RxVolume, TumorVol, LesionRx, Uncovered");
 
             //Trying to see what happens to measurements when (1.0 / BothVsTumor) is applied
-            measurements = FindWindowCoverage(Matrix.ScalarMultiply(DStimesP, (float)(1.0 / BothvsTumor)), DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
-            WriteFloatArray2BMP(DStimesP, "BOTHvsTUMOR_DStimesP.bmp");            
-            WriteArrayAsList("BOTHvsTUMOR measurements: ", measurements);
+            double[] test_measurements1 = FindWindowCoverage(Matrix.ScalarMultiply(DStimesP, (float)(1.0 / BothvsTumor)), DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
+           // WriteFloatArray2BMP(DStimesP, "BOTHvsTUMOR_DStimesP.bmp");            
+            //WriteArrayAsList("BOTHvsTUMOR measurements: ", test_measurements1);
 
             //When (1.0 / RxVolvsTumor) is applied...
-            measurements = FindWindowCoverage(Matrix.ScalarMultiply(DStimesP, (float)(1.0 / RxVolvsTumor)), DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
-            WriteFloatArray2BMP(DStimesP, "RXVOLvsTUMOR_DStimesP.bmp");
-            WriteArrayAsList("RXVOLvsTUMOR measurements: ", measurements);
+            double[] test_measurements2 = FindWindowCoverage(Matrix.ScalarMultiply(DStimesP, (float)(1.0 / RxVolvsTumor)), DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
+            //WriteFloatArray2BMP(DStimesP, "RXVOLvsTUMOR_DStimesP.bmp");
+            //WriteArrayAsList("RXVOLvsTUMOR measurements: ", test_measurements2);
+
+            //Compare the results of both the 1.0/Both and 1.0/RxVol window coverage and choose the best one.
+            //Output of measurements = :
+            /*
+             * 
+             * 
+             */
+
+            int which = CompareOutputMeasurements(test_measurements, test_measurements2);
 
 
             for (int j = 0; j < DStimesP.GetLength(1); j++)
@@ -844,16 +837,26 @@ namespace TomosurgeryAlpha
             //ratio, RxVolume, TumorVol, LesionRx, Uncovered
             
             //Simplesum is (sum of dds) / (sum of ds)
-            
-            double ratio = 1.0;
-            if (BothvsTumor < 1.0)
-                ratio = 1.0 / BothvsTumor;
-            else if (BothvsTumor >= 1.0 && RxVolvsTumor > 1.1)
-                ratio = 1.0 / RxVolvsTumor;
-            //double ratio = simplesum;
-            if (max > 1.0)
-                ratio = ratio;// *(1 / max);
+            double ratio;
+            switch (which)
+            {
+                case 0:
+                    ratio = 1.0 / RxVolvsTumor;
+                    break;
+                case 1:
+                    ratio = 1.0 / BothvsTumor;
+                    break;
+                default:
+                    ratio = 1.0 / BothvsTumor;
+                    break;
+            }
 
+            //double ratio = 1.0;
+            //if (BothvsTumor < 1.0)
+            //    ratio = 1.0 / BothvsTumor;
+            //else if (BothvsTumor >= 1.0 && RxVolvsTumor > 1.1)
+            //    ratio = 1.0 / RxVolvsTumor;
+            
 
             //if (Coverage < 0.9)
             //{
@@ -918,29 +921,6 @@ namespace TomosurgeryAlpha
                         }
                     }
 
-
-
-                    //    //Dose is > Rxdose?
-                    //    if (dose >= iso)
-                    //    {
-                    //        RxVolume++; // <-- +1 to the RxVolume
-                    //        //Check if pixel is a tumor pixel...
-                    //        if (dds_value > ToleranceDose)
-                    //        {
-                    //            TumorVol++; // <-- if so, +1 to tumor volume and lesionrx
-                    //            LesionRx++;
-                    //        }
-                    //    }
-                    //    //If dose < iso, then doesn't get added to rxvolume
-                    //    else if (dose < iso)
-                    //    {
-                    //        if (dds_value > ToleranceDose) // <-- still need to check tumor status.
-                    //        {
-                    //            TumorVol++; // <-- +1 to tumor volume
-                    //            Uncovered++; // <-- +1 to "underdosed" voxel count
-                    //        }
-                    //    }
-                    //}
                 double BothvsTumorVol = LesionRx / TumorVol;
                 double BothvsRxVol = LesionRx / RxVolume;
                 double Underdosed = (Uncovered / TumorVol) * 100;
@@ -957,6 +937,33 @@ namespace TomosurgeryAlpha
                 //    ratio = (1.0 / LesionRxoverRxVol);
                 return new double[5] { ratio, RxVolume, TumorVol, LesionRx, Uncovered };            
         }
+
+        /// <summary>
+        /// Takes the output from FindWindowCoverage() in the form of two tests, and returns a '0' or '1' indicating the best test.
+        /// </summary>
+        /// <param name="test1"></param>
+        /// <param name="test2"></param>
+        /// <returns></returns>
+        private int CompareOutputMeasurements(double[] test1, double[] test2)
+        {
+            double uncov1 = test1[4];
+            double uncov2 = test2[4];
+            double rx1 = test1[1];
+            double rx2 = test2[1];
+            if (uncov1 > uncov2)
+                return 1;
+            else if (uncov1 < uncov2)
+                return 0;
+            else
+            {
+                if (rx1 >= rx2)
+                    return 1;
+                else
+                    return 0;
+            }
+        }
+
+        
 
         private double[] ReoptimizeShotWeights(float[] ds)
         {

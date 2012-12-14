@@ -279,7 +279,7 @@ namespace TomosurgeryAlpha
                 {
                     float z = 0;
                     for (int k = 0; k < N; k++)
-                        z += dose[k][j * N + i];
+                        z += dose[k][(j * N) + i];
                     dmp[i, j] = z;
                 }
             RasterPath.dosemidplane = Matrix.Normalize(dmp);
