@@ -500,16 +500,16 @@ namespace TomosurgeryAlpha
             float max = Matrix.FindMax(DoseSpace);
             double[] restricted_weights = new double[NumSlices];
             
-            while (max > 1.0)
-            {
-                double[] dummy_priority = new double[2]{0,0};
-                restricted_weights = SliceWeightPostProcess(DoseSpace, folderpath, dummy_priority);
-                DoseSpace = PrepareWeighted_DS(restricted_weights, folderpath);
-                SliceWeights = (double[])restricted_weights.Clone();
-                max = Matrix.FindMax(DoseSpace);
-            }
+            //while (max > 1.0)
+            //{
+            //    double[] dummy_priority = new double[2]{0,0};
+            //    restricted_weights = SliceWeightPostProcess(DoseSpace, folderpath, dummy_priority);
+            //    DoseSpace = PrepareWeighted_DS(restricted_weights, folderpath);
+            //    SliceWeights = (double[])restricted_weights.Clone();
+            //    max = Matrix.FindMax(DoseSpace);
+            //}
             
-            SliceWeights = (double[])restricted_weights.Clone();
+            //SliceWeights = (double[])restricted_weights.Clone();
             //DoseSpace = PrepareWeighted_DS_GPU(SliceWeights, folderpath, DDS);
             //WriteFloatArray2BMP(DoseSpace[DoseSpace.GetLength(0) / 2], "PS_487_ds_midplane_" + index + ".bmp");
             
@@ -1128,6 +1128,76 @@ namespace TomosurgeryAlpha
                 
                 return weighted_slicedoses;
             }
+        }
+
+        private PointF[] GetAllShotsArray()
+        {
+            //Get total shotcount
+            int shotcount = 0;
+            foreach (RasterPath rp in RasterPaths)
+            {
+                shotcount += rp.shots.GetLength(0);
+            }
+            
+            //Populate array with all shots
+            PointF[] AllShots = new PointF[shotcount];
+            int counter = 0;
+            foreach (RasterPath rp in RasterPaths)
+            {
+                for (int i = 0; i < rp.shots.GetLength(0); i++)
+                {
+                    AllShots[counter] = rp.shots[i];
+                    counter++;
+                }
+            }
+            return AllShots;
+        }
+
+        public void AddSliceDoseToDoseSpace(float[][,] DS, int which_slice)
+        {
+            PointF[] shots = ((RasterPath)RasterPaths[which_slice]).shots;
+            double[] weights = ((RasterPath)RasterPaths[which_slice]).ShotWeights;
+            int ds_x = 0;
+            int ds_y = 0;
+            int ds_z = 0;
+            int index = 0;
+            //Loop through dosekernel and fill in each location
+            for (int k = 0; k < N; k++)
+                for (int j = 0; j < N; j++)
+                    for (int i = 0; i < N; i++)
+                    {
+                        for (int shot = 0; shot < shots.GetLength(0); shot++)
+                        {
+                            ds_x = (int)(shots[shot].X - ((N-1)/2) + i);
+                            ds_y = (int)(shots[shot].Y - ((N-1)/2) + j);
+                            ds_z = (int)(SlicePositions[which_slice] - ((N-1)/2) + k);
+                            index = ds_z * (StructureSet.BIG_dim[0] * StructureSet.BIG_dim[1]) + (ds_y * StructureSet.BIG_dim[0]) + ds_x;
+                            if (ds_x < 0 || ds_y < 0 || ds_z < 0)
+                                continue;
+                            else if (ds_x >= StructureSet.BIG_dim[0] || ds_y >= StructureSet.BIG_dim[1] || ds_z >= StructureSet.BIG_dim[2])
+                                continue;
+                            else if (index < 0 || index > (StructureSet.BIG_dim[0] * StructureSet.BIG_dim[1] * StructureSet.BIG_dim[2]))
+                                continue;
+                            else
+                            {
+                                DS[ds_z][ds_x, ds_y] += (float)(DK.dose[k][(j * N) + i] * weights[shot]);
+                            }
+                        }
+                    }
+        }
+
+        public void Calculate3DDoseSpace(DoseKernel dk)
+        {
+            //PointF[] AllShots = GetAllShotsArray();
+            float[][,] DoseSpace = new float[StructureSet.BIG_dim[2]][,];
+            for (int k = 0; k < DoseSpace.GetLength(0); k++)
+            {
+                //Create a new 2D slice.
+                float[,] layer = Matrix.Zeroes(StructureSet.BIG_dim[0], StructureSet.BIG_dim[1]);
+                DoseSpace[k] = (float[,])layer.Clone();                
+            }
+            for (int i = 0; i < SlicePositions.GetLength(0); i++)
+                AddSliceDoseToDoseSpace(DoseSpace, i);            
         }
 
         public double[] SliceWeightPostProcess(float[][,] ds, string subfolder, double[] iteration_weight)

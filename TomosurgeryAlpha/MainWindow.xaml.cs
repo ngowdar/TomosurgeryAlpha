@@ -1415,7 +1415,7 @@ namespace TomosurgeryAlpha
         {
             foreach (RasterPath rp in PS.RasterPaths)
             {
-                rp.Calculate2DDoseSpace(DK.midplane);
+                rp.Calculate2DDoseSpace(DK.midplane, null);
                 rp.CreateSliceInfo();
             }            
             
@@ -1497,10 +1497,17 @@ namespace TomosurgeryAlpha
             PS.PathsetWorkerCompleted += new RunWorkerCompletedEventHandler(PS_1_PathsetWorkerCompleted);
             PS.PathsetWorkerProgressChanged += new ProgressChangedEventHandler(PS_1_PathsetWorkerProgressChanged);
             RasterPath.SliceWorkerProgressChanged += new ProgressChangedEventHandler(RasterPath_SliceWorkerProgressChanged);
+            RasterPath.ShotWeightsProgressHandler += RasterPath_ShotWeightsProgressHandler;
             PS.OptimizationWorkerCompleted += PS_2_OptimizationWorkerCompleted;
             PS.OptimizationWorkerProgress += PS_2_OptimizationProgress;
             PS.SliceweightWorkerProgress += PS_3_SliceweightWorkerProgress;
             PS.SliceweightWorkerCompleted += PS_3_SliceweightWorkerCompleted;
+        }
+
+        void RasterPath_ShotWeightsProgressHandler(object sender, ProgressChangedEventArgs e)
+        {
+            //double array contains first value representing which slice, then the rest of the values are the shotweights.
+            double[] ShotWeights = (double[])e.UserState;            
         }
 
         void PS_3_SliceweightWorkerProgress(object sender, ProgressChangedEventArgs e)
@@ -1548,7 +1555,8 @@ namespace TomosurgeryAlpha
         #region Pathset BackgroundWorkers
         void RasterPath_SliceWorkerProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            //UpdateProgressBar((double)e.ProgressPercentage);
+            double[] ShotWeights = (double[])e.UserState;
+            
         }
 
 
@@ -1784,7 +1792,7 @@ namespace TomosurgeryAlpha
             }
             Array.Sort(rp.Lines.ToArray());
             rp.FindAllShotPoints();
-            rp.Calculate2DDoseSpace(DK.midplane);
+            rp.Calculate2DDoseSpace(DK.midplane, null);
             rp.CreateSliceInfo();
             DisplayPlan();
         }
@@ -1797,7 +1805,7 @@ namespace TomosurgeryAlpha
             int edgepad = Convert.ToInt16(txt_edgepadding.Text);
             int sidepad = Convert.ToInt16(txt_sidepad.Text);
             rp.ChangeParamsUpdatePoints(stepsize, rasterwidth, edgepad, sidepad);            
-            rp.Calculate2DDoseSpace(DK.midplane);
+            rp.Calculate2DDoseSpace(DK.midplane, null);
             rp.CreateSliceInfo();
             DisplayPlan();
         }

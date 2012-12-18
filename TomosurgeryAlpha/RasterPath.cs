@@ -40,6 +40,7 @@ namespace TomosurgeryAlpha
         #region Variables
         public static float[,] dosemidplane; //Dose midplane
         public static event ProgressChangedEventHandler SliceWorkerProgressChanged;
+        public static event ProgressChangedEventHandler ShotWeightsProgressHandler;
         public static event RunWorkerCompletedEventHandler SliceWorkerCompleted;
         public BackgroundWorker RPworker;
         public static int doseN = 161;     //Size of dose matrix
@@ -422,7 +423,8 @@ namespace TomosurgeryAlpha
             NumOfLines = lines.GetLength(0);
             return lines;
         }
-        public void Calculate2DDoseSpace(float[,] dosemidplane)
+
+        public void Calculate2DDoseSpace(float[,] dosemidplane, double[] shotweights)
         {
             /*Assuming that the shots are defined by their center coordinate,
              * the top left pixel (0,0) of the shot matrix can be found by
@@ -462,15 +464,41 @@ namespace TomosurgeryAlpha
                     
                     }//);
                 }
-                       //NormalizeDose();
-            //dosespace = Matrix.Normalize(dosespace);
-            Matrix.Normalize(ref dosespace);
+
+
+              
+            
+            //Matrix.Normalize(ref dosespace);
+            /* Instead of Normalizing dosespace (which reduces all shot weights)
+             * search for local maxima, and reduce the involved shot weights 
+             * proportionally to make the hotspot equal to 1.0. 
+             * 
+             * Two approaches: Global weight reduction or "top contributor" reduction.
+             * 
+             * Choice A: Global Weight Reduction
+             * For instance, if two shots are 0.5 and 0.75 weighted, respectively,
+             * and the maximum dose point is 1.5:
+             * ==> 0.5*valueA + 0.75*valueB = 1.5
+             * =====> k * (1.5) = 1.0 ==> k = 1 / 1.5 = 0.66667
+             * =====> 0.6667 should be multiplied by shot A and shot B's weight.
+             * 
+             * Choice B: Top Contributor reduction
+             * 1) Find the location of the hotspot pixel (i.e. the max dose)
+             * 2) Find which shots contribute to the max dose
+             * 3) Since the calculation is 161x161 pixels, chances are many of the shots will 
+             * contribute, so sort the list and pick the biggest 3 contributors.
+             * 4) Subtract the remaining contributing weights from 1.0 to find the total contribution
+             * of the 3 top shots.
+             * 5) I.E. if the dose was 1.5, and top 3 contribute 0.9, then need to reduce
+             * the weighted sum of the top 3 shots to 0.4
+             */
+
             Calculate2DCoverage(0.5f);
         }                
         #endregion        
         
         #region Shot Optimization methods (Step 1)
-          #region Helper methods for OptimizeShotWeight (Step 1)
+          
        
 
 
@@ -569,39 +597,42 @@ namespace TomosurgeryAlpha
                     {
                         Debug.WriteLine("Stopped bc coverage > 98%, < 0.1% underdosed");
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
                     }
                     else if (IterationCoverage == 1.0 && IterationCoverage < coverage) //coverage reversing/oscillating
                     {
                         Debug.WriteLine("Stopped bc coverage > 98%, coverage starting to decrease");
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
                     }
-                    else if (IterationCoverage < coverage)
-                    {
-                        //if (IterationCoverage < 0.9)
-                        //{
-                        //    double BiggestIndex = Conform_Indices.Max();
-                        //    if (Conform_Indices[MultiplierChoice] < BiggestIndex)
-                        //    {
-                        //        MultiplierChoice = Array.LastIndexOf(Conform_Indices, BiggestIndex);
-                        //        Debug.WriteLine("Reached error asymptote with current index, coverage not great.");
-                        //        Debug.WriteLine("SWITCHING INDEX! MultiplierChoice: " + MultiplierChoice);
-                        //        coverage = Convert.ToDouble(IterationCoverage);
-                        //        continue;
-                        //    }
-                        //    else
-                        //    {
-                        //        Debug.WriteLine("Best possible. Still sucks. Try improving shot coverage first.");
-                        //        break;
-                        //    }
+                    //else if (IterationCoverage < coverage)
+                    //{
+                    //    //if (IterationCoverage < 0.9)
+                    //    //{
+                    //    //    double BiggestIndex = Conform_Indices.Max();
+                    //    //    if (Conform_Indices[MultiplierChoice] < BiggestIndex)
+                    //    //    {
+                    //    //        MultiplierChoice = Array.LastIndexOf(Conform_Indices, BiggestIndex);
+                    //    //        Debug.WriteLine("Reached error asymptote with current index, coverage not great.");
+                    //    //        Debug.WriteLine("SWITCHING INDEX! MultiplierChoice: " + MultiplierChoice);
+                    //    //        coverage = Convert.ToDouble(IterationCoverage);
+                    //    //        continue;
+                    //    //    }
+                    //    //    else
+                    //    //    {
+                    //    //        Debug.WriteLine("Best possible. Still sucks. Try improving shot coverage first.");
+                    //    //        break;
+                    //    //    }
 
-                    }
+                    //}
                     else if ((Math.Abs(old_error - Error) < .005)) //error isn't changing that much
                     {
                         Debug.WriteLine("Stopped bc error difference negligible");
                         Debug.WriteLine("Error: " + old_error + " --> " + Error);
                         Debug.WriteLine("Index: " + index + "; Coverage: " + IterationCoverage + "; Overage: " + temp_overage);
+                        index++;
                         break;
                     }
                     else
@@ -622,7 +653,7 @@ namespace TomosurgeryAlpha
                     if (IsCoverageBeingOptimized)
                         status = "Good optimization!";
                     index++;
-                    SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, null));
+                    SliceWorkerProgressChanged.Invoke(null, new ProgressChangedEventArgs(2 * index, ShotWeights));                    
                         continue;
                 }
             } //END of WHILE LOOP
@@ -632,9 +663,16 @@ namespace TomosurgeryAlpha
             optimized = true;
         }
 
-        public PointF[] FindRelatedShotIndexes(int index)
-        {
-            
+        #region Helper methods for OptimizeShotWeight (Step 1)
+        
+        /// <summary>
+        /// Given a global index location, this returns an array of the particular local
+        /// index of each shot that contributes to the global location.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        public PointF[] FindShotsRelatedToPoint(int index)
+        {            
             PointF[] locations = new PointF[shots.GetLength(0)];
             for (int i = 0; i < shots.GetLength(0); i++)
             {
@@ -647,6 +685,28 @@ namespace TomosurgeryAlpha
             return locations;
         }
 
+        /// <summary>
+        /// Given a global index location, this returns an array of the particular local
+        /// index of each shot that contributes to the global location.
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        public PointF[] FindShotsRelatedToPoint(int x, int y)
+        {
+            int index = (y * X) + x;
+            return FindShotsRelatedToPoint(index);
+        }
+
+        /// <summary>
+        /// Called by FindShotsRelatedToPoint(), finds the relative location
+        /// of a point in the coordinate system centered around a particular shot location.
+        /// If relative location is outside the boundaries of the shot, then return
+        /// a blank PointF.
+        /// </summary>
+        /// <param name="pf"></param>
+        /// <param name="index"></param>
+        /// <returns></returns>
         private PointF GlobalToLocalShotIndex(PointF pf, int index)
         {
             int midlength = dosemidplane.GetLength(0) / 2;
@@ -684,11 +744,7 @@ namespace TomosurgeryAlpha
                 return new PointF();
         }
 
-        public PointF[] FindRelatedShotIndexes(int x, int y)
-        {
-            int index = (y * X) + x;
-            return FindRelatedShotIndexes(index);
-        }
+        
 
         public double[] ShotWeightPostProcess(float[] ds, double[] iteration_weight)
         {
@@ -704,7 +760,7 @@ namespace TomosurgeryAlpha
                         maxindex = (j * X) + i;
                     }
                 }
-            PointF[] RelativeIndices = FindRelatedShotIndexes(maxindex);
+            PointF[] RelativeIndices = FindShotsRelatedToPoint(maxindex);
             double[] ContributingWeights = new double[shots.GetLength(0)];
             double[] Values = new double[shots.GetLength(0)];
             int biggestcontributor = 0; double temp = 0;
