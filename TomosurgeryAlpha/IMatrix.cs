@@ -380,7 +380,7 @@ namespace TomosurgeryAlpha
         {
             float[][,] t = new float[d.GetLength(0)][,];
             for (int k = 0; k < d.GetLength(0); k++)
-                t[k] = ThresholdEq(d[k], 0.4f);
+                t[k] = ThresholdEq(d[k], th);
             return t;
         }
 
@@ -505,10 +505,11 @@ namespace TomosurgeryAlpha
             float[][,] product = new float[a.GetLength(0)][,];
             Parallel.For(0, a.GetLength(0), (k) =>
             {
-                product[k] = new float[a[0].GetLength(0), a[0].GetLength(1)];
+                float[,] temp = new float[a[0].GetLength(0), a[0].GetLength(1)];
                 for (int y = 0; y < a[0].GetLength(1); y++)
                     for (int x = 0; x < a[0].GetLength(0); x++)
-                        product[k][x, y] = a[k][x, y] * scalar;
+                        temp[x, y] = a[k][x, y] * scalar;
+                product[k] = (float[,])temp.Clone();
             });
             return product;
         }

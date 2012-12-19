@@ -719,9 +719,13 @@ namespace TomosurgeryAlpha
             bool dp = false;
             if (plan_dpRB.IsChecked == true && rp.dosespace != null)
             {
-                doseimg = Convert1Dto2D(rp.dosespace, img.GetLength(0), img.GetLength(1));
-                dp = true;
+                if (rp.dosespace != null)
+                {
+                    doseimg = Convert1Dto2D(rp.dosespace, img.GetLength(0), img.GetLength(1));
+                    dp = true;
+                }   
             }
+            
             //float max = img.Max();
             int sizex = img.GetLength(0); 
             int sizey = img.GetLength(1);
@@ -746,26 +750,34 @@ namespace TomosurgeryAlpha
                         int pBackBuffer = (int)wb_Plan.BackBuffer;
                         pBackBuffer += y * wb_Plan.BackBufferStride;
                         pBackBuffer += x * 4;
-                        int value; int alpha = 0; int red = 0;
+                        int value; int alpha = 0; int red = 0; int extra = 0;
                         value = (int)Math.Round((img[y, x]) * 255);
+                        if (value > 0)
+                            alpha = 255;
+                        else
+                            alpha = 0;
                         int color_data=0;
+                        double multiplier;
                         if (dp)
                         {
                             int dose = (int)Math.Round(doseimg[y, x]);
-                            if (dose > 0.5)
-                                red = (int)Math.Round(0.8 * 255);
-                            if (value > 0)
-                                alpha = 255;
+                            
+                            if (dose >= 0.5)
+                            {
+                                multiplier = 0.1 + ((dose - 0.5) * 1.5);
+                                red = (int)Math.Round(multiplier * 255);
+                            }                          
+                            
                             color_data = red << 16;
-                            color_data |= alpha << 8;
-                            color_data |= alpha << 0;
+                            color_data |= alpha+extra << 8;
+                            color_data |= alpha+extra << 0;
                         }
                         else if (!dp)
                         {
-                            if (value > 0)
-                                alpha = 255;
-                            else
-                                alpha = 0;
+                            //if (value > 0)
+                            //    alpha = 255;
+                            //else
+                            //    alpha = 0;
                             color_data = 0 << 16;
                             color_data |= alpha << 8;
                             color_data |= alpha << 0;
@@ -790,7 +802,7 @@ namespace TomosurgeryAlpha
                             pBackBuffer += y * wb_Plan.BackBufferStride;
                             pBackBuffer += x * 4;
 
-                            int color_data = 0 << 16; // R
+                            int color_data = 255 << 16; // R
                             color_data |= 255 << 8;   // G
                             color_data |= 0 << 0;   // B
 
@@ -850,8 +862,8 @@ namespace TomosurgeryAlpha
                     {
 
                         int pBackBuffer = (int)wb_DDS.BackBuffer;
-                        pBackBuffer += y * wb_DDS.BackBufferStride;
-                        pBackBuffer += x * 4;
+                        pBackBuffer += x * wb_DDS.BackBufferStride;
+                        pBackBuffer += y * 4;
                         int value = (int)structureimg[y,x];
                         int alpha; int color_data=0;
 
@@ -1055,24 +1067,26 @@ namespace TomosurgeryAlpha
                 dp = true;
             }
             float max = img.Max();
-            int size = (int)Math.Sqrt(img.GetLength(0));
+            int sizex = (int)SS.fj_Tumor[0].GetLength(0);
+            int sizey = (int)SS.fj_Tumor[0].GetLength(1);
+            
             float sum = img.Sum();
-            wb_Plan = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgr32, null);
+            wb_Plan = new WriteableBitmap(sizey, sizex, 96, 96, PixelFormats.Bgr32, null);
             plan_imgbox.Source = wb_Plan;
             wb_Plan.Lock();
 
             unsafe
             {
                 //First draw the structure slice as a background
-                for (int y = 0; y < size; y++)
-                    for (int x = 0; x < size; x++)
+                for (int y = 0; y < sizex; y++)
+                    for (int x = 0; x < sizey; x++)
                     {
 
                         int pBackBuffer = (int)wb_Plan.BackBuffer;
                         pBackBuffer += y * wb_Plan.BackBufferStride;
                         pBackBuffer += x * 4;
                         int value; int alpha;
-                        alpha = (int)Math.Round((img[x + y * size]) * 255);
+                        alpha = (int)Math.Round((img[y + x * sizex]) * 255);
                         if (!dp)
                         {
                             if (alpha > 0)
@@ -1095,8 +1109,8 @@ namespace TomosurgeryAlpha
                 //Overlay the planned points
                 foreach (PointF pf in points)
                 {
-                    int x = (int)Math.Round(pf.X);
-                    int y = (int)Math.Round(pf.Y);
+                    int y = (int)Math.Round(pf.X);
+                    int x = (int)Math.Round(pf.Y);
 
                     int pBackBuffer = (int)wb_Plan.BackBuffer;
                     pBackBuffer += y * wb_Plan.BackBufferStride;
@@ -1112,7 +1126,7 @@ namespace TomosurgeryAlpha
             }
             try
             {
-                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, size, size));
+                wb_Plan.AddDirtyRect(new Int32Rect(0, 0, sizey, sizex));
             }
             catch (Exception ex)
             {
@@ -1128,7 +1142,7 @@ namespace TomosurgeryAlpha
         {
             RasterPath rp = (RasterPath)PS.RasterPaths[dataGrid1.SelectedIndex];
             //float[,] f = RasterPath.GetMultiplied_DS_Subset(rp.dosespace, p.X, p.Y, RasterPath.dosemidplane);
-            float[,] f = Matrix.Subset(rp.dosespace, RasterPath.X, RasterPath.Y, (int)p.X, (int)p.Y, N);
+            float[,] f = Matrix.Subset(rp.dosespace, RasterPath.Y, RasterPath.X, (int)p.Y, (int)p.X, N);
             //f = Matrix.Normalize(f);
             //DisplayWindowCenteredAboutPoint(f, p);
             Display2DFloat(f);
@@ -1576,6 +1590,15 @@ namespace TomosurgeryAlpha
             UpdateStatusBar("Writing dose file...");
             UpdateTextBlock2("Finished shot weighting. Now writing dose, please wait...");
             RefreshDataGrid();
+
+            foreach (RasterPath rp in PS.RasterPaths)
+            {
+                rp.Calculate2DDoseSpace(RasterPath.dosemidplane, null);
+                rp.CreateSliceInfo();
+            }            
+            
+
+            
             
             //Auto view the first slice in dose form
             plan_dpRB.IsChecked = true;
@@ -1584,10 +1607,12 @@ namespace TomosurgeryAlpha
             //Adjust controls to reflect the "Optimized" status.
             PlanOptimized = true;
             Plan_btn.Content = "Re-plan";
-            Opt_btn.IsEnabled = false;
+            Opt_btn.Content = "...Continue!";
+            //Opt_btn.IsEnabled = false;
             //save_plan_btn.IsEnabled = false;
             //export_shots_btn.IsEnabled = true;
             //CalcSaveDose_btn.IsEnabled = true;
+            DisplayPlan();
         }
         #endregion
 
@@ -1885,7 +1910,7 @@ namespace TomosurgeryAlpha
             if (HasPreviewBeenCreated)
             {
                 for (int i = 0; i < PathSet.NumSlices; i++)
-                    ((RasterPath)PS.RasterPaths[i]).Calculate2DDoseSpace(DK.midplane);                                
+                    ((RasterPath)PS.RasterPaths[i]).Calculate2DDoseSpace(DK.midplane, null);                                
             }
             else
                 UpdateCurrentSlicePaths();
@@ -1965,9 +1990,15 @@ namespace TomosurgeryAlpha
         {
 
             UpdateStatusBar("Running optimization...this may take some time.");            
-            SetWorkingDirectory();            
-            PS.PS_1_ShotOptimize_worker.RunWorkerAsync();
-            UpdateTextBlock2("Optimizing shot weights...please wait.");
+            SetWorkingDirectory();
+            if (PS.ShotsWeighted == false)
+                PS.PS_1_ShotOptimize_worker.RunWorkerAsync();
+            else
+            {
+                //Calculate the slicedoses so far...
+                PS.CreateDoseMatrix(DK, PS.folderpath); //<- This calls second background worker "PS_Two"
+            }
+            //UpdateTextBlock2("Optimizing shot weights...please wait.");
         }
 
         private void SetWorkingDirectory()
@@ -2208,7 +2239,7 @@ namespace TomosurgeryAlpha
             RasterPath.N = DoseKernel.N;
             
             
-            RasterPath.ComparisonKernelSize = 80;
+            RasterPath.ComparisonKernelSize = 100;
             AddDoseLoadedToListBox();
 
             //Set parameters to default values for '8mm'
@@ -2611,7 +2642,7 @@ namespace TomosurgeryAlpha
 
 
                     rp.FindAllShotPoints();
-                    rp.Calculate2DDoseSpace(DK.midplane);
+                    rp.Calculate2DDoseSpace(DK.midplane, null);
                     rp.CreateSliceInfo();
                     DisplayPlan();
                 }
@@ -2648,7 +2679,7 @@ namespace TomosurgeryAlpha
             rp.LineSidePadding = Convert.ToInt16(txt_sidepad.Text);
             rp.LineEdgePadding = Convert.ToInt16(txt_edgepadding.Text);
             rp.FindAllShotPoints();
-            rp.Calculate2DDoseSpace(DK.midplane);
+            rp.Calculate2DDoseSpace(DK.midplane, null);
             rp.CreateSliceInfo();
             DisplayPlan();
         }
