@@ -154,6 +154,8 @@
                     <Button Content="Looks Good!" Height="23" HorizontalAlignment="Left" IsEnabled="True" Margin="527,396,0,0" x:Name="SetRasterConfig_btn" VerticalAlignment="Top" Width="88" Click="SetRasterConfig_btn_Click" FontSize="12" FontWeight="Bold" />
                     <Label x:Name="RealtimeCoverage_lbl" Content="Max Potential Coverage:" HorizontalAlignment="Left" Margin="176,25,0,0" VerticalAlignment="Top" Foreground="Red" FontFamily="Lato Black" FontSize="18" FontWeight="Bold" Width="318"/>
                     <Label x:Name="sliceindicator_lbl" Content="Slice: " HorizontalAlignment="Left" Margin="30,25,0,0" VerticalAlignment="Top" Foreground="#FFFDFBFB" FontFamily="Lato Black" FontSize="18" FontWeight="Bold" Width="109"/>
+                    <RadioButton Content="Dose" Height="16" HorizontalAlignment="Left" Margin="536,492,-2,0" x:Name="Dose_RB_Btn" VerticalAlignment="Top" Width="88" Checked="plan_dpRB_Checked" FontFamily="Euphemia" Foreground="#FFE4E1E1" />
+                    <CheckBox x:Name="Adj_Slices_RB_btn" Content="Adj. Slices" HorizontalAlignment="Left" Margin="533,513,0,0" VerticalAlignment="Top" Foreground="#FFF9F6F6"/>
 
                 </Grid>
             </TabItem>

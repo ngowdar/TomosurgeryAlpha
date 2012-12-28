@@ -14,7 +14,7 @@ using System.Windows.Shapes;
 namespace TomosurgeryAlpha
 {
     /// <summary>
-    /// Interaction logic for SlicePlanView.xaml
+    ///   Interaction logic for SlicePlanView.xaml
     /// </summary>
     public partial class SlicePlanView : Window
     {

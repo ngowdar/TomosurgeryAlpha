@@ -8,31 +8,35 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using TomosurgeryAlpha.Properties;
 using openDicom;
+using openDicom.DataStructure.DataSet;
+using openDicom.File;
+using openDicom.Registry;
 
 namespace TomosurgeryAlpha
 {
     public class DICOMDoseFile
     {
-        openDicom.File.DicomFile DF;
-        public StructureSet SS;
         public static string dictionarypath;
-        public string path;        
-        static openDicom.Registry.DataElementDictionary dd;
-        byte[] pixeldata;
+        private static DataElementDictionary dd;
         public static float[][,] OriginalDose;
         //public static float[] dose;
         public static float[][,] Dose;
-        public float ZStart;
         public static ushort rows;
         public static ushort columns;
-        public ushort bitsalloc;
-        static public long numframes;
+        public static long numframes;
         public static UInt16 maxdose;
-        public ushort scaling;
         public static decimal[] doseoffset = new decimal[3];
         public static int[] structurebounds;
+        private DicomFile DF;
+        public StructureSet SS;
+        public float ZStart;
+        public ushort bitsalloc;
         public string dosesavepath;
+        public string path;
+        private byte[] pixeldata;
+        public ushort scaling;
 
         public DICOMDoseFile(string path, bool IsDICOM)
         {
@@ -40,30 +44,28 @@ namespace TomosurgeryAlpha
             {
                 this.path = path;
                 SetDictionaryPath();
-                DF = new openDicom.File.DicomFile(path);
-                OriginalDose = Matrix.Normalize(ExtractDoseData());                
+                DF = new DicomFile(path);
+                OriginalDose = Matrix.Normalize(ExtractDoseData());
                 Dose = EnlargeAndInterpolate(OriginalDose);
 
-                dosesavepath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");
+                dosesavepath = Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");
 
                 WriteDoseToFile(dosesavepath);
                 DEBUG_WriteFileSummary();
-                
             }
             else
             {
                 ReadDoseFromFile(path);
                 Dose = EnlargeAndInterpolate(OriginalDose);
             }
-
         }
 
         private void SetDictionaryPath()
         {
             if (dictionarypath == null)
             {
-                dictionarypath = CreateDictionaryFile(TomosurgeryAlpha.Properties.Resources.dicomdictionary);
-                dd = new openDicom.Registry.DataElementDictionary(dictionarypath, openDicom.Registry.DictionaryFileFormat.BinaryFile);
+                dictionarypath = CreateDictionaryFile(Resources.dicomdictionary);
+                dd = new DataElementDictionary(dictionarypath, DictionaryFileFormat.BinaryFile);
             }
         }
 
@@ -71,26 +73,24 @@ namespace TomosurgeryAlpha
         {
             SS = ss;
             SS.AssociateDose(this);
-            decimal[] offset = new decimal[3];
+            var offset = new decimal[3];
             for (int i = 0; i < 3; i++)
-                offset[i] = (decimal)SS.f_offset[i] - (decimal)doseoffset[i];
+                offset[i] = (decimal) SS.f_offset[i] - doseoffset[i];
             structurebounds = new int[6];
             structurebounds = SS.FindAllAxisBoundaries();
 
             //TODO: Find relative structure bounds
-            decimal[] zbound = new decimal[2] { structurebounds[4], structurebounds[5] };
+            var zbound = new decimal[2] {structurebounds[4], structurebounds[5]};
             zbound[0] += offset[2];
             zbound[1] += offset[2];
 
             return zbound;
-
-            
         }
 
         public void ReadDoseFromFile(string path)
         {
-            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
-            using (StreamReader br = new StreamReader(fs))
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            using (var br = new StreamReader(fs))
             {
                 rows = Convert.ToUInt16(br.ReadLine());
                 columns = Convert.ToUInt16(br.ReadLine());
@@ -99,31 +99,30 @@ namespace TomosurgeryAlpha
                 doseoffset[1] = Convert.ToDecimal(br.ReadLine());
                 doseoffset[2] = Convert.ToDecimal(br.ReadLine());
                 scaling = Convert.ToUInt16(br.ReadLine());
-                ZStart = (float)Convert.ToDecimal(br.ReadLine());
+                ZStart = (float) Convert.ToDecimal(br.ReadLine());
                 int readlength = Convert.ToInt32(br.ReadLine());
                 OriginalDose = new float[numframes][,];
-                for (int k = 0; k < (int)numframes; k++)
+                for (int k = 0; k < (int) numframes; k++)
                     for (int j = 0; j < rows; j++)
                         for (int i = 0; i < columns; i++)
                         {
-                            OriginalDose[k][i, j] = (float)Convert.ToDecimal(br.ReadLine());
+                            OriginalDose[k][i, j] = (float) Convert.ToDecimal(br.ReadLine());
                         }
             }
             OriginalDose = Matrix.Normalize(OriginalDose);
             Debug.WriteLine("Successfully loaded dose file.");
             DEBUG_WriteFileSummary();
-
         }
 
         public string CreateDictionaryFile(byte[] b)
         {
             //Create path
-            string path = System.IO.Path.Combine(PathSet.ActiveDirectory, "tempdict.bin");
+            string path = Path.Combine(PathSet.ActiveDirectory, "tempdict.bin");
 
             //Writing byte array to a file
-            FileStream fs = new FileStream(path, FileMode.OpenOrCreate);
+            var fs = new FileStream(path, FileMode.OpenOrCreate);
 
-            BinaryWriter bw = new BinaryWriter(fs);
+            var bw = new BinaryWriter(fs);
             bw.Write(b);
             bw.Close();
 
@@ -133,7 +132,7 @@ namespace TomosurgeryAlpha
             return path;
             //DICOMRT.dictionarypath = path;
             //DICOMdose.dictionarypath = path;
-        }  
+        }
 
         private void DEBUG_WriteFileSummary()
         {
@@ -147,14 +146,13 @@ namespace TomosurgeryAlpha
 
             Analysis.AddLineToReport("====================LOADED DICOM DOSE FILE===========================");
             Analysis.AddLineToReport("Rows x Columns x NumFrames: " + rows + " x " + columns + " x " + numframes);
-            Analysis.AddLineToReport("Offset Vector: < " + doseoffset[0] + ", " + doseoffset[1] + ", " + doseoffset[2] + " > ");
+            Analysis.AddLineToReport("Offset Vector: < " + doseoffset[0] + ", " + doseoffset[1] + ", " + doseoffset[2] +
+                                     " > ");
             Analysis.AddLineToReport("Scaling: " + scaling);
             Analysis.AddLineToReport("ZStart: " + ZStart);
             Analysis.AddLineToReport("Saved to: " + dosesavepath);
             Analysis.AddLineToReport("Maximum value: " + Matrix.FindMax(OriginalDose));
             Analysis.AddLineToReport("======================================================================");
-
-
         }
 
         public void WriteDoseToFile(string path)
@@ -171,10 +169,10 @@ namespace TomosurgeryAlpha
             //total length
             //10 elements in***
             //start dose data here.
-            string headerpath = System.IO.Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseHeader.txt");
-            FileStream hh = new FileStream(headerpath, FileMode.Create, FileAccess.Write);
+            string headerpath = Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseHeader.txt");
+            var hh = new FileStream(headerpath, FileMode.Create, FileAccess.Write);
             using (hh)
-            using (StreamWriter ds = new StreamWriter(hh))
+            using (var ds = new StreamWriter(hh))
             {
                 ds.WriteLine(rows);
                 ds.WriteLine(columns);
@@ -188,26 +186,25 @@ namespace TomosurgeryAlpha
             }
 
             FileStream ff;
-            if (System.IO.File.Exists(path))
+            if (File.Exists(path))
                 ff = new FileStream(path, FileMode.Truncate, FileAccess.Write);
             else
                 ff = new FileStream(path, FileMode.Create, FileAccess.Write);
             using (ff)
-            using (StreamWriter ds = new StreamWriter(ff))
+            using (var ds = new StreamWriter(ff))
             {
-                
                 for (int k = 0; k < OriginalDose.GetLength(0); k++)
                     for (int j = 0; j < OriginalDose[0].GetLength(1); j++)
                         for (int i = 0; i < OriginalDose[0].GetLength(0); i++)
-                            ds.WriteLine(OriginalDose[k][i,j]);
+                            ds.WriteLine(OriginalDose[k][i, j]);
             }
         }
 
         public float[][,] EnlargeAndInterpolate(float[][,] dose)
         {
-            float[][,] r = new float[numframes][,];            
+            var r = new float[numframes][,];
             for (int k = 0; k < numframes; k++)
-            {                
+            {
                 r[k] = Matrix.LinearlyInterpolateSlices(Matrix.LinearlyInterpolateSlices(dose[k]));
             }
             r = InterpolateInbetweenSlices(InterpolateInbetweenSlices(r));
@@ -220,41 +217,41 @@ namespace TomosurgeryAlpha
             float[,] C = Matrix.Zeroes(A.GetLength(0), A.GetLength(1));
             for (int j = 0; j < A.GetLength(1); j++)
                 for (int i = 0; i < A.GetLength(0); i++)
-                    C[i, j] = (A[i, j] + B[i, j]) / 2;
+                    C[i, j] = (A[i, j] + B[i, j])/2;
             return C;
         }
 
         public static float[][,] InterpolateInbetweenSlices(float[][,] A)
         {
-            int newlength = (A.GetLength(0) * 2) - 1;
-            float[][,] C = new float[newlength][,];
+            int newlength = (A.GetLength(0)*2) - 1;
+            var C = new float[newlength][,];
             //fill in original slices:
 
             for (int i = 0; i < A.GetLength(0); i++)
-                C[2*i] = (float[,])A[i].Clone();
+                C[2*i] = (float[,]) A[i].Clone();
 
             for (int i = 1; i < A.GetLength(0); i++)
-                C[(2 * i) - 1] = AverageSlices(A[i - 1], A[i]);
+                C[(2*i) - 1] = AverageSlices(A[i - 1], A[i]);
 
-                        
-            return Matrix.ThresholdEq(C,0.4f);
+
+            return Matrix.ThresholdEq(C, 0.4f);
         }
 
 
         private float[][,] ExtractDoseData()
         {
-            openDicom.DataStructure.DataSet.DataSet m = DF.DataSet;
-            openDicom.DataStructure.DataSet.Sequence alldata = m.GetJointSubsequences(); //concatenated long list of all data            
-            
+            DataSet m = DF.DataSet;
+            Sequence alldata = m.GetJointSubsequences(); //concatenated long list of all data            
 
-            foreach (openDicom.DataStructure.DataSet.DataElement data in alldata)
+
+            foreach (DataElement data in alldata)
             {
                 //try extracting pixel data, if not found in the PixelData tag
                 if (data.Tag.Element == "0010" && data.Tag.Group == "7FE0")
                 {
                     foreach (object b in data.Value)
                     {
-                        pixeldata = (byte[])b;
+                        pixeldata = (byte[]) b;
                     }
                 }
 
@@ -263,7 +260,7 @@ namespace TomosurgeryAlpha
                 {
                     foreach (object c in data.Value)
                     {
-                        rows = (ushort)c;
+                        rows = (ushort) c;
                     }
                 }
                 //finds columns
@@ -271,7 +268,7 @@ namespace TomosurgeryAlpha
                 {
                     foreach (object c in data.Value)
                     {
-                        columns = (ushort)c;
+                        columns = (ushort) c;
                     }
                 }
                 //bits allocated
@@ -279,7 +276,7 @@ namespace TomosurgeryAlpha
                 {
                     foreach (object c in data.Value)
                     {
-                        bitsalloc = (ushort)c;
+                        bitsalloc = (ushort) c;
                     }
                 }
                 //number of frames
@@ -287,7 +284,7 @@ namespace TomosurgeryAlpha
                 {
                     foreach (object c in data.Value)
                     {
-                        numframes = (long)c;
+                        numframes = (long) c;
                     }
                 }
 
@@ -297,26 +294,24 @@ namespace TomosurgeryAlpha
                     int t = 0;
                     foreach (object c in data.Value)
                     {
-                        doseoffset[t] = (decimal)c;
+                        doseoffset[t] = (decimal) c;
                         t++;
                     }
-                    ZStart = (float)doseoffset[2];
-                }                
-
+                    ZStart = (float) doseoffset[2];
+                }
             }
             //return Byte2Float(pixeldata);
             float[] temp_pixeldata = Byte2Float(pixeldata);
-            maxdose = (UInt16)temp_pixeldata.Max();
-            return Matrix.MakeJaggedFloat(temp_pixeldata, (int)columns, (int)rows, (int)numframes);
+            maxdose = (UInt16) temp_pixeldata.Max();
+            return Matrix.MakeJaggedFloat(temp_pixeldata, columns, rows, (int) numframes);
         }
 
         private float[] Byte2Float(byte[] data)
         {
-            float[] output = new float[data.GetLength(0) / 2];
+            var output = new float[data.GetLength(0)/2];
             for (int i = 0; i < data.GetLength(0); i += 2)
             {
-
-                output[i / 2] = BitConverter.ToUInt16(data, i);
+                output[i/2] = BitConverter.ToUInt16(data, i);
             }
             return output;
         }

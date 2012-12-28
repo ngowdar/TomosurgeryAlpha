@@ -14,7 +14,7 @@ using System.Windows.Shapes;
 namespace TomosurgeryAlpha
 {
     /// <summary>
-    /// Interaction logic for RestrictSliceWeight.xaml
+    ///   Interaction logic for RestrictSliceWeight.xaml
     /// </summary>
     public partial class RestrictSliceWeight : Window
     {
@@ -27,9 +27,8 @@ namespace TomosurgeryAlpha
 
         private void Reweightslices_btn_Click(object sender, RoutedEventArgs e)
         {
-            SliceWeight = new double[2]{Convert.ToDouble(Slicenum_box.Text), Convert.ToDouble(Sliceweight_box.Text)};
+            SliceWeight = new double[2] {Convert.ToDouble(Slicenum_box.Text), Convert.ToDouble(Sliceweight_box.Text)};
             return;
-
         }
     }
 }

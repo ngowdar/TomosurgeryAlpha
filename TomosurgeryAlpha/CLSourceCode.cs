@@ -7,21 +7,6 @@ namespace TomosurgeryAlpha
 {
     public class CL_Sourcecode
     {
-        public string ScalarMultiply2DFloat = @"
- __kernel void
-ScalarMultiply(
-__global	float * A,
-__global	float * c,
-__global	float * Result
-)
- {
- 	//Vector element index
- 	int id = get_global_id(0);
-
- 	
- 	Result[id] = A[id]*c[0];
- }
-";
         public string Add3DFloat = @"
  __kernel void
 Add(
@@ -57,6 +42,21 @@ __global    float * params)
  	
     weightedDS[(startz*size*size)+id] += slicedose[id]*weight;
   }
+";
+        public string ScalarMultiply2DFloat = @"
+ __kernel void
+ScalarMultiply(
+__global	float * A,
+__global	float * c,
+__global	float * Result
+)
+ {
+ 	//Vector element index
+ 	int id = get_global_id(0);
+
+ 	
+ 	Result[id] = A[id]*c[0];
+ }
 ";
         //NOT FINISHED YET.
         public string WeightOriginalDS = @"

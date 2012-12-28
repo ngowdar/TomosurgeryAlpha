@@ -10,6 +10,10 @@ namespace TomosurgeryAlpha
     {
         public const int XPostWidth = 190; //This is what I found the distance between the L and R fiducials to be.
         public const int YPostWidth = 120; //This is what I found the distance between the ant and post fiducials to be.
+        public PointF[] align;
+        public bool finished;
+        public bool leftset;
+        public bool rightset;
         public double X { get; set; } //This is the X-offset value (or, location of the LGK origin in the image space)
         public double Y { get; set; }
         public double Z { get; set; }
@@ -17,11 +21,6 @@ namespace TomosurgeryAlpha
         public double right { get; set; } //The DICOM coordinate when the right z-fiducial is aligned.
         public double left_slider { get; set; }
         public double right_slider { get; set; }
-
-        public bool leftset;
-        public bool rightset;
-        public bool finished;
-        public PointF[] align;
 
         //The DICOM coordinates of the LGK (100,100,100) point.
         public double x100 { get; set; }
@@ -38,25 +37,26 @@ namespace TomosurgeryAlpha
              * However, must remember that y-axis is flipped (image y-positive is down, LGK y-positive is up).
              * */
 
-            X = ((x + x + XPostWidth) / 2) - 100;
-            Y = ((y + y + YPostWidth) / 2) + 100;
+            X = ((x + x + XPostWidth)/2) - 100;
+            Y = ((y + y + YPostWidth)/2) + 100;
             finished = false;
         }
 
         public void SetLGK_Zoffset()
         {
-            z100 = ((left + right) / 2);
+            z100 = ((left + right)/2);
             Z = z100 - 100;
-            slider_100 = (left_slider + right_slider) / 2;
+            slider_100 = (left_slider + right_slider)/2;
             finished = true;
         }
 
         public double getLGK_Z_forDICOM(double slidervalue)
         {
             //return 100 + (slidervalue - slider_100) * 2.0;
-            return slidervalue * 2 + Z + 100;
+            return slidervalue*2 + Z + 100;
         }
 
+/*
         public double getLGK_Z_forDose(double slidervalue)
         {
             //return 100 + (slidervalue - slider_100) * 2.0;
@@ -64,6 +64,7 @@ namespace TomosurgeryAlpha
             //return Convert.ToDouble(DICOMdose.doseoffset[2]) - (slidervalue + Z + 100);
             return d;
         }
+*/
 
         public double getLGK_X(double x)
         {
@@ -77,32 +78,22 @@ namespace TomosurgeryAlpha
 
         public decimal[] Image2LGKCoordinates(decimal[] dd)
         {
-            decimal[] d = new decimal[3];
-            d[0] = Math.Round((decimal)getLGK_X(Convert.ToDouble(dd[0])), 2);
-            d[1] = Math.Round((decimal)getLGK_Y(Convert.ToDouble(dd[1])), 2);
-            d[2] = Math.Round((decimal)getLGK_Z_forDICOM(Convert.ToDouble(dd[2])), 2);
+            var d = new decimal[3];
+            d[0] = Math.Round((decimal) getLGK_X(Convert.ToDouble(dd[0])), 2);
+            d[1] = Math.Round((decimal) getLGK_Y(Convert.ToDouble(dd[1])), 2);
+            d[2] = Math.Round((decimal) getLGK_Z_forDICOM(Convert.ToDouble(dd[2])), 2);
             return d;
         }
 
+/*
         public decimal[] LGK2ImageCoordinates(decimal[] dd)
         {
-            decimal[] d = new decimal[3];
-            d[0] = Math.Round((decimal)(dd[0] + (decimal)X), 2);
-            d[1] = Math.Round((decimal)Y - dd[1], 2);
-            d[2] = Math.Round((decimal)((dd[2] - 100)) + (decimal)slider_100, 2);
+            var d = new decimal[3];
+            d[0] = Math.Round((dd[0] + (decimal) X), 2);
+            d[1] = Math.Round((decimal) Y - dd[1], 2);
+            d[2] = Math.Round(((dd[2] - 100)) + (decimal) slider_100, 2);
             return d;
         }
-    }
-
-    public struct SliceInfo
-    {
-        public int SliceNum { get; set; }
-        public int ZPos { get; set; }
-        public double Coverage { get; set; }
-        public int RasterLines { get; set; }
-        public int NumShots { get; set; }
-        public double SliceWeight { get; set; }
-        public double SumWeight { get; set; }
-        public int TV50 { get; set; }
+*/
     }
 }

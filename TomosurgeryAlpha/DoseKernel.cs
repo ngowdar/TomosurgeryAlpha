@@ -8,23 +8,24 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Windows;
 
 namespace TomosurgeryAlpha
 {
     public class DoseKernel
     {
-        public float[][] dose;
         public static int N;
-        int[] sectorsizes;
-        double resolution;
-        double[] location;
-        public float[,] midplane;
         public DoseKernelInfo DKI;
+        public float[][] dose;
+        private double[] location;
+        public float[,] midplane;
+        private double resolution;
+        private int[] sectorsizes;
 
         public DoseKernel(string path)
         {
             string hpath = GetHeaderFileName(path);
-            FileInfo fi = new FileInfo(path);
+            var fi = new FileInfo(path);
 
             DKI = new DoseKernelInfo();
             if (hpath != null && fi.Exists)
@@ -42,7 +43,7 @@ namespace TomosurgeryAlpha
         public DoseKernel(int size)
         {
             DKI = new DoseKernelInfo();
-            switch(size)
+            switch (size)
             {
                 case 4:
                     Create4mmKernel();
@@ -64,18 +65,18 @@ namespace TomosurgeryAlpha
             FindMidplane();
             DKI.Size = dose.GetLength(0);
             DKI.GetListboxInfo();
-            SetDosemidplaneForOpt();                
+            SetDosemidplaneForOpt();
         }
 
         private void Create16mmKernel()
         {
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_head.bin"))
-            using (StreamReader head = new StreamReader(stream))
+            using (var head = new StreamReader(stream))
             {
                 LoadHeader(head);
             }
             using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("16mm_dose.bin"))
-            using (StreamReader t = new StreamReader(s))
+            using (var t = new StreamReader(s))
             {
                 LoadDose(t);
             }
@@ -84,13 +85,19 @@ namespace TomosurgeryAlpha
         private void Create8mmKernel()
         {
             string[] names = this.GetType().Assembly.GetManifestResourceNames();
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_head.bin"))
-            using (StreamReader head = new StreamReader(stream))
+            using (
+                Stream stream =
+                    Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_head.bin")
+                )
+            using (var head = new StreamReader(stream))
             {
                 LoadHeader(head);
             }
-            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_dose.bin"))
-            using (StreamReader t = new StreamReader(s))
+            using (
+                Stream s =
+                    Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.8mm_dose.bin")
+                )
+            using (var t = new StreamReader(s))
             {
                 LoadDose(t);
             }
@@ -99,46 +106,41 @@ namespace TomosurgeryAlpha
         private void Create4mmKernel()
         {
             string[] names = this.GetType().Assembly.GetManifestResourceNames();
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_head.bin"))
-            using (StreamReader head = new StreamReader(stream))
+            using (
+                Stream stream =
+                    Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_head.bin")
+                )
+            using (var head = new StreamReader(stream))
             {
                 LoadHeader(head);
             }
-            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_dose.bin"))
-            using (StreamReader t = new StreamReader(s))
+            using (
+                Stream s =
+                    Assembly.GetExecutingAssembly().GetManifestResourceStream("TomosurgeryAlpha.Resources.4mm_dose.bin")
+                )
+            using (var t = new StreamReader(s))
             {
                 LoadDose(t);
             }
-
-        }
-
-        public float[] ReturnDose1D()
-        {
-            float[] d = new float[N * N * N];
-            for (int k = 0; k < N; k++)
-                for (int j = 0; j < N; j++)
-                    for (int i = 0; i < N; i++)
-                        d[k * N * N + j * N + i] = dose[k][j * N + i];
-            return d;
         }
 
         public float ReturnSpecificDoseValue(int i, int j, int k)
         {
-            return dose[k][j * N + i];
+            return dose[k][j*N + i];
         }
 
         private void FindMidplane()
         {
-            float[] temp = dose[N / 2];
-            midplane = new float[N, N];
+            float[] temp = dose[N/2];
+            midplane = new float[N,N];
             for (int i = 0; i < N; i++)
                 for (int j = 0; j < N; j++)
-                    midplane[i, j] = temp[j * N + i];
+                    midplane[i, j] = temp[j*N + i];
         }
 
         private string GetHeaderFileName(string path)
         {
-            if (path.EndsWith("txt") == true)
+            if (path.EndsWith("txt"))
             {
                 path = Path.ChangeExtension(path, ".h");
                 //path.Remove(count - 4,3);
@@ -149,11 +151,10 @@ namespace TomosurgeryAlpha
             }
             else
             {
-                System.Windows.MessageBox.Show("You didn't choose a text file!");
+                MessageBox.Show("You didn't choose a text file!");
                 path = null;
             }
             return path;
-
         }
 
         private static ArrayList BinaryDeserialize(string path)
@@ -161,22 +162,22 @@ namespace TomosurgeryAlpha
             ArrayList output = null;
             using (FileStream str = File.OpenRead(path))
             {
-                BinaryFormatter bf = new BinaryFormatter();
-                output = (ArrayList)bf.Deserialize(str);
+                var bf = new BinaryFormatter();
+                output = (ArrayList) bf.Deserialize(str);
             }
             return output;
         }
 
         private void LoadDose(StreamReader t)
-        {            
+        {
             dose = new float[N][];
             float[] temp;
             for (int j = 0; j < N; j++)
             {
-                temp = new float[N * N];
-                for (int i = 0; i < N * N; i++)
+                temp = new float[N*N];
+                for (int i = 0; i < N*N; i++)
                 {
-                    temp[i] = (float)Convert.ToDecimal(t.ReadLine());
+                    temp[i] = (float) Convert.ToDecimal(t.ReadLine());
                     //dose[j][i] = (float)Convert.ToDecimal(t.ReadLine());
                 }
                 dose[j] = temp;
@@ -185,12 +186,12 @@ namespace TomosurgeryAlpha
 
         private void LoadDose(string path)
         {
-            StreamReader s = new StreamReader(path);
+            var s = new StreamReader(path);
             LoadDose(s);
         }
 
         private void LoadHeader(StreamReader head)
-        {            
+        {
             head.ReadLine();
             string sectorconfig = head.ReadLine();
             DKI.SectorConfig = Convert.ToInt32(sectorconfig);
@@ -212,7 +213,7 @@ namespace TomosurgeryAlpha
 
         private void LoadHeader(string hpath)
         {
-            StreamReader head = new StreamReader(hpath);
+            var head = new StreamReader(hpath);
             LoadHeader(head);
         }
 
@@ -232,23 +233,23 @@ namespace TomosurgeryAlpha
 
         public float[,] Get2DSlice(int z)
         {
-            float[,] r = new float[N, N];
+            var r = new float[N,N];
             float[] temp = dose[z];
 
             for (int j = 0; j < N; j++)
                 for (int i = 0; i < N; i++)
-                    r[i, j] = temp[i * j];
+                    r[i, j] = temp[i*j];
             return r;
         }
 
         public float[][,] GetDoseSlab(int startz, int endz)
         {
-            float[][,] slab = new float[endz - startz][,];
+            var slab = new float[endz - startz][,];
             int s = startz;
             int e = endz;
             //Change start coords if requested start and end are beyond limits
             if (startz < 0)
-                s = 0;            
+                s = 0;
             else if (startz >= N)
                 s = -1;
             else
@@ -262,29 +263,24 @@ namespace TomosurgeryAlpha
 
             if (s > 0 && e > 0)
             {
-                Parallel.For(0, e - s, (i) =>
-                {
-                    slab[i] = Get2DSlice(i + s);
-                });
+                Parallel.For(0, e - s, (i) => { slab[i] = Get2DSlice(i + s); });
             }
             return slab;
-
         }
 
         private void SetDosemidplaneForOpt()
         {
-            float[,] dmp = new float[N, N];
+            var dmp = new float[N,N];
             for (int j = 0; j < N; j++)
                 for (int i = 0; i < N; i++)
                 {
                     float z = 0;
                     for (int k = 0; k < N; k++)
-                        z += dose[k][j * N + i];
+                        z += dose[k][j*N + i];
                     dmp[i, j] = z;
                 }
             RasterPath.dosemidplane = Matrix.Normalize(dmp);
         }
-
     }
 
     public struct DoseKernelInfo
@@ -298,7 +294,8 @@ namespace TomosurgeryAlpha
 
         public void GetListboxInfo()
         {
-            Info = "DOSE: " + Name + ", " + Size + "x" + Size + ", Res: " + Resolution + "mm/px, Config: " + SectorConfig;            
+            Info = "DOSE: " + Name + ", " + Size + "x" + Size + ", Res: " + Resolution + "mm/px, Config: " +
+                   SectorConfig;
         }
     }
 }

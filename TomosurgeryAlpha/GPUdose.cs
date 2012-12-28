@@ -7,6 +7,5 @@ namespace TomosurgeryAlpha
 {
     public class GPUdose
     {
-
     }
 }
