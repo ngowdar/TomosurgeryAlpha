@@ -108,6 +108,7 @@
                     <CheckBox x:Name="origdose_rb_btn" HorizontalAlignment="Left" Margin="522,335,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="origdose_rb_btn_Checked" IsEnabled="False" Width="61" Content="Original"/>
                     <CheckBox x:Name="newdose_rb_btn" Content="Processed" HorizontalAlignment="Left" Margin="522,356,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="newdose_rb_btn_Checked" IsEnabled="False"/>
                     <CheckBox x:Name="Normalized_chkbox" Content="Normalized" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="Normalized_chkbox_Checked" Margin="523,313,0,0" Width="95"/>
+                    <CheckBox x:Name="ShowStruct_chkbox" Content="Normalized" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="Normalized_chkbox_Checked" Margin="522,273,0,0" Width="95"/>
 
                 </Grid>
             </TabItem>

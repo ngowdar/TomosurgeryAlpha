@@ -56,7 +56,7 @@ namespace TomosurgeryAlpha
         public PointF[][] shot_points; //A jagged array. One array of points for each line.
         //Note that this is meant to be direction independent (horizontal or vertical).
         public PointF[] shots;
-        private float[,] slice;
+        public float[,] slice;
         public float[,] priorityslice;
         public static event ProgressChangedEventHandler SliceWorkerProgressChanged;
         public static event ProgressChangedEventHandler ShotWeightsProgressHandler;
@@ -340,16 +340,16 @@ namespace TomosurgeryAlpha
             var boundaries = new int[2];
             var line = new float[slice.GetLength(1)];
             for (int i = 0; i < slice.GetLength(1); i++)
-                line[i] = slice[linepos, i];
+                line[i] = priorityslice[linepos, i];
             Boolean y1 = false;
             for (int y = 0; y < line.GetLength(0); y++)
             {
-                if (!y1 && slice[linepos, y] > 0)
+                if (!y1 && priorityslice[linepos, y] > 0)
                 {
                     y1 = true;
                     boundaries[0] = y;
                 }
-                else if (y1 && slice[linepos, y] == 0)
+                else if (y1 && priorityslice[linepos, y] == 0)
                 {
                     boundaries[1] = y;
                     break;
@@ -375,7 +375,15 @@ namespace TomosurgeryAlpha
                 Lines = LineSpacer(boundaries[0], boundaries[1], LineSidePadding, WhichSlice);
 
             WriteArrayAsList("Line locations: ", (int[]) Lines.Clone());
-            WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice, "_PrioritySlice.bmp"), Lines);
+            WriteArrayAsList("Boundaries: ", (int[]) boundaries.Clone());
+            int[] Bounds = new int[2*Lines.GetLength(0)];
+            for (int i = 0; i < Lines.GetLength(0); i++)
+            {
+                int[] tempbounds = LineBoundaries(Lines[i]);
+                Bounds[2*i] = tempbounds[0];
+                Bounds[(2*i) + 1] = tempbounds[1];
+            }
+                WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice, "_PrioritySlice_Lines.bmp"), Lines, Bounds);
             shot_points = new PointF[Lines.GetLength(0)][];
             NumOfShots = 0;
             for (int i = 0; i < Lines.GetLength(0); i++)
@@ -420,7 +428,7 @@ namespace TomosurgeryAlpha
         public int[] ShotSpacer(int ystart, int yend)
         {
             int[] shots;
-            if ((yend - ystart) < (1.1 * StepSize))
+            if ((yend - ystart) <= (1.3 * StepSize))
             {
                 shots = new int[1];
                 shots[0] = (ystart + yend) / 2;
@@ -439,8 +447,13 @@ namespace TomosurgeryAlpha
                 meat = yend - ystart - edgepad * 2;
                 if (last - first < StepSize)
                 {
-                    shots = new int[1];
-                    shots[0] = (int)Math.Round(((last - first) / 2.0));
+                    int halfrr = (StepSize - meat) / 2;
+                    first = first - halfrr;
+                    last = last + halfrr;
+                    shots = new int[2];
+                    shots[0] = first;
+                    shots[1] = last;
+                    numshots = 2;
                 }
                 else if (meat < StepSize)
                 {
@@ -451,25 +464,11 @@ namespace TomosurgeryAlpha
                     shots = new int[2];
                     shots[0] = first;
                     shots[1] = last;
+                    numshots = 2;
                     return shots;
                 }
                 else
                 {
-
-                    first = ystart + edgepad;
-                    last = yend - edgepad;
-                    //if (last - first < edgepad)
-                    //{
-                    //    edgepad = (last - first);
-                    //    first = ystart + edgepad;
-                    //    last = yend - edgepad;
-                    //    meat = last - first;
-                    //    shots = new int[2];
-                    //    shots[0] = first;
-                    //    shots[1] = last;
-                    //    return shots;
-                    //}
-
                     
                     numshots = (meat / StepSize) + 2;
                     
@@ -1223,6 +1222,7 @@ namespace TomosurgeryAlpha
             #endregion
 
             double ratio = simplesum;
+            //double ratio = BothvsTumor;
             WriteFloatArray2BMP(DStimesP, "DStimesP.bmp");
             WriteFloatArray2BMP(DDStimesP, "DDStimesP.bmp");
             double sum_ds = Matrix.SumAll(DStimesP);
@@ -1701,7 +1701,7 @@ namespace TomosurgeryAlpha
             b.Save(path);
         }
 
-        private void WriteFloatArray2BMP(float[,] temp, string p, int[] lines)
+        private void WriteFloatArray2BMP(float[,] temp, string p, int[] lines, int[] bounds)
         {
             string path = Path.Combine(PathSet.ActiveDirectory, p);
             float max = Matrix.FindMax(temp);
@@ -1720,15 +1720,25 @@ namespace TomosurgeryAlpha
             for (int j = 0; j < temp.GetLength(1); j++)
                 for (int i = 0; i < temp.GetLength(0); i++)
                 {
+                    bool line = false;
                     for (int n = 0; n < lines.GetLength(0); n++)
                     {
                         if (i == lines[n])
-                            b.SetPixel(i, j, Color.FromArgb(255, 0, 0));
+                            if (j >= bounds[n * 2] && j <= bounds[(n * 2) + 1])
+                                line = true;
+                            else
+                                line = false;
                         else
                         {
-                            color = (int)(temp2[i, j] * 255);
-                            b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                            continue;                            
                         }
+                    }
+                    if (line == true)
+                        b.SetPixel(i, j, Color.FromArgb(255, 0, 0));
+                    else
+                    {
+                        color = (int)(temp2[i, j] * 255);
+                        b.SetPixel(i, j, Color.FromArgb(color, color, color));
                     }
                     //color = (int)(temp2[i, j] * 255);
                     //b.SetPixel(i, j, Color.FromArgb(color, color, color));
@@ -1848,15 +1858,17 @@ namespace TomosurgeryAlpha
                             PointF shot = shots[w];
                             var center = new PointF((N - 1)/2, (N - 1)/2);
                             var FDP = new PointF(shot.X - center.X, shot.Y - center.Y);
-                            if (FDP.X < 0 || FDP.Y < 0)
+                            if (FDP.X + i < 0 || FDP.Y + j < 0)
                                 continue;
                             else if (FDP.X >= xsize || FDP.Y >= ysize)
+                                continue;
+                            else if (FDP.X + i >= xsize || FDP.Y + j >= ysize)
                                 continue;
                             else
                             {
                                 float dose =
-                                    (float) (dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k)*ShotWeights[w]);
-                                SD[k][((int) FDP.X + i), (int) FDP.Y + j] += dose;
+                                    (float)(dk.ReturnSpecificDoseValue(i, j, StartingDoseSlice + k) * ShotWeights[w]);
+                                SD[k][((int)FDP.X + i), (int)FDP.Y + j] += dose;
                             }
                         }
             }

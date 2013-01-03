@@ -369,7 +369,11 @@ namespace TomosurgeryAlpha
                         img = Matrix.NormalizeBy(PS.DoseSpace[GetCurrentSlice()], PS.Max);
                     else
                         img = PS.DoseSpace[GetCurrentSlice()];
-                    Display2DFloat(img);
+                    if (ShowStruct_chkbox.IsChecked == true)
+                        DisplayDoseWithStruct(img);
+                    else
+                        Display2DFloat(img);
+                    
                     DS_z_lbl.Content = slice;
                 }
             }
@@ -1560,8 +1564,11 @@ namespace TomosurgeryAlpha
         {
             DisplayImageSizeInfo(d.GetLength(0), d.GetLength(1));
             //d = Matrix.Normalize(d);
-            Display2DFloat(d);
+            //Display2DFloat(d);
+            
         }
+
+        
 
         private void plandose_rb_btn_Copy_Checked(object sender, RoutedEventArgs e)
         {
@@ -2314,7 +2321,8 @@ namespace TomosurgeryAlpha
 
             int zpos = PS.SlicePositions[GetCurrentSlice()];
             PointF[] points = rp.ReturnSinglePoints();
-            float[,] img = SS.fj_Tumor[zpos];
+            //float[,] img = SS.fj_Tumor[zpos];
+            float[,] img = rp.slice;
             float[,] p_img = rp.priorityslice;
             var doseimg = new float[img.GetLength(0),img.GetLength(1)];
             //float[] img = SS.f_structurearray[zpos]; 
@@ -2715,6 +2723,83 @@ namespace TomosurgeryAlpha
             {
                 wb_DS.Unlock();
             }
+        }
+
+        private void DisplayDoseWithStruct(float[,] f)
+        {
+            int slice = (int) slider2.Value;
+            float[,] structureimg = SS.fj_Combined[slice];
+
+            DisplayImageSizeInfo(f.GetLength(0), f.GetLength(1));
+
+            //f = Matrix.Normalize(f);
+            bool viewiso = false;
+            bool viewcov = false;
+            if (ViewIso_chkbox.IsChecked == true)
+            {
+                viewiso = true;
+                viewcov = false;
+            }
+            if (ViewCoverage_chkbox.IsChecked == true)
+            {
+                viewcov = true;
+                viewiso = false;
+            }
+            //int maxvalue = 255; //change if increase range
+            double default_rx_dose = PathSet.RxDose;
+
+            //int iso = (int)Math.Round(maxvalue*default_rx_dose);
+            wb_DS = new WriteableBitmap(f.GetLength(1), f.GetLength(0), 96, 96, PixelFormats.Bgr32, null);
+            DS_imgbox.Source = wb_DS;
+            wb_DS.Lock();
+
+            unsafe
+            {
+                for (int j = 0; j < f.GetLength(0); j++)
+                    for (int i = 0; i < f.GetLength(1); i++)
+                    {
+                        var pBackBuffer = (int)wb_DS.BackBuffer;
+                        pBackBuffer += j * wb_DS.BackBufferStride;
+                        pBackBuffer += i * 4;
+                        int value;
+                        int alpha;
+                        int beta = 0;
+                        alpha = (int)Math.Round((f[j, i]) * 255);
+                        if (structureimg[j, i] > 0 && alpha >= (default_rx_dose * 255))
+                            beta = 255;
+                        else if (structureimg[j, i] > 0 && alpha < (default_rx_dose * 255))
+                            beta = 128;
+                        int color_data = 0;
+                        if (viewiso && alpha > (default_rx_dose * 255))
+                        {
+                            color_data = alpha << 16;
+                            color_data |= 0 << 8;
+                            color_data |= beta << 0;
+                        }
+                        else
+                        {
+                            color_data = alpha << 16;
+                            color_data |= alpha << 8;
+                            color_data |= beta << 0;
+                        }
+
+                        // Assign the color data to the pixel.
+                        *((int*)pBackBuffer) = color_data;
+                    }
+            }
+            try
+            {
+                wb_DS.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(1), f.GetLength(0)));
+            }
+            catch (Exception ex)
+            {
+                string s = ex.ToString();
+            }
+            finally
+            {
+                wb_DS.Unlock();
+            }
+
         }
 
         private void DisplaySingleShot(PointF p, double weight)

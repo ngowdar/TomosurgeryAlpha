@@ -381,13 +381,26 @@ namespace TomosurgeryAlpha
                 max = Matrix.FindMax(DoseSpace);
 
 
-                while (max > 1.0)
+                if (max > 1.0)
                 {
-                    restricted_weights = SliceWeightPostProcess(DoseSpace, folderpath, temp_weights);
-                    DoseSpace = PrepareWeighted_DS(restricted_weights, folderpath);
-                    temp_weights = (double[]) restricted_weights.Clone();
+                    for (int i = 0; i < temp_weights.GetLength(0); i++)
+                    {
+                        if (temp_weights[i] > restricted_weights[i])
+                        {
+                            temp_weights[i] = restricted_weights[i];
+                        }
+                    }
+                    DoseSpace = PrepareWeighted_DS(temp_weights, folderpath);
                     max = Matrix.FindMax(DoseSpace);
                 }
+
+                //while (max > 1.0)
+                //{
+                    //restricted_weights = SliceWeightPostProcess(DoseSpace, folderpath, temp_weights);
+                    //DoseSpace = PrepareWeighted_DS(restricted_weights, folderpath);
+                    //temp_weights = (double[]) restricted_weights.Clone();
+                    //max = Matrix.FindMax(DoseSpace);
+                //}
 
                 //if (index > 0)
                 Error = FindError(SliceWeights, temp_weights);
