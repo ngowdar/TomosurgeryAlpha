@@ -336,8 +336,7 @@ namespace TomosurgeryAlpha
         /// <param name="linepos"> </param>
         /// <returns> </returns>
         private int[] LineBoundaries(int linepos)
-        {
-            
+        {            
             var boundaries = new int[2];
             var line = new float[slice.GetLength(1)];
             for (int i = 0; i < slice.GetLength(1); i++)
@@ -368,7 +367,7 @@ namespace TomosurgeryAlpha
         public void FindAllShotPoints()
         {
             //Get slice boundaries first
-            //WriteFloatArray2BMP(slice, String.Concat(WhichSlice,"_temp_slice.bmp"));
+            WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice,"_PrioritySlice.bmp"));
             boundaries = FindSliceBoundaries(priorityslice);
             //TODO: jhg
             //Get line positions for the slice
@@ -376,6 +375,7 @@ namespace TomosurgeryAlpha
                 Lines = LineSpacer(boundaries[0], boundaries[1], LineSidePadding, WhichSlice);
 
             WriteArrayAsList("Line locations: ", (int[]) Lines.Clone());
+            WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice, "_PrioritySlice.bmp"), Lines);
             shot_points = new PointF[Lines.GetLength(0)][];
             NumOfShots = 0;
             for (int i = 0; i < Lines.GetLength(0); i++)
@@ -420,7 +420,7 @@ namespace TomosurgeryAlpha
         public int[] ShotSpacer(int ystart, int yend)
         {
             int[] shots;
-            if ((yend - ystart) < (1.75 * StepSize))
+            if ((yend - ystart) < (1.1 * StepSize))
             {
                 shots = new int[1];
                 shots[0] = (ystart + yend) / 2;
@@ -431,42 +431,77 @@ namespace TomosurgeryAlpha
                 //Find shot spacing
                 int edgepad = LineEdgePadding;
                 int meat;
-                int first;
-                int last;
+                int first = ystart + edgepad;
+                int last = yend - edgepad;
                 int numshots;
                 int newspacing;
                 //Rest of Logic goes here...
                 meat = yend - ystart - edgepad * 2;
-                first = ystart + edgepad;
-                last = yend - edgepad;
-                if (last - first < edgepad)
+                if (last - first < StepSize)
                 {
-                    edgepad = (last - first);
+                    shots = new int[1];
+                    shots[0] = (int)Math.Round(((last - first) / 2.0));
+                }
+                else if (meat < StepSize)
+                {
+                    int halfr = meat / 2;
+                    edgepad = edgepad - halfr;
                     first = ystart + edgepad;
                     last = yend - edgepad;
-                    meat = last - first;
+                    shots = new int[2];
+                    shots[0] = first;
+                    shots[1] = last;
+                    return shots;
                 }
-                numshots = (meat / StepSize)+1;
-
-                //If the meat section is cleanly divisible, -1 for the extra shot
-                if (meat % StepSize == 0)
-                    numshots = (meat / StepSize) - 1;
-                //Find the new spacing
-                newspacing = meat / (numshots + 1);
-                if (newspacing < 2)
-                    newspacing = 2;
-                //Add the first and last shots to the total number of shots
-                numshots += 2;
-                //Respace shots by newspacing distance.
-                shots = new int[numshots];
-                shots[0] = first;
-                shots[numshots - 1] = last;
-                for (int i = 1; i < numshots - 1; i++)
+                else
                 {
-                    if (shots[i - 1] + newspacing > last)
-                        break;
+
+                    first = ystart + edgepad;
+                    last = yend - edgepad;
+                    //if (last - first < edgepad)
+                    //{
+                    //    edgepad = (last - first);
+                    //    first = ystart + edgepad;
+                    //    last = yend - edgepad;
+                    //    meat = last - first;
+                    //    shots = new int[2];
+                    //    shots[0] = first;
+                    //    shots[1] = last;
+                    //    return shots;
+                    //}
+
+                    
+                    numshots = (meat / StepSize) + 2;
+                    
+                    //If the meat section is cleanly divisible, -1 for the extra shot
+                    if (meat % StepSize == 0)
+                    {
+                        numshots = numshots - 1;
+                        //Find the new spacing
+                    }
                     else
-                        shots[i] = shots[i - 1] + newspacing;
+                    {
+                        int halfremainder = (meat % StepSize) / 2;
+                        //if (halfremainder < edgepad)
+                        edgepad = halfremainder;
+                        first = ystart + edgepad;
+                        last = yend - edgepad;
+                    }
+
+                    
+                    shots = new int[numshots];
+                    shots[0] = first;
+                    shots[numshots - 1] = last;
+                    if (numshots > 2)
+                    {
+                        for (int i = 1; i < numshots; i++)
+                        {
+                            //if ((first + (i*StepSize)) > last)
+                            //    break;
+                            //else
+                            shots[i] = shots[0] + (i * StepSize);
+                        }
+                    }
                 }
                 //}
                 //NumOfShots += shots.GetLength(0);
@@ -495,10 +530,10 @@ namespace TomosurgeryAlpha
             //int edgepad = LineSidePadding;
             
             //Is there enough room for the two starting lines?
-            if ((xend - xstart) < (1.25*RasterWidth))
+            if ((xend - xstart) < (1.1 * RasterWidth))
             {
                 lines = new int[1];
-                lines[0] = (xend + xstart)/2; //Single line in dead center.
+                lines[0] = (xend + xstart) / 2; //Single line in dead center.
             }
             else
             {
@@ -1662,6 +1697,41 @@ namespace TomosurgeryAlpha
                 {
                     color = (int) (temp2[i, j]*255);
                     b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                }
+            b.Save(path);
+        }
+
+        private void WriteFloatArray2BMP(float[,] temp, string p, int[] lines)
+        {
+            string path = Path.Combine(PathSet.ActiveDirectory, p);
+            float max = Matrix.FindMax(temp);
+            float[,] temp2;
+            if (max > 1.0)
+            {
+                Debug.WriteLine("BMP at " + p + " has a max of " + Math.Round(max, 3) + ", Normalizing.");
+                temp2 = (float[,])Matrix.Normalize(temp).Clone();
+            }
+            else
+            {
+                temp2 = (float[,])temp.Clone();
+            }
+            int color = 0;
+            var b = new Bitmap(temp.GetLength(0), temp.GetLength(1));
+            for (int j = 0; j < temp.GetLength(1); j++)
+                for (int i = 0; i < temp.GetLength(0); i++)
+                {
+                    for (int n = 0; n < lines.GetLength(0); n++)
+                    {
+                        if (i == lines[n])
+                            b.SetPixel(i, j, Color.FromArgb(255, 0, 0));
+                        else
+                        {
+                            color = (int)(temp2[i, j] * 255);
+                            b.SetPixel(i, j, Color.FromArgb(color, color, color));
+                        }
+                    }
+                    //color = (int)(temp2[i, j] * 255);
+                    //b.SetPixel(i, j, Color.FromArgb(color, color, color));
                 }
             b.Save(path);
         }
