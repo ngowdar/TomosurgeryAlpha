@@ -95,7 +95,11 @@ namespace TomosurgeryAlpha
             SliceThickness = sthick;
             DCT = SliceThickness*2;
             TolThickness = tolthick;
-            CalculateNumSlices();
+            //CalculateNumSlices();
+            if (dk.DKI.Name == "8mmKernel")
+                CalculateOptimumSliceThickness(32, 44);
+            else if (dk.DKI.Name == "4mmKernel")
+                CalculateOptimumSliceThickness(16, 24);
 
             RasterPaths = new ArrayList();
             for (var i = 0; i < NumSlices; i++)
@@ -177,6 +181,73 @@ namespace TomosurgeryAlpha
                                         LineSidePadding);
                 RasterPaths.Add(rp);
             }
+        }
+
+        private void CalculateOptimumSliceThickness(int low, int high)
+        {
+            int zstart = boundaries[4];
+            int zend = boundaries[5];
+            int meat = zend - zstart;
+            int best_thick = low;
+            int best_remainder = high;
+            int best_numslices = 0;
+            int[] zrasterpos;
+            int BestShiftAmount = 100;
+            Debug.WriteLine("Testing thicknesses of " + low + " to " + high + ":");
+            Debug.WriteLine("Total z-length: " + meat);
+            for (int i = low; i <= high; i++)
+            {
+                var padding = (int) Math.Round(0.5*i);
+                int first = zstart + padding;
+                int last = zend - padding;
+                int numslices = meat / i;
+                int remainder = ((zend - zstart) % i);
+                int ShiftAmount = 0;
+                if (remainder <= Math.Round(0.25 * i))
+                    ShiftAmount = (-1) * remainder;
+                else
+                {
+                    ShiftAmount = (i - remainder) / 2;
+                    numslices = numslices + 1;
+                }
+                Debug.WriteLine("Testing " + i + ": ");
+                Debug.WriteLine("Slices: " + numslices + ", Remainder: " + remainder);
+                Debug.WriteLine("Shift Amount: " + ShiftAmount);
+                
+                if (remainder == 0)
+                {
+                    best_thick = i;
+                    best_numslices = numslices;
+                    best_remainder = remainder;
+                }
+                else if (remainder < best_remainder)
+                {
+                    if (ShiftAmount > 0 && ShiftAmount < BestShiftAmount)
+                    {
+                        BestShiftAmount = ShiftAmount;
+                        best_thick = i;
+                        best_numslices = numslices;
+                        best_remainder = remainder;
+                    }
+                }
+            }
+            
+            Debug.WriteLine("Best thickness is: " + best_thick);
+
+            int pad = (int) Math.Round(0.5*best_thick);
+            int ffirst = zstart + pad;
+            zrasterpos = new int[best_numslices];
+            if (best_remainder != 0)
+                zrasterpos[0] = ffirst - BestShiftAmount;
+            else
+                zrasterpos[0] = ffirst;
+            for (int j = 1; j < best_numslices; j++)
+                zrasterpos[j] = zrasterpos[0] + (j * best_thick);
+
+            NumSlices = zrasterpos.GetLength(0);
+            SlicePositions = (int[])zrasterpos.Clone();
+            SliceThickness = best_thick;
+            DCT = SliceThickness * 2;
         }
 
         private void CalculateNumSlices()
@@ -659,18 +730,8 @@ namespace TomosurgeryAlpha
                         GlobalEndZ = DoseSpace.GetLength(0);
                         
                     }
-
                     
                     
-                    /*if (GlobalStartZ < 0)
-                    {
-                        LocalSliceStart += (-1)*(GlobalStartZ);
-                        GlobalStartZ = 0;
-                    }
-                    if ((GlobalStartZ + DCT) >= weighted_slicedoses.GetLength(0))
-                        LocalSliceEnd = (weighted_slicedoses.GetLength(0) - GlobalStartZ);*/
-
-                    //int whichz = SlicePositions[s] - (DCT / 2);
                     float[] slicedose = LoadSliceDose(s, subfolder);
 
                     //Parallel.For(0, DCT, (k) =>
@@ -681,33 +742,67 @@ namespace TomosurgeryAlpha
                     //                weighted_slicedoses[whichz + k][i, j] += (slicedose[(k * x * y) + (j * x) + i] * (float)weights[s]);
                     //            }
                     //    });
-                    for (int k = LocalSliceStart; k < LocalSliceEnd; k++)
-                    {
-                        Parallel.For(0, y, (j) =>
-                                               {
-                                                   for (int i = 0; i < x; i++)
-                                                   {
-                                                       float currentdose =
-                                                           Convert.ToSingle(weighted_slicedoses[GlobalStartZ + (k - LocalSliceStart)][i, j]);
-                                                       float originaldose = slicedose[(k*x*y) + (j*x) + i];
-                                                       var sliceweight = (float) weights[s];
-                                                       float updated_dose = Convert.ToSingle(currentdose) +
-                                                                            (originaldose*sliceweight);
-                                                       //if (currentdose > 0.0 && updated_dose > 1.0)
-                                                       //{
-                                                       //    //Add coordinate index, value, and sliceweight to the overdose arraylist for post-processing
-                                                       //    float global_index = ((whichz + k) * x * y) + (j * x) + i;
-                                                       //    float slice_index = (k * x * y) + (j * x) + i;
-                                                       //    float[] overdose = new float[7] { global_index, updated_dose, slice_index, originaldose, s, sliceweight, currentdose };
-                                                       //    //OverdosePoints.Add(overdose);
-                                                       //    //OverdosePoints.TrimToSize();
-                                                       //}
-                                                       weighted_slicedoses[GlobalStartZ + (k - LocalSliceStart)][i, j] = updated_dose;
-                                                   }
-                                               });
+                    
+                    //for (int k = LocalSliceStart; k < LocalSliceEnd; k++)
+                    Parallel.For(LocalSliceStart, LocalSliceEnd, (k) =>
+                                                                     {
+                                                                         Parallel.For(0, y, (j) =>
+                                                                                                {
+                                                                                                    for (int i = 0;
+                                                                                                         i < x;
+                                                                                                         i++)
+                                                                                                    {
+                                                                                                        float
+                                                                                                            currentdose
+                                                                                                                =
+                                                                                                                Convert.
+                                                                                                                    ToSingle
+                                                                                                                    (weighted_slicedoses
+                                                                                                                         [
+                                                                                                                             GlobalStartZ +
+                                                                                                                             (k -
+                                                                                                                              LocalSliceStart)
+                                                                                                                         ]
+                                                                                                                         [
+                                                                                                                             i,
+                                                                                                                             j
+                                                                                                                         ]);
+                                                                                                        float
+                                                                                                            originaldose
+                                                                                                                =
+                                                                                                                slicedose
+                                                                                                                    [
+                                                                                                                        (k*
+                                                                                                                         x*
+                                                                                                                         y) +
+                                                                                                                        (j*
+                                                                                                                         x) +
+                                                                                                                        i
+                                                                                                                    ];
+                                                                                                        var sliceweight
+                                                                                                            =
+                                                                                                            (float)
+                                                                                                            weights[s];
+                                                                                                        float
+                                                                                                            updated_dose
+                                                                                                                =
+                                                                                                                Convert.
+                                                                                                                    ToSingle
+                                                                                                                    (currentdose) +
+                                                                                                                (originaldose*
+                                                                                                                 sliceweight);
+                                                                                                        weighted_slicedoses
+                                                                                                            [
+                                                                                                                GlobalStartZ +
+                                                                                                                (k -
+                                                                                                                 LocalSliceStart)
+                                                                                                            ][i, j] =
+                                                                                                            updated_dose;
+                                                                                                    }
+                                                                                                });
 
-                        OverdosePoints.TrimToSize();
-                    }
+                                                                         OverdosePoints.TrimToSize();
+                                                                     });
                     //
 
 
@@ -969,14 +1064,21 @@ namespace TomosurgeryAlpha
                     maxval = maxvalues[i, 0];
 
             double maxdose = Matrix.FindMax(ds);
-
-            while (maxval > 1.005)
+            int counter = 0;
+            bool stop = false;
+            while (maxval > 1.05)
             {
                 int[] WhichSlices = new int[NumSlices];
                 int bestcovslice = 0;
                 int bestrtogslice = 0;
                 double bestcoverage = 0;
                 double mostoverdosed = 0;
+                double bestcovslice_val = 0;
+                double bestrtogslice_val = 0;
+                double[] impt_d = new double[5];
+                double[] cov_d = new double[5];
+                double[] rtog_d = new double[5];
+                
 
                 float best_unweighted_value = 0;
                 int mostimportantslice = 0;
@@ -1000,31 +1102,88 @@ namespace TomosurgeryAlpha
                         int index = z * DoseSpace[0].GetLength(0) * DoseSpace[0].GetLength(1) + y * DoseSpace[0].GetLength(0) + x;
                         float[] sd = LoadSliceDose(i, subfolder);
                         float value = sd[index];
+                        double[] d = FindSliceCoverage(ds, i, 0.5, DDS);
+                        double cov = d[2] / d[0];
+                        double rtog = d[1] / d[0];
+                        double currentweight = restrictweight[i];
                         if (value > best_unweighted_value)
                         {
                             best_unweighted_value = value;
                             mostimportantslice = i;
-                        }
-                        double[] d = FindSliceCoverage(ds, i, 0.5, DDS);
-                        double cov = d[2]/d[0];
-                        double rtog = d[1]/d[0];
+                            impt_d = new double[] { i, value, currentweight, cov, rtog };
+                        }                        
                         if (cov > bestcoverage)
                         {   
                             bestcoverage = cov;
                             bestcovslice = i;
+                            bestcovslice_val = value;
+                            cov_d = new double[] { i, value, currentweight, cov, rtog };
                         }
                         if (rtog > mostoverdosed)
                         {
                             mostoverdosed = rtog;
                             bestrtogslice = i;
+                            bestrtogslice_val = value;
+                            rtog_d = new double[] { i, value, currentweight, cov, rtog };
                         }
                     }
                 }
+                double current_weight = restrictweight[mostimportantslice];
+                double current_val = 0;
+                double chosenslice = 0;
+                if (impt_d[0] != rtog_d[0])
+                {
+                    if ((rtog_d[1] * rtog_d[2]) > (impt_d[1] * impt_d[2]))
+                    {
+                        chosenslice = rtog_d[0];
+                        current_weight = rtog_d[2];
+                        current_val = rtog_d[1];
+                    }
+                    else
+                    {
+                        chosenslice = impt_d[0];
+                        current_weight = impt_d[2];
+                        current_val = impt_d[1];
+                    }
+                }
+                else if (impt_d[0] != cov_d[0])
+                {
+                    if ((cov_d[1] * cov_d[2]) > (impt_d[1] * impt_d[2]))
+                    {
+                        chosenslice = cov_d[0];
+                        current_weight = cov_d[2];
+                        current_val = cov_d[1];
+                    }
+                    else
+                    {
+                        chosenslice = impt_d[0];
+                        current_weight = impt_d[2];
+                        current_val = impt_d[1];
+                    }
+                }
+                else
+                {
+                    chosenslice = impt_d[0];
+                    current_weight = impt_d[2];
+                    current_val = impt_d[1];
+                }
+                
 
-                //Now that you have the slice that is closest to the culprit point, find out how much to reduce it by.
-                double current_weight = weight[mostimportantslice];
-                double leftover = maxval - (best_unweighted_value * current_weight);
-                double desired_weight = (1.0 - leftover) / best_unweighted_value;
+
+                //Now that you have the slice that is closest to the culprit point, find out how much to reduce it by.                
+
+                double leftover = (current_val * current_weight) - (maxval - 1.0);
+                double contribution = current_val * current_weight;
+                double percent_contribution = contribution / maxval;
+                double desired_multiplier = ((contribution) - (maxval - 1.0)) / (contribution);
+                double desired_weight = current_weight * desired_multiplier;
+                if (stop == false)
+                    desired_weight = ((current_weight - desired_weight) * 0.3) + desired_weight;
+                //desired_weight = 1.0 / (current_val + (maxval - current_val));
+                
+                double desired_contribution = desired_weight * current_val;
+                //desired_weight = (1.0 - leftover) * current_weight;
+                //double newval = desired_weight * best_unweighted_value;
 
 
                 /* Idea here is to reduce the sliceweight of slices containing the max value. However,
@@ -1036,8 +1195,8 @@ namespace TomosurgeryAlpha
                  */
                 Debug.WriteLine("Lowering Slice " + mostimportantslice + " from " + restrictweight[mostimportantslice] + " to " + desired_weight);
                 //restrictweight[bestrtogslice] = restrictweight[bestrtogslice]/maxval;
-                restrictweight[mostimportantslice] = desired_weight;
-
+                restrictweight[(int)chosenslice] = desired_weight;
+                counter++;
                 if (restrictweight[bestrtogslice] < 0.005)
                 {
                     restrictweight[bestrtogslice] = 0;
@@ -1051,6 +1210,8 @@ namespace TomosurgeryAlpha
                 for (int i = 0; i < maxvalues.GetLength(0); i++)
                     if (maxvalues[i, 0] > maxval)
                         maxval = maxvalues[i, 0];
+                if (counter >= 5)
+                    stop = true;
             }
             WriteArrayAsList("RestrictedWeights: ", restrictweight);
             return restrictweight;

@@ -124,9 +124,12 @@ namespace TomosurgeryAlpha
                     for (int k = 0; k < ez - bz; k++)
                     {
                         OriginalSlab[k][i,j] = f[bz+k][i, j];
+                        
                         squished[i, j] += f[bz+k][i, j];
                     }                
             }
+            for (int k = 0; k < ez - bz; k++)
+                WriteFloatArray2BMP(f[bz + k], "slab_slice_" + k + ".bmp");
             priorityslice = CreateHighImportanceSlice(squished, center);
             //WriteFloatArray2BMP(squished, String.Concat("Slice_at_", zt, ".bmp"));
             for (int i = 0; i < X; i++)
