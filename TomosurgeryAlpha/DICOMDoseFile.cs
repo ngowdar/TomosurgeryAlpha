@@ -46,6 +46,7 @@ namespace TomosurgeryAlpha
                 SetDictionaryPath();
                 DF = new DicomFile(path);
                 OriginalDose = Matrix.Normalize(ExtractDoseData());
+                OriginalDose = Matrix.TransposeMatrix(OriginalDose);
                 Dose = EnlargeAndInterpolate(OriginalDose);
 
                 dosesavepath = Path.Combine(PathSet.ActiveDirectory, "ExtractedDoseFile.bin");

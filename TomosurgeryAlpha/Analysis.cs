@@ -16,6 +16,8 @@ namespace TomosurgeryAlpha
         private static double tumorvolume;
         private static double isovol;
         private static double isotumorvol;
+        private static double csvol;
+        private static double csrxvol;
         private static double maskvolume;
         private static double maskcoveragebyrx;
         public static DICOMDoseFile ddf;
@@ -79,12 +81,17 @@ namespace TomosurgeryAlpha
             float[][,] cs;
             SS.GetCSOnly(out cs, StructureSet.originalTumor);
             SS.GetTumorOnly(out tumor, StructureSet.originalTumor);
-            float[][,] dose = Matrix.TransposeMatrix(DICOMDoseFile.OriginalDose);
+            float[][,] dose = DICOMDoseFile.OriginalDose;
             double maxdose = FindMaxDose(dose);
             var rxdose = (float) (0.5*maxdose);
             var toldose = (float) (0.3*maxdose);
-            //dose = Matrix.Normalize(dose);            
-
+            
+            dose = Matrix.Normalize(dose);            
+            int zmid1 = (dose.GetLength(0) / 2);
+            int zmid2 = tumor.GetLength(0) / 2;
+            
+            //Matrix.WriteFloatArray2BMP(Matrix.ThresholdEq(dose[zmid1], 0.5f), "DS_halfslice.bmp");
+            //Matrix.WriteFloatArray2BMP(tumor[zmid2], "Tumor_halfslice.bmp");
             double isovol = 0;
             double isotumorvol = 0;
             double toldosevol = 0;
@@ -180,7 +187,7 @@ namespace TomosurgeryAlpha
             //float[][,] DDS = PS.PrepareDDS(SS.fj_Tumor);
             //AnalyzeLesionCoverage(DDS,SS.fj_Tumor,startingz);
 
-            AnalyzeLesionCoverage(PS.DoseSpace, SS.fj_Tumor, startingz);
+            AnalyzeLesionCoverage(PS.DoseSpace, SS.fj_Tumor, SS.fj_CS, startingz);
             AnalyzeMaskCoverage(PS.DoseSpace, Matrix.PrepareDDSMask(SS.fj_Tumor, 3), rxlevel);
             ai.RxLevel = RX;
             ai.LesionVolume = tumorvolume;
@@ -191,8 +198,10 @@ namespace TomosurgeryAlpha
             ai.LomaxScheib = isotumorvol/isovol;
             ai.RTOGCoverage = FindRTOGCoverage(SS.fj_Tumor, PS.DoseSpace, (float) rxlevel);
             ai.VantReits = (isotumorvol*isotumorvol)/(tumorvolume*isotumorvol);
-            double maskcov = maskcoveragebyrx;
-            double maskvol = maskvolume;
+            ai.MaskCoverage = maskcoveragebyrx;
+            ai.MaskVolume = maskvolume;
+            ai.CS_Volume = csvol;
+            ai.CS_overdose = csrxvol;
             ai.TestName = DateTime.Now.ToShortTimeString();
             ai.CreateInfoString();
             AIList.Add(ai);
@@ -213,7 +222,7 @@ namespace TomosurgeryAlpha
         }
 
 
-        public static void RunAnalysis(DICOMDoseFile ddf, float[][,] tumor, double rxlevel)
+        public static void RunAnalysis(DICOMDoseFile ddf, float[][,] tumor, float[][,] cs, double rxlevel)
         {
             //TODO: Figure out what size slab of tumor to take such that it lines up with the beginning of the dose matrix.
 
@@ -241,7 +250,7 @@ namespace TomosurgeryAlpha
 
 
             var DICOM_dose = new AnalysisInfo();
-            AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), t, (int) ddf.ZStart);
+            AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), t, cs, (int) ddf.ZStart);
             AnalyzeMaskCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), Matrix.PrepareDDSMask(t, 3),
                                 rxlevel);
             DICOM_dose.RxLevel = RX;
@@ -262,7 +271,7 @@ namespace TomosurgeryAlpha
         //l
 
 
-        private static void AnalyzeLesionCoverage(float[][,] ds, float[][,] tumor, int startingz)
+        private static void AnalyzeLesionCoverage(float[][,] ds, float[][,] tumor, float[][,] cs, int startingz)
         {
             //ds = Matrix.Normalize(ds);
 
@@ -271,18 +280,21 @@ namespace TomosurgeryAlpha
             //tumorvolume = Matrix.SumAll(Matrix.Normalize(tumor));
             isovol = 0;
             isotumorvol = 0;
+            csvol = 0;
             double toldosevol = 0;
             int zmid1 = (ds.GetLength(0)/2);
             int zmid2 = tumor.GetLength(0)/2;
-            //Matrix.WriteFloatArray2BMP(ds[zmid1], "DS_halfslice.bmp");
-            //Matrix.WriteFloatArray2BMP(tumor[zmid2], "Tumor_halfslice.bmp");
+            Matrix.WriteFloatArray2BMP(Matrix.ThresholdEq(ds[zmid1], 0.5f), "DS_halfslice.bmp");
+            Matrix.WriteFloatArray2BMP(tumor[zmid2], "Tumor_halfslice.bmp");
             for (int k = 0; k < tumor.GetLength(0); k++)
                 for (int j = 0; j < tumor[0].GetLength(1); j++)
                     for (int i = 0; i < tumor[0].GetLength(0); i++)
                     {
                         double t = tumor[k][i, j];
                         double d = ds[k][i, j];
-
+                        double c = cs[k][i, j];
+                        if (c > 0)
+                            csvol++;
 
                         if (d >= rxdose)
                         {
@@ -292,11 +304,15 @@ namespace TomosurgeryAlpha
                                 isotumorvol++;
                                 tumorvolume++;
                             }
+                            if (c > 0)
+                                csrxvol++;
                         }
                         else if (d < rxdose && t > TolDose)
                         {
                             toldosevol++;
                             tumorvolume++;
+                            if (c > 0)
+                                csrxvol++;
                         }
                     }
             GetDVH(ds, tumor);
@@ -350,6 +366,8 @@ namespace TomosurgeryAlpha
         public double LesionVolume { get; set; }
         public double Rx_Volume { get; set; }
         public double RxLesion_Volume { get; set; }
+        public double MaskVolume { get; set; }
+        public double MaskCoverage { get; set; }
         public double CS_Volume { get; set; }
         public double CS_overdose { get; set; }
 

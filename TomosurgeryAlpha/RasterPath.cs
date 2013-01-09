@@ -69,7 +69,7 @@ namespace TomosurgeryAlpha
         public RasterPath(float[,] tumor, float[,] combined, int stepsize, int rasterwidth, int edgepad, int sidepad)
         {
             SetParams(stepsize, rasterwidth, edgepad, sidepad);
-            ShotWeightRestriction = 0.742;
+            ShotWeightRestriction = 1.0;
             //ComparisonKernelSize = 120;
             //LineEdgePadding = (int)Math.Round(0.5 * StepSize);
             //LineSidePadding = (int)Math.Round(0.5 * StepSize);
@@ -77,8 +77,8 @@ namespace TomosurgeryAlpha
             ModdedSlice = tumor;
             //slice = PrepareDDSFromSlice(f);
             DDS_slice = PrepareDDSFromSlice(DilateSlice3(DilateSlice3(tumor)));
-            WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
-            WriteFloatArray2BMP(tumor, "non_dilatedslice.bmp");
+            //WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
+            //WriteFloatArray2BMP(tumor, "non_dilatedslice.bmp");
             //DDS_slice = PrepareDDSFromSlice(DilateSlice(tumor));
             //DDS_slice = PrepareDDSFromSlice(f);
 
@@ -102,8 +102,8 @@ namespace TomosurgeryAlpha
 
             ModdedSlice = t;
             DDS_slice = PrepareDDSFromSlice(DilateSlice3(t));
-            WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
-            WriteFloatArray2BMP(t, "non_dilatedslice.bmp");
+            //WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
+            //WriteFloatArray2BMP(t, "non_dilatedslice.bmp");
             FindAllShotPoints();
             InitWeightArray();
             AttachHandlers();
@@ -129,15 +129,15 @@ namespace TomosurgeryAlpha
                     }                
             }
             for (int k = 0; k < ez - bz; k++)
-                WriteFloatArray2BMP(f[bz + k], "slab_slice_" + k + ".bmp");
+                //WriteFloatArray2BMP(f[bz + k], "slab_slice_" + k + ".bmp");
             priorityslice = CreateHighImportanceSlice(squished, center);
             //WriteFloatArray2BMP(squished, String.Concat("Slice_at_", zt, ".bmp"));
             for (int i = 0; i < X; i++)
                 for (int j = 0; j < Y; j++)
                     squished[i, j] -= center[i, j];
-            WriteFloatArray2BMP(squished, ("Slice_nocenter_" + zt + ".bmp"));
+            //WriteFloatArray2BMP(squished, ("Slice_nocenter_" + zt + ".bmp"));
             squished = Matrix.Add(Matrix.ThresholdEq(squished, 2), center);
-            WriteFloatArray2BMP(squished, ("Slice_recenteradd_" + zt + ".bmp"));
+            //WriteFloatArray2BMP(squished, ("Slice_recenteradd_" + zt + ".bmp"));
             double ddd = Matrix.SumAll(squished);
             for (int i = 0; i < squished.GetLength(0); i++)
                 for (int j = 0; j < squished.GetLength(1); j++)
@@ -169,8 +169,8 @@ namespace TomosurgeryAlpha
                         imptslice[i, j] = 0;
                     }
                 }
-            WriteFloatArray2BMP(imptslice, ("ImportantArea_" + WhichSlice + ".bmp"));
-            WriteFloatArray2BMP(compressed, ("CompressedArea_" + WhichSlice + ".bmp"));
+            //WriteFloatArray2BMP(imptslice, ("ImportantArea_" + WhichSlice + ".bmp"));
+            //WriteFloatArray2BMP(compressed, ("CompressedArea_" + WhichSlice + ".bmp"));
             return imptslice;
         }
 
@@ -317,6 +317,7 @@ namespace TomosurgeryAlpha
         public void ChangeParamsUpdatePoints(int stepsize, int rasterwidth, int edgepad, int sidepad)
         {
             SetParams(stepsize, rasterwidth, edgepad, sidepad);
+            
             FindAllShotPoints();
         }
 
@@ -338,13 +339,13 @@ namespace TomosurgeryAlpha
         /// </summary>
         /// <param name="linepos"> </param>
         /// <returns> </returns>
-        private int[] LineBoundaries(int linepos)
+        public int[] LineBoundaries(int linepos)
         {            
-            var boundaries = new int[2];
+            var boundaries = new int[]{0, 0};
             var line = new float[slice.GetLength(1)];
             for (int i = 0; i < slice.GetLength(1); i++)
                 line[i] = priorityslice[linepos, i];
-            Boolean y1 = false;
+            /*Boolean y1 = false;
             for (int y = 0; y < line.GetLength(0); y++)
             {
                 if (!y1 && priorityslice[linepos, y] > 0)
@@ -352,13 +353,40 @@ namespace TomosurgeryAlpha
                     y1 = true;
                     boundaries[0] = y;
                 }
+                /*if (priorityslice[linepos, slice.GetLength(1) - 1 - y] > 0)
+                    boundaries[1] = slice.GetLength(1) - 1 - y;
+                if (boundaries[0] > 0 && boundaries[1] > 0)
+                    break;#1#
                 else if (y1 && priorityslice[linepos, y] == 0)
                 {
                     boundaries[1] = y;
                     break;
                 }
+            }*/
+            ArrayList edges = new ArrayList();
+            for (int y = 1; y < line.GetLength(0); y++)
+            {
+                float sum = line[y] + line[y - 1];
+                if (sum == 1.0f) //i.e. edge detection
+                {
+                    if (line[y] > 0) //i.e. start point
+                        edges.Add(y);
+                    else if (line[y - 1] > 0)
+                        edges.Add(y - 1);
+                }
             }
-            Debug.WriteLine("Line position (y): " + linepos + "; Edges (x): [" + boundaries[0] + ", " + boundaries[1] + "]");
+            edges.TrimToSize();
+            if (edges.Count == 2)
+            {
+                boundaries[0] = (int)edges[0];
+                boundaries[1] = (int)edges[1];
+            }
+            else if (edges.Count > 2)
+            {
+                boundaries[0] = (int)edges[0];
+                boundaries[1] = (int)edges[edges.Count-1];
+            }
+                Debug.WriteLine("Line position (y): " + linepos + "; Edges (x): [" + boundaries[0] + ", " + boundaries[1] + "]");
             return boundaries;
         }
 
@@ -370,40 +398,42 @@ namespace TomosurgeryAlpha
         public void FindAllShotPoints()
         {
             //Get slice boundaries first
-            WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice,"_PrioritySlice.bmp"));
+            //WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice,"_PrioritySlice.bmp"));
             boundaries = FindSliceBoundaries(priorityslice);
             //TODO: jhg
             //Get line positions for the slice
             if (Lines == null)
+            {
                 Lines = LineSpacer(boundaries[0], boundaries[1], LineSidePadding, WhichSlice);
+            }
+            //WriteArrayAsList("Line locations: ", (int[]) Lines.Clone());
+                //WriteArrayAsList("Boundaries: ", (int[]) boundaries.Clone());
+                int[] Bounds = new int[2*Lines.GetLength(0)];
 
-            WriteArrayAsList("Line locations: ", (int[]) Lines.Clone());
-            WriteArrayAsList("Boundaries: ", (int[]) boundaries.Clone());
-            int[] Bounds = new int[2*Lines.GetLength(0)];
-            for (int i = 0; i < Lines.GetLength(0); i++)
-            {
-                int[] tempbounds = LineBoundaries(Lines[i]);
-                Bounds[2*i] = tempbounds[0];
-                Bounds[(2*i) + 1] = tempbounds[1];
-            }
-                WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice, "_PrioritySlice_Lines.bmp"), Lines, Bounds);
-            shot_points = new PointF[Lines.GetLength(0)][];
-            NumOfShots = 0;
-            for (int i = 0; i < Lines.GetLength(0); i++)
-            {
-                int[] ybounds = LineBoundaries(Lines[i]);
-                int[] lineshots = ShotSpacer(ybounds[0], ybounds[1]);
-                var PF_shots = new PointF[lineshots.GetLength(0)];
-                for (int m = 0; m < lineshots.GetLength(0); m++)
+                for (int i = 0; i < Lines.GetLength(0); i++)
                 {
-                    PF_shots[m] = new PointF(Lines[i], lineshots[m]);
+                    int[] tempbounds = LineBoundaries(Lines[i]);
+                    Bounds[2*i] = tempbounds[0];
+                    Bounds[(2*i) + 1] = tempbounds[1];
                 }
-                shot_points[i] = PF_shots;
-                NumOfShots += lineshots.GetLength(0);
-            }
+                //WriteFloatArray2BMP(priorityslice, String.Concat(WhichSlice, "_PrioritySlice_Lines.bmp"), Lines, Bounds);
+                shot_points = new PointF[Lines.GetLength(0)][];
+                NumOfShots = 0;
+                for (int i = 0; i < Lines.GetLength(0); i++)
+                {
+                    int[] ybounds = LineBoundaries(Lines[i]);
+                    int[] lineshots = ShotSpacer(ybounds[0], ybounds[1]);
+                    var PF_shots = new PointF[lineshots.GetLength(0)];
+                    for (int m = 0; m < lineshots.GetLength(0); m++)
+                    {
+                        PF_shots[m] = new PointF(Lines[i], lineshots[m]);
+                    }
+                    shot_points[i] = PF_shots;
+                    NumOfShots += lineshots.GetLength(0);
+                }
         }
 
-        private double[] InitWeightArray(float min, float max)
+        public double[] InitWeightArray(float min, float max)
         {
             ShotWeights = new double[NumOfShots];
 
@@ -417,7 +447,7 @@ namespace TomosurgeryAlpha
             return ShotWeights;
         }
 
-        private double[] InitWeightArray()
+        public double[] InitWeightArray()
         {
             ShotWeights = new double[NumOfShots];
 
@@ -618,7 +648,7 @@ namespace TomosurgeryAlpha
                     } //);
                 }
 
-
+            dosespace = Matrix.Normalize(dosespace);
             //Matrix.Normalize(ref dosespace);
             /* Instead of Normalizing dosespace (which reduces all shot weights)
              * search for local maxima, and reduce the involved shot weights 
@@ -1119,15 +1149,16 @@ namespace TomosurgeryAlpha
                 //    Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int) pf.X, (int) pf.Y,
                   //                ComparisonKernelSize), MidplaneSubset);
             //float[,] DDStimesP = Matrix.MultiplyElements(Matrix.Subset(PrepareDDSFromSlice(DDS_slice), (int) pf.X, (int) pf.Y, ComparisonKernelSize),MidplaneSubset);
-            float[,] DDStimesP = Matrix.Subset(DDS_slice,(int) pf.X, (int) pf.Y, ComparisonKernelSize);
+            float[,] dilatedDDS = Matrix.DilateSlice_Bigger(Matrix.DilateSlice_Bigger(DDS_slice));
+            float[,] DDStimesP = Matrix.Subset(dilatedDDS,(int) pf.X, (int) pf.Y, ComparisonKernelSize);
             float[,] DStimesP = Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int)pf.X, (int)pf.Y, ComparisonKernelSize);
             
             double[] measurements_premultiply = FindWindowCoverage(DStimesP, DDStimesP, PathSet.RxDose, PathSet.ToleranceDose);
             
             DDStimesP = Matrix.MultiplyElements(DDStimesP, MidplaneSubset);
             DStimesP = Matrix.MultiplyElements(DStimesP, MidplaneSubset);
-            WriteFloatArray2BMP(DDStimesP, "test_timesP_DDS.bmp");
-            WriteFloatArray2BMP(DStimesP, "test_timesP_DS.bmp");
+            //WriteFloatArray2BMP(DDS_slice, "test_DDS.bmp");
+            //WriteFloatArray2BMP(dilatedDDS, "test_dilated_DDS.bmp");
             
             //if (WhichSlice == 2)
               //  Debug.WriteLine("omg");
@@ -1226,29 +1257,29 @@ namespace TomosurgeryAlpha
 
             double ratio = simplesum;
             //double ratio = BothvsTumor;
-            WriteFloatArray2BMP(DStimesP, "DStimesP.bmp");
-            WriteFloatArray2BMP(DDStimesP, "DDStimesP.bmp");
-            double sum_ds = Matrix.SumAll(DStimesP);
-            double sum_dds = Matrix.SumAll(DDStimesP);
-            double maxds = Matrix.FindMax(DStimesP);
-            double maxdds = Matrix.FindMax(DDStimesP);
+            //WriteFloatArray2BMP(DStimesP, "DStimesP.bmp");
+            //WriteFloatArray2BMP(DDStimesP, "DDStimesP.bmp");
+            //double sum_ds = Matrix.SumAll(DStimesP);
+            //double sum_dds = Matrix.SumAll(DDStimesP);
+            //double maxds = Matrix.FindMax(DStimesP);
+            //double maxdds = Matrix.FindMax(DDStimesP);
             return ratio;
         }
 
         private int CompareImprovements(double[] m1, double[] m2)
         {
             double sumratio1 = m1[0];
-            double RxVolume1 = m1[1];
+            /*double RxVolume1 = m1[1];
             double TumorVol1 = m1[2];
             double BothVol1 = m1[3];
-            double Uncovered1 = m1[4];
+            double Uncovered1 = m1[4];*/
             double cov1 = m1[3]/m1[2];
 
             double sumratio2 = m2[0];
-            double RxVolume2 = m2[1];
+            /*double RxVolume2 = m2[1];
             double TumorVol2 = m2[2];
             double BothVol2 = m2[3];
-            double Uncovered2 = m2[4];
+            double Uncovered2 = m2[4];*/
             double cov2 = m2[3]/m2[2];
 
             if (cov1 > cov2)
@@ -1361,7 +1392,7 @@ namespace TomosurgeryAlpha
             for (int shot = 0; shot < shots.GetLength(0); shot++)
             {
                 PointF pf = shots[shot];
-                CreateRedWindowBitmap(DDS_slice, shot, pf, "DDS");
+                //CreateRedWindowBitmap(DDS_slice, shot, pf, "DDS");
                 //double[] temp_r = CompareSlices(DStimesP, DDStimesP, false); //This was the elaborate rule-based algorithm                
                 double ratio = EvalShotWeightIteration(ds, pf, MultiplierChoice);
                     //This comparison function just adds the DDS and DS and compares for a simple ratio.
@@ -1391,8 +1422,8 @@ namespace TomosurgeryAlpha
                 //else
                 //    tweight[shot] = ShotWeights[shot]*ratio;
                 // old weight multiplied by newest ratio.                
-                Debug.WriteLine("Shot " + shot + ": " + Math.Round(ShotWeights[shot], 2) + " ==> " +
-                                Math.Round(tweight[shot], 2));
+                //Debug.WriteLine("Shot " + shot + ": " + Math.Round(ShotWeights[shot], 2) + " ==> " +
+                  //              Math.Round(tweight[shot], 2));
             }
             //tweight = Normalize(tweight);
             return tweight;
@@ -1686,7 +1717,7 @@ namespace TomosurgeryAlpha
             float[,] temp2;
             if (max > 1.0)
             {
-                Debug.WriteLine("BMP at " + p + " has a max of " + Math.Round(max,3) + ", Normalizing.");
+                //Debug.WriteLine("BMP at " + p + " has a max of " + Math.Round(max,3) + ", Normalizing.");
                 temp2 = (float[,])Matrix.Normalize(temp).Clone();
             }
             else
@@ -1711,7 +1742,7 @@ namespace TomosurgeryAlpha
             float[,] temp2;
             if (max > 1.0)
             {
-                Debug.WriteLine("BMP at " + p + " has a max of " + Math.Round(max, 3) + ", Normalizing.");
+                //Debug.WriteLine("BMP at " + p + " has a max of " + Math.Round(max, 3) + ", Normalizing.");
                 temp2 = (float[,])Matrix.Normalize(temp).Clone();
             }
             else
