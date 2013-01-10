@@ -228,8 +228,8 @@ namespace TomosurgeryAlpha
 
         public int GetCurrentSlice()
         {
-            slider2.Maximum = PathSet.NumSlices - 1;
-            slider2.Minimum = 0;
+            //slider2.Maximum = PathSet.NumSlices - 1;
+            //slider2.Minimum = 0;
             int value;
             value = (int) Math.Round(slider2.Value);
             UpdateZPositionInfo(value, (int) slider2.Maximum);
@@ -1269,17 +1269,37 @@ namespace TomosurgeryAlpha
         }
 
 
+
+        public ArrayList Line;
+        public bool _isDrawing = false;
+
         private void plan_imgbox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             //DrawCirclePoints(e.GetPosition(plan_imgbox).X, e.GetPosition(plan_imgbox).Y);
+            _isDrawing = true;
+            Line = new ArrayList();
+            System.Windows.Point p = e.GetPosition(plan_imgbox);
+            Line.Add(p);
         }
+
+        public float[,] modslice;
 
         private void plan_imgbox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            _isDrawing = false;
+            ModifyPrioritySlice(modslice);
+
         }
 
         private void plan_imgbox_MouseMove(object sender, MouseEventArgs e)
         {
+            if (_isDrawing)
+            {
+                System.Windows.Point p = e.GetPosition(plan_imgbox);
+                Line.Add(p);
+                Line.TrimToSize();
+                modslice = DrawCurrentLine(Line);
+            }
             UpdateTrackingLabels(e);
         }
 
@@ -1321,6 +1341,124 @@ namespace TomosurgeryAlpha
             else if (!IsMouseDirectlyOver)
                 plan_imgbox.ReleaseMouseCapture();
         }
+
+        private float[,] DrawCurrentLine(ArrayList line)
+        {
+            RasterPath rp = GetCurrentSliceRP();
+            float[,] temp_mask = Matrix.Zeroes(rp.slice.GetLength(0), rp.slice.GetLength(1));
+            double aspect_x = rp.slice.GetLength(0) / plan_imgbox.Height;
+            double aspect_y = rp.slice.GetLength(1) / plan_imgbox.Width;
+            unsafe
+            {
+                foreach (Point p in line)
+                {
+                    foreach (PointF pf in circle)
+                    {
+                        var pBackBuffer = (int) wb_Plan.BackBuffer;
+                        var rel_y = (int) pf.Y;
+                        var rel_x = (int) pf.X;
+                        var global_x = ((int) (p.X*aspect_x) - CursorRadius) + rel_x;
+                        var global_y = ((int) (p.Y*aspect_y) - CursorRadius) + rel_y;
+
+                        if (temp_mask[global_x, global_y] == 1.0f)
+                            continue;
+                        else
+                        {
+                            temp_mask[global_x, global_y] = 1;
+                            pBackBuffer += global_y * wb_Plan.BackBufferStride;
+                            pBackBuffer += global_x * 4;
+                            
+                            int color_data = 0 << 16; // R
+                            color_data |= 255 << 8; // G
+                            color_data |= 0 << 0; // B
+
+                            // Assign the color data to the pixel.
+                            *((int*)pBackBuffer) = color_data;
+                        }
+                    }
+                }
+                try
+                {
+                    // Specify the area of the bitmap that changed.
+                    wb_Plan.AddDirtyRect(new Int32Rect(0, 0, (int)wb_Plan.Width, (int)wb_Plan.Height));
+                }
+                catch (Exception ex)
+                {
+                    string s = ex.ToString();
+                }
+                finally
+                {
+                    wb_Plan.Unlock();
+                }
+            }
+            return temp_mask;
+
+        }
+
+        private void ModifyPrioritySlice(float[,] temp_mask)
+        {
+            RasterPath rp = GetCurrentSliceRP();
+            rp.mask = (float[,]) temp_mask.Clone();
+            DisplayPlan();
+        }
+
+
+        private void DrawCirclePoints(double x, double y)
+        {
+            double Plan_aspectMultiplier = wb_Plan.PixelHeight / plan_imgbox.Height;
+            //AdjustCursorSize();
+            int i = ((int)(x * Plan_aspectMultiplier)) - CursorRadius;
+            int j = ((int)(y * Plan_aspectMultiplier)) - CursorRadius;
+
+            ResetMask();
+            //i and j is the single center of the circle, adjusted for the aspect ratio.
+            //u and v refer to each of the individual pixels in the circle cursor mask.
+            if (circle != null)
+                foreach (PointF p in circle)
+                {
+                    var u = (int)p.Y;
+                    var v = (int)p.X;
+                    mask[i + u, j + v] = 1;
+                }
+
+            wb_Plan.Lock();
+
+            unsafe
+            {
+                foreach (PointF p in circle)
+                {
+                    // Get a pointer to the back buffer.
+                    var pBackBuffer = (int)wb_Plan.BackBuffer;
+                    var u = (int)p.Y;
+                    var v = (int)p.X;
+                    // Find the address of the pixel to draw.
+                    pBackBuffer += (j + u) * wb_Plan.BackBufferStride;
+                    pBackBuffer += (i + v) * 4;
+                    // Compute the pixel's color.
+
+                    int color_data = 255 << 16; // R
+                    color_data |= 0 << 8; // G
+                    color_data |= 0 << 0; // B
+
+                    // Assign the color data to the pixel.
+                    *((int*)pBackBuffer) = color_data;
+                }
+                try
+                {
+                    // Specify the area of the bitmap that changed.
+                    wb_Plan.AddDirtyRect(new Int32Rect(0, 0, (int)wb_Plan.Width, (int)wb_Plan.Height));
+                }
+                catch (Exception ex)
+                {
+                    string s = ex.ToString();
+                }
+                finally
+                {
+                    wb_Plan.Unlock();
+                }
+            }
+        }
+
 
         private void canvas1_MouseEnter(object sender, MouseEventArgs e)
         {
@@ -2354,62 +2492,6 @@ namespace TomosurgeryAlpha
             PathSet.mask = Matrix.Zeroes((int) DICOM_imgbox.Width, (int) DICOM_imgbox.Height);
         }
 
-        private void DrawCirclePoints(double x, double y)
-        {
-            double Plan_aspectMultiplier = wb_Plan.PixelHeight/plan_imgbox.Height;
-            //AdjustCursorSize();
-            int i = ((int) (x*Plan_aspectMultiplier)) - CursorRadius;
-            int j = ((int) (y*Plan_aspectMultiplier)) - CursorRadius;
-
-            ResetMask();
-            //i and j is the single center of the circle, adjusted for the aspect ratio.
-            //u and v refer to each of the individual pixels in the circle cursor mask.
-            if (circle != null)
-                foreach (PointF p in circle)
-                {
-                    var u = (int) p.Y;
-                    var v = (int) p.X;
-                    mask[i + u, j + v] = 1;
-                }
-
-            wb_Plan.Lock();
-
-            unsafe
-            {
-                foreach (PointF p in circle)
-                {
-                    // Get a pointer to the back buffer.
-                    var pBackBuffer = (int) wb_Plan.BackBuffer;
-                    var u = (int) p.Y;
-                    var v = (int) p.X;
-                    // Find the address of the pixel to draw.
-                    pBackBuffer += (j + u)*wb_Plan.BackBufferStride;
-                    pBackBuffer += (i + v)*4;
-                    // Compute the pixel's color.
-
-                    int color_data = 255 << 16; // R
-                    color_data |= 0 << 8; // G
-                    color_data |= 0 << 0; // B
-
-                    // Assign the color data to the pixel.
-                    *((int*) pBackBuffer) = color_data;
-                }
-                try
-                {
-                    // Specify the area of the bitmap that changed.
-                    wb_Plan.AddDirtyRect(new Int32Rect(0, 0, (int) wb_Plan.Width, (int) wb_Plan.Height));
-                }
-                catch (Exception ex)
-                {
-                    string s = ex.ToString();
-                }
-                finally
-                {
-                    wb_Plan.Unlock();
-                }
-            }
-        }
-
         public void ErasePixel(ref WriteableBitmap writeableBitmap, System.Windows.Controls.Image i, MouseEventArgs e)
         {
             var column = (int) e.GetPosition(i).X;
@@ -2458,8 +2540,8 @@ namespace TomosurgeryAlpha
         public void DisplayPlan()
         {
             //UpdateSliceLabels();
-            //slider2.Minimum = 0;
-            //slider2.Maximum = PS.SlicePositions.GetLength(0) - 1;
+            slider2.Minimum = 0;
+            slider2.Maximum = PS.SlicePositions.GetLength(0) - 1;
             var rp = (RasterPath) PS.RasterPaths[GetCurrentSlice()];
             int[] lastlines = null;
             int[] nextlines = null;
@@ -2478,6 +2560,7 @@ namespace TomosurgeryAlpha
             //float[,] img = SS.fj_Tumor[zpos];
             float[,] img = rp.slice;
             float[,] p_img = rp.priorityslice;
+
             var doseimg = new float[img.GetLength(0),img.GetLength(1)];
             //float[] img = SS.f_structurearray[zpos]; 
             bool dp = false;
@@ -2521,8 +2604,16 @@ namespace TomosurgeryAlpha
                         
                         int pval = (int) Math.Round(p_img[y, x]*255);
                         value = (int) Math.Round(img[y, x]*255);
-                        
-                        if (value > 0)
+                        int mod;
+                        if (rp.mask != null)
+                            mod = (int)Math.Round(rp.mask[y, x]);
+                        else
+                            mod = 0;
+
+
+                        if (mod > 0)
+                            alpha = 0;
+                        else if (value > 0)
                             if (pval > 0)
                                 alpha = 255;
                             else

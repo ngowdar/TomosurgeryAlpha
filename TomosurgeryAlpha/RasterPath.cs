@@ -27,7 +27,7 @@ namespace TomosurgeryAlpha
         public static int X;
         public static int Y;
         public static bool DoseModifiable = false;
-        public static float[,] mask;
+        public float[,] mask;
         public static int RasterWidth;
         public static int StepSize;
         public static int ComparisonKernelSize;
@@ -759,10 +759,14 @@ namespace TomosurgeryAlpha
                 
                 ds = PrepareDS(temp_weight, (float)(1.0));
                 double max2 = ds.Max();
-               for (int i = 0; i < temp_weight.GetLength(0); i++)
+
+                #region Reduce Max
+                /*for (int i = 0; i < temp_weight.GetLength(0); i++)
                         temp_weight[i] = temp_weight[i] * (1.0 / max2);
                 ds = PrepareDS(temp_weight, (float) (1.0));
-                max2 = ds.Max();
+                max2 = ds.Max();*/
+                #endregion
+
                 Debug.WriteLine("Change in DS max dose value: " + Math.Round(max, 2) + " ==> " + Math.Round(max2, 2));
                 
                 double[] measurements = CalculateIterationCoverage(ds, DDS_slice, 0.5f);
@@ -1157,8 +1161,8 @@ namespace TomosurgeryAlpha
             
             DDStimesP = Matrix.MultiplyElements(DDStimesP, MidplaneSubset);
             DStimesP = Matrix.MultiplyElements(DStimesP, MidplaneSubset);
-            //WriteFloatArray2BMP(DDS_slice, "test_DDS.bmp");
-            //WriteFloatArray2BMP(dilatedDDS, "test_dilated_DDS.bmp");
+            WriteFloatArray2BMP(DDStimesP, "DDStimesP.bmp");
+            WriteFloatArray2BMP(DStimesP, "DStimesP.bmp");
             
             //if (WhichSlice == 2)
               //  Debug.WriteLine("omg");
@@ -1402,11 +1406,11 @@ namespace TomosurgeryAlpha
                 //    tweight[shot] = 1.0f;
                 //else
 
-                if (ratio * ShotWeights[shot] > ShotWeightRestriction)
+                if (ratio * tweight[shot] > ShotWeightRestriction)
                     tweight[shot] = ShotWeightRestriction;
                 else
                 {
-                    tweight[shot] = ShotWeights[shot] * ratio;
+                    tweight[shot] = tweight[shot] * ratio;
                 }
 
                 /*if (ratio > 0)
@@ -2000,7 +2004,7 @@ namespace TomosurgeryAlpha
             // ADD DDS ADDITIONS HERE!!!
             if (DoseModifiable)
             {
-                float[,] TempMod = Matrix.Add(mask, DDS_slice);
+                //float[,] TempMod = Matrix.Add(mask, DDS_slice);
                 output = Matrix.Subset(DDS_slice, (int) px, (int) py, ComparisonKernelSize);
                 //output = Matrix.MultiplySubset(TempMod, P, (int)px, (int)py);
             }

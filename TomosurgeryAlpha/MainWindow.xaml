@@ -135,7 +135,7 @@
                 <Grid>
                     <Canvas Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" x:Name="canvas1" VerticalAlignment="Top" Width="512" IsMouseDirectlyOverChanged="canvas1_IsMouseDirectlyOverChanged">
                         <Image Height="512" x:Name="plan_imgbox" Width="512" Margin="6,6,90,10" MouseEnter="plan_imgbox_MouseEnter" MouseLeave="plan_imgbox_MouseLeave" MouseLeftButtonDown="plan_imgbox_MouseLeftButtonDown" MouseLeftButtonUp="plan_imgbox_MouseLeftButtonUp" MouseMove="plan_imgbox_MouseMove_1" Source="Resources/metbase.jpg" Canvas.Left="-6" Canvas.Top="-6" Cursor="None" IsMouseDirectlyOverChanged="plan_imgbox_IsMouseDirectlyOverChanged" StretchDirection="UpOnly" />
-                        <Ellipse Canvas.Left="0" Canvas.Top="497" Fill="Red" Height="15" x:Name="cursor_ellipse" OpacityMask="#38000000" Stroke="Red" Width="15" MouseEnter="cursor_ellipse_MouseEnter" MouseMove="cursor_ellipse_MouseMove" Cursor="None" IsHitTestVisible="False" />
+                        <Ellipse Canvas.Left="0" Canvas.Top="497" Fill="Red" Height="15" x:Name="cursor_ellipse" OpacityMask="#38000000" Stroke="Red" Width="15" MouseEnter="cursor_ellipse_MouseEnter" MouseMove="cursor_ellipse_MouseMove" Cursor="None" IsHitTestVisible="False" Visibility="Hidden" />
                     </Canvas>
                     <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="524,6,0,0" x:Name="plansize_lbl" VerticalAlignment="Top" Width="94" Foreground="#FF26D8D0" FontFamily="Euphemia" FontSize="12" />
                     <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="524,59,0,0" x:Name="planX_lbl" VerticalAlignment="Top" Width="78" Foreground="#FF26D8D0" FontFamily="Euphemia" FontSize="12" />
