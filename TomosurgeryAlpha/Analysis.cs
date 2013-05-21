@@ -11,6 +11,7 @@ namespace TomosurgeryAlpha
     {
         public static List<AnalysisInfo> AIList = new List<AnalysisInfo>();
         public static float[] DVH;
+        public static string SessionName;
         private static double RX;
         private static double TolDose;
         private static double tumorvolume;
@@ -20,36 +21,86 @@ namespace TomosurgeryAlpha
         private static double csrxvol;
         private static double maskvolume;
         private static double maskcoveragebyrx;
+        private static double rtog_cov;
+        public static double maxdose;
+        public static double doserate;
+        public static double beamontime;
         public static DICOMDoseFile ddf;
 
         public static void CreateReportFile(string name)
         {
-            string path = "report.txt";
+            string datetimeString = string.Format("{0:yyyy-MM-dd_hh-mm-ss-tt}.txt", DateTime.Now);
+            string path = string.Concat(SessionName, "_", name);
             path = Path.Combine(PathSet.ActiveDirectory, path);
             var fs = new FileStream(path, FileMode.Create);
             var tw = new StreamWriter(fs);
-            tw.WriteLine("====================" + name + " Report" + "====================");
+            tw.WriteLine("====================" + SessionName + " Report" + "====================");
             tw.Close();
             fs.Close();
         }
 
-        public static void AddLineToReport(string s)
+        public static string CreateFinalReportFile()
         {
-            string path = "report.txt";
+            string datetimeString = string.Format("{0:yyyy-MM-dd_hh-mm-ss-tt}.txt", DateTime.Now);
+            string path = string.Concat(SessionName, "_SummaryReport.txt");
             path = Path.Combine(PathSet.ActiveDirectory, path);
-            bool exists = File.Exists(path);
+            var fs = new FileStream(path, FileMode.Create);
+            var tw = new StreamWriter(fs);
+            tw.WriteLine("====================" + SessionName + " Summary Report" + "====================");
+
+            tw.WriteLine();
+
+            tw.WriteLine("================PARAMETERS===================");
+            tw.WriteLine("Raster Width: " + RasterPath.RasterWidth);
+            tw.WriteLine("Shot Step Size: " + RasterPath.StepSize);
+            tw.WriteLine("Slice Thickness: " + PathSet.ST);
+            tw.WriteLine("Dose Calculation Thickness: " + PathSet.DCT);
+            tw.WriteLine("Prescription dose: " + PathSet.RxDose);
+            tw.WriteLine("Tolerance dose: " + PathSet.ToleranceDose);
+
+            tw.WriteLine("================ANALYSIS===================");
+            tw.WriteLine("Lesion Size: " + tumorvolume);
+            tw.WriteLine("Rx Volume: " + isovol);
+            tw.WriteLine("Tumor Volume covered by Rx: " + isotumorvol);
+            tw.WriteLine("Shell Volume: " + maskvolume);
+            tw.WriteLine("Percent volume covered by shell: " + (maskcoveragebyrx / maskvolume));
+            tw.WriteLine(" ");
+            tw.WriteLine("----------------Indexes------------------");
+            tw.WriteLine("COVERAGE: " + Math.Round((isotumorvol/tumorvolume),2));
+            tw.WriteLine("RTOG-CONFORMITY: " + Math.Round((isovol/tumorvolume),2));
+            tw.WriteLine("LOMAX-SCHEIB: " + Math.Round((isotumorvol/isovol),2));
+            tw.WriteLine("VANT REIT: " + Math.Round(((isotumorvol * isotumorvol) / (tumorvolume * isovol)),2));
+            tw.WriteLine("RTOG-COVERAGE: " + Math.Round(rtog_cov,2));
+            tw.WriteLine(" ");
+            tw.WriteLine("----------------Time Cost--------------------");
+            tw.WriteLine("Assuming central doserate of " + doserate + ":");
+            tw.WriteLine("" + PathSet.TotalNumShots + " shots at a max of " + maxdose + "Gy...");
+            tw.WriteLine(" ==> approximately " + Math.Round(beamontime,2) + "mins");
+            tw.WriteLine("===========================================");
+            
+            tw.Close();
+            fs.Close();
+
+            return path;
+        }
+
+
+        public static void AddLineToReport(string filename, string text)
+        {
+            string name = string.Concat(SessionName, "_", filename);
+            string path = Path.Combine(PathSet.ActiveDirectory, name);
             if (File.Exists(path))
             {
                 var fs = new FileStream(path, FileMode.Append);
                 var tw = new StreamWriter(fs);
-                tw.WriteLine(s);
+                tw.WriteLine(text);
                 tw.Close();
                 fs.Close();
             }
             else
             {
-                CreateReportFile("Unnamed");
-                AddLineToReport(s);
+                CreateReportFile(filename);
+                AddLineToReport(filename, text);
             }
         }
 
@@ -81,60 +132,79 @@ namespace TomosurgeryAlpha
             float[][,] cs;
             SS.GetCSOnly(out cs, StructureSet.originalTumor);
             SS.GetTumorOnly(out tumor, StructureSet.originalTumor);
-            float[][,] dose = DICOMDoseFile.OriginalDose;
+            float[][,] dose = ddf.OriginalDose;
+            int tumor_xlength = tumor[0].GetLength(0);
+            int dose_xlength = dose[0].GetLength(0);
             double maxdose = FindMaxDose(dose);
-            var rxdose = (float) (0.5*maxdose);
-            var toldose = (float) (0.3*maxdose);
-            
-            dose = Matrix.Normalize(dose);            
-            int zmid1 = (dose.GetLength(0) / 2);
-            int zmid2 = tumor.GetLength(0) / 2;
-            
-            //Matrix.WriteFloatArray2BMP(Matrix.ThresholdEq(dose[zmid1], 0.5f), "DS_halfslice.bmp");
-            //Matrix.WriteFloatArray2BMP(tumor[zmid2], "Tumor_halfslice.bmp");
+            var rxdose = (float)(0.5 * maxdose);
+            var toldose = (float)(0.3 * maxdose);
+            dose = Matrix.Normalize(dose);
             double isovol = 0;
-            double isotumorvol = 0;
-            double toldosevol = 0;
-            double tolcsvol = 0;
-            double tumorvol = Matrix.SumAll(Matrix.Normalize(tumor));
-            double csvol = Matrix.SumAll(Matrix.Normalize(cs));
-            for (int k = 0; k < tumor.GetLength(0); k++)
-                for (int j = 0; j < tumor[0].GetLength(1); j++)
-                    for (int i = 0; i < tumor[0].GetLength(0); i++)
-                    {
-                        double t = tumor[k][i, j];
-                        double d = dose[k][i, j];
-                        double c = cs[k][i, j];
-
-                        if (d >= rxdose)
-                        {
-                            isovol++;
-                            if (t > 0)
-                                isotumorvol++;
-                        }
-                        else if (d >= toldose)
-                        {
-                            toldosevol++;
-                            if (c > 0)
-                                tolcsvol++;
-                        }
-                    }
-            GetDVH(dose, tumor);
-            Debug.WriteLine("DVH Volume covered by 50% dose: " + DVH[50] + "//" + DVH[1] + " = " + DVH[50]/DVH[1]);
-
-
             var ai = new AnalysisInfo();
-            ai.CS_Volume = csvol;
-            ai.CS_overdose = tolcsvol;
-            ai.LesionVolume = tumorvol;
-            ai.Rx_Volume = isovol;
-            ai.RxLesion_Volume = isotumorvol;
-            ai.Coverage = isotumorvol/tumorvol;
-            ai.RTOG = (isovol/tumorvol);
-            ai.LomaxScheib = isotumorvol/isovol;
-            ai.VantReits = (isotumorvol*isotumorvol)/(tumorvol*isovol);
-            ai.TestName = String.Concat("original_", DateTime.Now.ToShortTimeString());
-            ai.RTOGCoverage = FindRTOGCoverage(tumor, dose, rxdose);
+            if (tumor_xlength != dose_xlength)
+            {
+                Debug.WriteLine("Tumor file doesn't match! Analzying dose alone...");
+                for (int k = 0; k < dose.GetLength(0); k++)
+                    for (int j = 0; j < dose[0].GetLength(1); j++)
+                        for (int i = 0; i < dose[0].GetLength(0); i++)
+                        {
+                            double d = dose[k][i, j];
+                            if (d >= rxdose)
+                                isovol++;
+                        }
+                ai.Rx_Volume = isovol;
+            }
+
+            else
+            {
+                int zmid1 = (dose.GetLength(0)/2);
+                int zmid2 = tumor.GetLength(0)/2;
+
+                //Matrix.WriteFloatArray2BMP(Matrix.ThresholdEq(dose[zmid1], 0.5f), "DS_halfslice.bmp");
+                //Matrix.WriteFloatArray2BMP(tumor[zmid2], "Tumor_halfslice.bmp");
+
+                double isotumorvol = 0;
+                double toldosevol = 0;
+                double tolcsvol = 0;
+                double tumorvol = Matrix.SumAll(Matrix.Normalize(tumor));
+                double csvol = Matrix.SumAll(Matrix.Normalize(cs));
+                for (int k = 0; k < tumor.GetLength(0); k++)
+                    for (int j = 0; j < tumor[0].GetLength(1); j++)
+                        for (int i = 0; i < tumor[0].GetLength(0); i++)
+                        {
+                            double t = tumor[k][i, j];
+                            double d = dose[k][i, j];
+                            double c = cs[k][i, j];
+
+                            if (d >= rxdose)
+                            {
+                                isovol++;
+                                if (t > 0)
+                                    isotumorvol++;
+                            }
+                            else if (d >= toldose)
+                            {
+                                toldosevol++;
+                                if (c > 0)
+                                    tolcsvol++;
+                            }
+                        }
+                GetDVH(dose, tumor);
+                
+                Debug.WriteLine("DVH Volume covered by 50% dose: " + DVH[50] + "//" + DVH[1] + " = " + DVH[50]/DVH[1]);
+                ai.CS_Volume = csvol;
+                ai.CS_overdose = tolcsvol;
+                ai.LesionVolume = tumorvol;
+                ai.Rx_Volume = isovol;
+                ai.RxLesion_Volume = isotumorvol;
+                ai.Coverage = isotumorvol / tumorvol;
+                ai.RTOG = (isovol / tumorvol);
+                ai.LomaxScheib = isotumorvol / isovol;
+                ai.VantReits = (isotumorvol * isotumorvol) / (tumorvol * isovol);
+                ai.TestName = String.Concat("original_", DateTime.Now.ToShortTimeString());
+                rtog_cov = FindRTOGCoverage(tumor, dose, rxdose);
+                ai.RTOGCoverage = Math.Round(rtog_cov,2);
+            }
             AIList.Add(ai);
         }
 
@@ -196,7 +266,8 @@ namespace TomosurgeryAlpha
             ai.Coverage = isotumorvol/tumorvolume;
             ai.RTOG = isovol/tumorvolume;
             ai.LomaxScheib = isotumorvol/isovol;
-            ai.RTOGCoverage = FindRTOGCoverage(SS.fj_Tumor, PS.DoseSpace, (float) rxlevel);
+            rtog_cov = FindRTOGCoverage(SS.fj_Tumor, PS.DoseSpace, (float)rxlevel);
+            ai.RTOGCoverage = rtog_cov;
             ai.VantReits = (isotumorvol*isotumorvol)/(tumorvolume*isotumorvol);
             ai.MaskCoverage = maskcoveragebyrx;
             ai.MaskVolume = maskvolume;
@@ -250,8 +321,8 @@ namespace TomosurgeryAlpha
 
 
             var DICOM_dose = new AnalysisInfo();
-            AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), t, cs, (int) ddf.ZStart);
-            AnalyzeMaskCoverage(ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose), Matrix.PrepareDDSMask(t, 3),
+            AnalyzeLesionCoverage(ddf.EnlargeAndInterpolate(ddf.OriginalDose), t, cs, (int) ddf.ZStart);
+            AnalyzeMaskCoverage(ddf.EnlargeAndInterpolate(ddf.OriginalDose), Matrix.PrepareDDSMask(t, 3),
                                 rxlevel);
             DICOM_dose.RxLevel = RX;
             DICOM_dose.LesionVolume = tumorvolume;
@@ -261,7 +332,7 @@ namespace TomosurgeryAlpha
             DICOM_dose.Coverage = isotumorvol/tumorvolume;
             DICOM_dose.LomaxScheib = isotumorvol/isovol;
             DICOM_dose.VantReits = (isotumorvol*isotumorvol)/(tumorvolume*isovol);
-            DICOM_dose.RTOGCoverage = FindRTOGCoverage(tumor, ddf.EnlargeAndInterpolate(DICOMDoseFile.OriginalDose),
+            DICOM_dose.RTOGCoverage = FindRTOGCoverage(tumor, ddf.EnlargeAndInterpolate(ddf.OriginalDose),
                                                        (float) rxlevel);
             DICOM_dose.TestName = "DICOMdose";
             AIList.Add(DICOM_dose);
@@ -342,15 +413,15 @@ namespace TomosurgeryAlpha
         }
 
 
-        internal static void AddAnalysisReport()
+        internal static void AddAnalysisReport(string filename)
         {
-            AddLineToReport("================ANALYSIS===================");
-            AddLineToReport("Lesion Size: " + tumorvolume);
-            AddLineToReport("Rx Volume: " + isovol);
-            AddLineToReport("Tumor Volume covered by Rx: " + isotumorvol);
-            AddLineToReport("Shell Volume: " + maskvolume);
-            AddLineToReport("Percent volume covered by shell: " + (maskcoveragebyrx/maskvolume));
-            AddLineToReport("===========================================");
+            AddLineToReport(filename, "================ANALYSIS===================");
+            AddLineToReport(filename, "Lesion Size: " + tumorvolume);
+            AddLineToReport(filename, "Rx Volume: " + isovol);
+            AddLineToReport(filename, "Tumor Volume covered by Rx: " + isotumorvol);
+            AddLineToReport(filename, "Shell Volume: " + maskvolume);
+            AddLineToReport(filename, "Percent volume covered by shell: " + (maskcoveragebyrx/maskvolume));
+            AddLineToReport(filename, "===========================================");
         }
     }
 

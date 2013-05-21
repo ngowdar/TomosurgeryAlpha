@@ -991,6 +991,39 @@ namespace TomosurgeryAlpha
             return output;
         }
 
+
+        /// <summary>
+        /// This method combines a tumor matrix and critical structure matrix. However, it assumes that 
+        /// voxels that are both CS and Tumor will still be treated as tumor.
+        /// </summary>
+        /// <param name="tumor"></param>
+        /// <param name="cs"></param>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        internal static float[][,] Combine_CS_Tumor(float[][,] tumor, float[][,] cs, int p)
+        {
+            var output = new float[tumor.GetLength(0)][,];
+            for (int k = 0; k < tumor.GetLength(0); k++)
+            {
+                float[,] temp = Zeroes(tumor[0].GetLength(0), tumor[0].GetLength(1));
+                for (int j = 0; j < temp.GetLength(1); j++)
+                    for (int i = 0; i < temp.GetLength(0); i++)
+                    {
+                        float t = tumor[k][i, j];
+                        float c = p*cs[k][i, j];
+                        if (t > 0)
+                            temp[i, j] = t;
+                        else
+                        {
+                            temp[i, j] = c;
+                        }
+
+                    }
+                output[k] = temp;
+            }
+            return output;
+        }
+
         internal static float FindMin(float[,] slice)
         {
             float min = 1000;

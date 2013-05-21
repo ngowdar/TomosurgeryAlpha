@@ -110,6 +110,7 @@
     </ApplicationDefinition>
     <Compile Include="Analysis.cs" />
     <Compile Include="CLSourceCode.cs" />
+    <Compile Include="Comparison.cs" />
     <Compile Include="Coordinates.cs" />
     <Compile Include="DICOMDoseFile.cs" />
     <Compile Include="DoseKernel.cs" />

@@ -80,41 +80,6 @@
                     <Label Content="Pos:" Height="28" HorizontalAlignment="Left" Margin="531,51,0,0" x:Name="zpos_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
                 </Grid>
             </TabItem>
-            <TabItem Header="Dose Space" x:Name="DStab" FontFamily="Euphemia" FontSize="14">
-                <TabItem.Foreground>
-                    <LinearGradientBrush EndPoint="0.5,1" MappingMode="RelativeToBoundingBox" StartPoint="0.5,0">
-                        <GradientStop Color="White" Offset="0"/>
-                        <GradientStop Color="#FFAEAEAE" Offset="1"/>
-                        <GradientStop Color="#FFEAEAEA" Offset="0.488"/>
-                        <GradientStop Color="#FFBCBCBD" Offset="0.539"/>
-                    </LinearGradientBrush>
-                </TabItem.Foreground>
-                <TabItem.Background>
-                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
-                        <GradientStop Color="Gray" Offset="0"/>
-                        <GradientStop Color="#FF191919" Offset="1"/>
-                        <GradientStop Color="#FF8B8B8B" Offset="0.509"/>
-                        <GradientStop Color="#FF151515" Offset="0.535"/>
-                    </LinearGradientBrush>
-                </TabItem.Background>
-                <Grid>
-                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="528,21,0,0" x:Name="label13" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,74,0,0" x:Name="DS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,87,0,0" x:Name="DS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,100,0,0" x:Name="DS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
-                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" x:Name="DS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
-                    <CheckBox x:Name="ViewIso_chkbox" Content="Show Isodose" HorizontalAlignment="Left" Margin="522,417,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
-                    <RadioButton x:Name="dicomdose_rb_btn" Content="DICOM dose" HorizontalAlignment="Left" Margin="522,478,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="RadioButton_Checked_1" IsEnabled="False"/>
-                    <RadioButton x:Name="plandose_rb_btn" Content="Plan dose" HorizontalAlignment="Left" Margin="522,457,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="plandose_rb_btn_Copy_Checked"/>
-                    <Label Content="Actual Z:" Height="28" HorizontalAlignment="Left" Margin="528,120,0,0" x:Name="DS_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" FontSize="11" />
-                    <CheckBox x:Name="ViewCoverage_chkbox" Content="Show Iso Cov." HorizontalAlignment="Left" Margin="522,397,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
-                    <CheckBox x:Name="origdose_rb_btn" HorizontalAlignment="Left" Margin="522,335,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="origdose_rb_btn_Checked" IsEnabled="False" Width="76" Content="Original"/>
-                    <CheckBox x:Name="newdose_rb_btn" Content="Processed" HorizontalAlignment="Left" Margin="522,356,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="newdose_rb_btn_Checked" IsEnabled="False"/>
-                    <CheckBox x:Name="Normalized_chkbox" Content="Normalized" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="Normalized_chkbox_Checked" Margin="523,313,0,0" Width="95"/>
-                    <CheckBox x:Name="ShowStruct_chkbox" Content="Show Struct" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="10" Checked="Normalized_chkbox_Checked" Margin="523,437,0,0" Width="95" Unchecked="ShowStruct_chkbox_Unchecked"/>
-
-                </Grid>
-            </TabItem>
             <TabItem Header="Plan View" x:Name="PlanViewtab" GotFocus="PlanViewtab_GotFocus" FontFamily="Euphemia" FontSize="14">
                 <TabItem.Foreground>
                     <LinearGradientBrush EndPoint="0.5,1" MappingMode="RelativeToBoundingBox" StartPoint="0.5,0">
@@ -165,8 +130,42 @@
 
                 </Grid>
             </TabItem>
-            <Grid Margin="10,10,0,2"/>
-            <TabItem Header="Analysis" x:Name="analysis_tab" Margin="-13,-2,-30,-1" FontFamily="Euphemia" FontSize="14">
+            <TabItem Header="Dose Space" x:Name="DStab" FontFamily="Euphemia" FontSize="14">
+                <TabItem.Foreground>
+                    <LinearGradientBrush EndPoint="0.5,1" MappingMode="RelativeToBoundingBox" StartPoint="0.5,0">
+                        <GradientStop Color="White" Offset="0"/>
+                        <GradientStop Color="#FFAEAEAE" Offset="1"/>
+                        <GradientStop Color="#FFEAEAEA" Offset="0.488"/>
+                        <GradientStop Color="#FFBCBCBD" Offset="0.539"/>
+                    </LinearGradientBrush>
+                </TabItem.Foreground>
+                <TabItem.Background>
+                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                        <GradientStop Color="Gray" Offset="0"/>
+                        <GradientStop Color="#FF191919" Offset="1"/>
+                        <GradientStop Color="#FF8B8B8B" Offset="0.509"/>
+                        <GradientStop Color="#FF151515" Offset="0.535"/>
+                    </LinearGradientBrush>
+                </TabItem.Background>
+                <Grid>
+                    <Label Content="Size:" Height="28" HorizontalAlignment="Left" Margin="528,21,0,0" x:Name="label13" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Label Content="X:" Height="28" HorizontalAlignment="Left" Margin="528,74,0,0" x:Name="DS_x_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Label Content="Y:" Height="28" HorizontalAlignment="Left" Margin="528,87,0,0" x:Name="DS_y_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Label Content="Z:" Height="28" HorizontalAlignment="Left" Margin="528,100,0,0" x:Name="DS_z_lbl" VerticalAlignment="Top" Width="78" Foreground="White" />
+                    <Image Height="512" HorizontalAlignment="Left" Margin="10,10,0,0" x:Name="DS_imgbox" Stretch="Fill" VerticalAlignment="Top" Width="512" MouseMove="DS_imgbox_MouseMove" />
+                    <CheckBox x:Name="ViewIso_chkbox" Content="Show Isodose" HorizontalAlignment="Left" Margin="522,417,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
+                    <RadioButton x:Name="dicomdose_rb_btn" Content="DICOM dose" HorizontalAlignment="Left" Margin="522,478,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="RadioButton_Checked_1" IsEnabled="False"/>
+                    <RadioButton x:Name="plandose_rb_btn" Content="Plan dose" HorizontalAlignment="Left" Margin="522,457,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="plandose_rb_btn_Copy_Checked"/>
+                    <Label Content="Actual Z:" Height="28" HorizontalAlignment="Left" Margin="528,120,0,0" x:Name="DS_index_lbl" VerticalAlignment="Top" Width="78" Foreground="White" FontSize="11" />
+                    <CheckBox x:Name="ViewCoverage_chkbox" Content="Show Iso Cov." HorizontalAlignment="Left" Margin="522,397,0,0" VerticalAlignment="Top" Width="96" FontSize="10" Foreground="#FFF9F7F7" Checked="ViewIso_chkbox_Checked"/>
+                    <CheckBox x:Name="origdose_rb_btn" HorizontalAlignment="Left" Margin="522,335,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="origdose_rb_btn_Checked" IsEnabled="False" Width="76" Content="Original"/>
+                    <CheckBox x:Name="newdose_rb_btn" Content="Processed" HorizontalAlignment="Left" Margin="522,356,0,0" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="newdose_rb_btn_Checked" IsEnabled="False"/>
+                    <CheckBox x:Name="Normalized_chkbox" Content="Normalized" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="12" Checked="Normalized_chkbox_Checked" Margin="523,313,0,0" Width="95"/>
+                    <CheckBox x:Name="ShowStruct_chkbox" Content="Show Struct" HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="#FFE2E2E2" FontSize="10" Checked="Normalized_chkbox_Checked" Margin="523,437,0,0" Width="95" Unchecked="ShowStruct_chkbox_Unchecked"/>
+
+                </Grid>
+            </TabItem>
+            <TabItem Header="Analysis" x:Name="analysis_tab" FontFamily="Euphemia" FontSize="14">
                 <TabItem.Foreground>
                     <LinearGradientBrush EndPoint="0.5,1" MappingMode="RelativeToBoundingBox" StartPoint="0.5,0">
                         <GradientStop Color="White" Offset="0"/>
@@ -196,11 +195,43 @@
                     <Label x:Name="Gy_lbl_Copy" Content="Gy (MAX)" HorizontalAlignment="Left" Margin="183,268,0,0" VerticalAlignment="Top" Foreground="#FFE9ECFB" FontFamily="Lato Black" FontSize="18"/>
                     <Label x:Name="TotalBeamOnTime_lbl" Content="Total Beam-On Time: " HorizontalAlignment="Left" Margin="289,254,0,0" VerticalAlignment="Top" Foreground="#FFF1695B" FontFamily="Lato Black" FontSize="18"/>
                     <Label x:Name="Time_lbl" Content="0.0 mins" HorizontalAlignment="Left" Margin="480,254,0,0" VerticalAlignment="Top" Foreground="#FFF1695B" FontFamily="Lato Black" FontSize="18" Width="115"/>
+                    <Button x:Name="SaveFinalReport_btn" Content="SAVE FINAL REPORT" HorizontalAlignment="Left" Margin="121,394,0,0" VerticalAlignment="Top" Width="381" Click="SaveFinalReport_btn_Click" Height="50" FontWeight="Bold"/>
+                    <Label x:Name="Savepath_loc_txt" Content="" HorizontalAlignment="Left" Margin="38,465,0,0" VerticalAlignment="Top" Foreground="#FF83F98D" FontFamily="Liberation Sans Narrow" FontSize="16" Width="557"/>
 
 
                 </Grid>
             </TabItem>
+            <TabItem Header="Comparison" x:Name="compare_tab" Margin="-13,-2,-30,-1" FontFamily="Euphemia" FontSize="14">
+                <TabItem.Foreground>
+                    <LinearGradientBrush EndPoint="0.5,1" MappingMode="RelativeToBoundingBox" StartPoint="0.5,0">
+                        <GradientStop Color="White" Offset="0"/>
+                        <GradientStop Color="#FFAEAEAE" Offset="1"/>
+                        <GradientStop Color="#FFEAEAEA" Offset="0.488"/>
+                        <GradientStop Color="#FFBCBCBD" Offset="0.539"/>
+                    </LinearGradientBrush>
+                </TabItem.Foreground>
+                <TabItem.Background>
+                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                        <GradientStop Color="Gray" Offset="0"/>
+                        <GradientStop Color="#FF191919" Offset="1"/>
+                        <GradientStop Color="#FF8B8B8B" Offset="0.509"/>
+                        <GradientStop Color="#FF151515" Offset="0.535"/>
+                    </LinearGradientBrush>
+                </TabItem.Background>
+                <Grid>
+                     <Image x:Name="imgA" Margin="10,10,356,263"/>
+                    <Image x:Name="imgB" HorizontalAlignment="Left" Height="256" Margin="356,10,0,0" VerticalAlignment="Top" Width="256"/>
+                    <Slider x:Name="sliderA" HorizontalAlignment="Left" Margin="271,10,0,0" VerticalAlignment="Top" Orientation="Vertical" Height="256" ValueChanged="sliderA_ValueChanged"/>
+                    <Slider x:Name="sliderB" HorizontalAlignment="Left" Margin="338,10,0,0" VerticalAlignment="Top" Orientation="Vertical" Height="256" ValueChanged="sliderB_ValueChanged"/>
+                    <Button x:Name="loadA_btn" Content="Load Dose File (A)" HorizontalAlignment="Left" Margin="66,271,0,0" VerticalAlignment="Top" Width="161" Click="loadA_btn_Click"/>
+                    <Button x:Name="loadB_btn" Content="Load Dose File (B)" HorizontalAlignment="Left" Margin="407,271,0,0" VerticalAlignment="Top" Width="161" Click="loadB_btn_Click"/>
+                    <CheckBox x:Name="Aiso_chkbox" Content="Iso" HorizontalAlignment="Left" Margin="256,295,0,0" VerticalAlignment="Top" Foreground="#FFF1EFEF" Width="49"/>
+                    <CheckBox x:Name="Biso_chkbox" Content="Iso" HorizontalAlignment="Left" Margin="338,295,0,0" VerticalAlignment="Top" Foreground="#FFF1EFEF" Width="49"/>
+                    <TextBox x:Name="Atxt" HorizontalAlignment="Left" Height="118" Margin="66,321,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="161"/>
+                    <TextBox x:Name="Btxt" HorizontalAlignment="Left" Height="118" Margin="407,321,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="161"/>
 
+                </Grid>
+            </TabItem>
 
         </TabControl>
         <Slider Height="354" HorizontalAlignment="Left" x:Name="slider2" VerticalAlignment="Top" Width="29" Orientation="Vertical" ValueChanged="slider2_ValueChanged" IsSnapToTickEnabled="True" SmallChange="1" Foreground="#FF252323" Margin="644,29,0,0" />
@@ -297,5 +328,6 @@
 
 
         </Label>
+        <TextBox x:Name="NameTxtBox" HorizontalAlignment="Left" Height="21" Margin="23,594,0,0" TextWrapping="Wrap" Text="Name this session..." VerticalAlignment="Top" Width="175" Background="#FFD4D2D2" Foreground="#FF838383" FontStyle="Italic" FontWeight="Bold" FontFamily="DejaVu Sans Light"/>
     </Grid>
 </Window>

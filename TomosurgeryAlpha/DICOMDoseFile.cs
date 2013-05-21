@@ -20,9 +20,9 @@ namespace TomosurgeryAlpha
     {
         public static string dictionarypath;
         private static DataElementDictionary dd;
-        public static float[][,] OriginalDose;
+        public float[][,] OriginalDose;
         //public static float[] dose;
-        public static float[][,] Dose;
+        public float[][,] Dose;
         public static ushort rows;
         public static ushort columns;
         public static long numframes;
@@ -32,6 +32,9 @@ namespace TomosurgeryAlpha
         private DicomFile DF;
         public StructureSet SS;
         public float ZStart;
+        public int Xsize;
+        public int Ysize;
+        public int Zsize;
         public ushort bitsalloc;
         public string dosesavepath;
         public string path;
@@ -59,6 +62,14 @@ namespace TomosurgeryAlpha
                 ReadDoseFromFile(path);
                 Dose = EnlargeAndInterpolate(OriginalDose);
             }
+            SetSizes();
+        }
+
+        private void SetSizes()
+        {
+            Xsize = OriginalDose[0].GetLength(0);
+            Ysize = OriginalDose[1].GetLength(1);
+            Zsize = OriginalDose.GetLength(0);
         }
 
         private void SetDictionaryPath()
@@ -145,15 +156,16 @@ namespace TomosurgeryAlpha
             Debug.WriteLine("Maximum value: " + Matrix.FindMax(OriginalDose));
             Debug.WriteLine("------------------------------");
 
-            Analysis.AddLineToReport("====================LOADED DICOM DOSE FILE===========================");
-            Analysis.AddLineToReport("Rows x Columns x NumFrames: " + rows + " x " + columns + " x " + numframes);
-            Analysis.AddLineToReport("Offset Vector: < " + doseoffset[0] + ", " + doseoffset[1] + ", " + doseoffset[2] +
-                                     " > ");
-            Analysis.AddLineToReport("Scaling: " + scaling);
-            Analysis.AddLineToReport("ZStart: " + ZStart);
-            Analysis.AddLineToReport("Saved to: " + dosesavepath);
-            Analysis.AddLineToReport("Maximum value: " + Matrix.FindMax(OriginalDose));
-            Analysis.AddLineToReport("======================================================================");
+            string dfile = "loadedDicom.txt";
+            Analysis.CreateReportFile(dfile);
+            Analysis.AddLineToReport(dfile, "====================LOADED DICOM DOSE FILE===========================");
+            Analysis.AddLineToReport(dfile, "Rows x Columns x NumFrames: " + rows + " x " + columns + " x " + numframes);
+            Analysis.AddLineToReport(dfile, "Offset Vector: < " + doseoffset[0] + ", " + doseoffset[1] + ", " + doseoffset[2] + " > ");
+            Analysis.AddLineToReport(dfile, "Scaling: " + scaling);
+            Analysis.AddLineToReport(dfile, "ZStart: " + ZStart);
+            Analysis.AddLineToReport(dfile, "Saved to: " + dosesavepath);
+            Analysis.AddLineToReport(dfile, "Maximum value: " + Matrix.FindMax(OriginalDose));
+            Analysis.AddLineToReport(dfile, "======================================================================");
         }
 
         public void WriteDoseToFile(string path)

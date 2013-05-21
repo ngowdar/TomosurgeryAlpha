@@ -18,7 +18,8 @@ namespace TomosurgeryAlpha
     {
         public static string s_dictionarypath;
         private static DataElementDictionary dd;
-
+        public static string SessionName;
+        public static int[] centralpoint;
         public static float f_global_xoffset;
         public static float f_global_yoffset;
         public static float f_global_zoffset;
@@ -50,17 +51,25 @@ namespace TomosurgeryAlpha
             //if (DoseKernel.N > 0)
             //padsize = DoseKernel.N/2; // <- need to make this (N-1)/2 once N has been established.
             float[] LinearVolume = Read1DArrayFromFile(tumor, header);
-            originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
-            var BinaryVolume = (float[][,]) originalTumor.Clone();
+            //originalTumor = GPU.BackTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
+            //var BinaryVolume = (float[][,]) originalTumor.Clone();
             //if (enlarge == true)
-            BinaryVolume = Matrix.ConvertTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
+            var BinaryVolume = Matrix.ConvertTo3D(LinearVolume, SS_dim[0], SS_dim[1], SS_dim[2]);
+            originalTumor = (float[][,]) BinaryVolume.Clone();
             f_structurearray = CreateArray(BinaryVolume);
             //f_structurearray = CreateArray(Matrix.TransposeMatrix(BinaryVolume));
             fj_Combined = BinaryVolume;
             GetTumorOnly(out fj_Tumor, BinaryVolume);
             GetCSOnly(out fj_CS, BinaryVolume);
-            fj_Combined = Matrix.LinearlyCombine(fj_Tumor, fj_CS, 10);
+            //fj_Combined = Matrix.LinearlyCombine(fj_Tumor, fj_CS, 10);
+            fj_Combined = Matrix.Combine_CS_Tumor(fj_Tumor, fj_CS, 10);
 
+
+            //Find central point of volume for coordinate-translation later:
+            centralpoint = new int[3];
+            centralpoint[0] = (int) (Math.Round((decimal)fj_Combined[0].GetLength(0)/2));
+            centralpoint[1] = (int)(Math.Round((decimal)fj_Combined[0].GetLength(1) / 2));
+            centralpoint[2] = (int)(Math.Round((decimal)fj_Combined.GetLength(0) / 2));
 
             size = f_structurearray.GetLength(0);
             SI = new StructureInfo();
@@ -69,6 +78,20 @@ namespace TomosurgeryAlpha
             SI.CreateInfo();
             headerpath = header;
             tumorpath = tumor;
+            MakeBMPThumbnails();
+        }
+
+        public void MakeBMPThumbnails()
+        {
+            //Divide tumor
+            int size = fj_Combined.GetLength(0) - 80;
+            int inc = (size/6);
+
+            for (int i = 0; i < 6; i++)
+            {
+                string p = "combined_" + i + ".bmp";
+                Matrix.WriteFloatArray2BMP(fj_Tumor[40 + inc*i], p);
+            }
         }
 
 
@@ -92,6 +115,8 @@ namespace TomosurgeryAlpha
             //fj_Tumor = tumorobj;
             SI = new StructureInfo();
         }
+
+
 
         public event ProgressChangedEventHandler StructureProgress;
         public event RunWorkerCompletedEventHandler StructureDone;

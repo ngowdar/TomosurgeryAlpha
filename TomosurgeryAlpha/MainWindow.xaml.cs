@@ -35,7 +35,7 @@ namespace TomosurgeryAlpha
     public partial class MainWindow : Window
     {
         public static int N;
-        
+        public static string SessionName;
         public static WriteableBitmap wb_DICOM;
         public static WriteableBitmap wb_DS;
         public static WriteableBitmap wb_DDS;
@@ -51,6 +51,7 @@ namespace TomosurgeryAlpha
         public bool IsPathSetCreated = false;
         public bool IsSSLoaded = false;
         public Coordinates LGKcoords;
+        
         public bool Normalize = false;
         public PathSet PS;
         public bool PlanOptimized = false;
@@ -230,6 +231,7 @@ namespace TomosurgeryAlpha
         {
             //slider2.Maximum = PathSet.NumSlices - 1;
             //slider2.Minimum = 0;
+            
             int value;
             value = (int) Math.Round(slider2.Value);
             UpdateZPositionInfo(value, (int) slider2.Maximum);
@@ -303,6 +305,36 @@ namespace TomosurgeryAlpha
             return output;
         }
 
+        private void sliderA_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            float[,] Aimg;
+            sliderA.Minimum = 0;
+            sliderA.Maximum = Comparison.A.OriginalDose.GetLength(0) - 1;
+            int slice = (int) Math.Round(sliderA.Value);
+            /*DS_z_lbl.Content = "Z: " +
+                                       (DICOMDoseFile.doseoffset[2] - (decimal)slider2.Minimum -
+                                        (decimal)(Math.Round(slider2.Value, 2) - slider2.Minimum));
+            DS_index_lbl.Content = "Actual Z: " + slice;*/
+            
+            Aimg = Comparison.A.OriginalDose[slice];
+            DisplayOnA(Aimg);
+        }
+
+        private void sliderB_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            float[,] Bimg;
+            sliderB.Minimum = 0;
+            sliderB.Maximum = Comparison.B.OriginalDose.GetLength(0) - 1;
+            int slice = (int)Math.Round(sliderB.Value);
+            /*DS_z_lbl.Content = "Z: " +
+                                       (DICOMDoseFile.doseoffset[2] - (decimal)slider2.Minimum -
+                                        (decimal)(Math.Round(slider2.Value, 2) - slider2.Minimum));
+            DS_index_lbl.Content = "Actual Z: " + slice;*/
+            
+            Bimg = Comparison.B.OriginalDose[slice];
+            DisplayOnB(Bimg);
+        }
+
         private void slider2_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var slice = (int) Math.Round(slider2.Value);
@@ -316,7 +348,7 @@ namespace TomosurgeryAlpha
                 //slicepos_label.Content = "Actual Z: " + (int)DICOMImageSet.ZIndexArray[slice];
                 imgnumb_label.Content = "Image: " + slice;
             }
-            if (tabControl1.SelectedIndex == 1) //"Structure/DDS" tab
+            else if (tabControl1.SelectedIndex == 1) //"Structure/DDS" tab
             {
                 if (SS.fj_Tumor != null)
                 {
@@ -335,7 +367,7 @@ namespace TomosurgeryAlpha
                 DDS_index_lbl.Content = "Actual Z: " + slice;
             }
 
-            if (tabControl1.SelectedIndex == 2) //"DS" tab
+            else if (tabControl1.SelectedIndex == 3) //"DS" tab
             {
                 float[,] img;
                 if (dicomdose_rb_btn.IsChecked == true)
@@ -349,11 +381,11 @@ namespace TomosurgeryAlpha
                     if (origdose_rb_btn.IsChecked == true)
                     {
                         slider2.Minimum = 0;
-                        slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
+                        slider2.Maximum = ddf.OriginalDose.GetLength(0) - 1;
                         //if (Normalize)
                           //  img = Matrix.NormalizeBy(DICOMDoseFile.OriginalDose[slice], 65535.0f);
                         //else
-                            img = DICOMDoseFile.OriginalDose[slice];
+                            img = ddf.OriginalDose[slice];
                         if (ShowStruct_chkbox.IsChecked == true)
                             DisplayDoseWithStruct(img);
                         else
@@ -362,19 +394,19 @@ namespace TomosurgeryAlpha
                     else if (newdose_rb_btn.IsChecked == true)
                     {
                         slider2.Minimum = 0;
-                        slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
+                        slider2.Maximum = ddf.Dose.GetLength(0) - 1;
                         //Display2DFloat(DICOMDoseFile.Dose[slice]);
                         if (Normalize)
-                            img = Matrix.NormalizeBy(DICOMDoseFile.Dose[slice], 65535.0f);
+                            img = Matrix.NormalizeBy(ddf.Dose[slice], 65535.0f);
                         else
-                            img = DICOMDoseFile.Dose[slice];
+                            img = ddf.Dose[slice];
                         if (ShowStruct_chkbox.IsChecked == true)
                             DisplayDoseWithStruct(img);
                         else
                             Display2DFloat(img);
                     }
                 }
-                else if (PS != null)
+                else if (PS.DoseSpace != null)
                 {
                     slider2.Minimum = 0;
                     slider2.Maximum = PS.DoseSpace.GetLength(0) - 1;
@@ -393,7 +425,7 @@ namespace TomosurgeryAlpha
                 }
             }
 
-            if (tabControl1.SelectedIndex == 3) //i.e. the "Plan" tab
+            else if (tabControl1.SelectedIndex == 2) //i.e. the "Plan" tab
             {
                 if (PS != null)
                 {
@@ -466,7 +498,7 @@ namespace TomosurgeryAlpha
 
 
                     AttachPSHandlers();
-                    tabControl1.SelectedIndex = 3;
+                    tabControl1.SelectedIndex = 1;
                     //slider2.Minimum = 0;
                     //slider2.Maximum = PathSet.NumSlices - 1;
                     if (DK != null)
@@ -1046,7 +1078,9 @@ namespace TomosurgeryAlpha
             //AdjustCursorSize();
             SetWorkingDirectory();
             Debug.WriteLine("Current Plantimer: " + plantimer.Elapsed);
+            tabControl1.SelectedIndex = 2;
             //plantimer.Stop();
+
         }
 
         private void UpdateTextBlock2(string update)
@@ -1059,6 +1093,7 @@ namespace TomosurgeryAlpha
         {
             UpdateStatusBar("Running optimization...this may take some time.");
             SetWorkingDirectory();
+            Analysis.SessionName = NameTxtBox.Text;
             if (PS.ShotsWeighted == false)
                 PS.Ps1ShotOptimizeWorker.RunWorkerAsync();
             else
@@ -1075,6 +1110,7 @@ namespace TomosurgeryAlpha
             if (PathSet.ActiveDirectory != null)
             {
                 PS.folderpath = PathSet.ActiveDirectory;
+                PathSet.SessionName = NameTxtBox.Text;
             }
             else
             {
@@ -1151,13 +1187,17 @@ namespace TomosurgeryAlpha
                 foreach (PointF[] pf in rp.shot_points)
                 {
                     string s = "X: " + pf[0].X + " Y: [" + pf[0].Y;
-                    for (int i = 0; i < pf.GetLength(0); i++)
+                    if (pf.GetLength(0) > 1)
                     {
-                        s += ", " + (pf[i]).Y;
+                        for (int i = 1; i < pf.GetLength(0); i++)
+                        {
+                            s += ", " + (pf[i]).Y;
+                        }
                     }
                     s += "]";
                     listBox2.Items.Add(s);
                 }
+                
             }
         }
 
@@ -1576,6 +1616,7 @@ namespace TomosurgeryAlpha
 
         private void SetUpAnalysis()
         {
+            PS.GetTotalShotNumber();
             Analysis_datagrid.IsEnabled = true;
             if (PS != null && SS != null)
                 Analysis.RunAnalysis(PS, SS, PathSet.RxDose);
@@ -1583,7 +1624,7 @@ namespace TomosurgeryAlpha
                 Analysis.RunAnalysis(Analysis.ddf, SS.fj_Tumor, SS.fj_CS, 0.5);
             Analysis_datagrid.ItemsSource = GetAnalysisInfo();
 
-            Analysis.AddAnalysisReport();
+            Analysis.AddAnalysisReport("Analysis.txt");
         }
 
         private List<AnalysisInfo> GetAnalysisInfo()
@@ -1620,7 +1661,8 @@ namespace TomosurgeryAlpha
             UpdateProgressBar(10);
             PS.CreateDoseMatrix(DK, PS.folderpath);
             UpdateProgressBar(33);
-            PS.WriteDoseSpaceToFile("FinalDoseSpace.txt");
+            
+            PS.WriteDoseSpaceToFile(string.Concat(SessionName, "_FinalDoseSpace.txt"));
             UpdateProgressBar(50);
             WriteParametersToFile();
             UpdateProgressBar(75);
@@ -1631,17 +1673,20 @@ namespace TomosurgeryAlpha
         private void WriteParametersToFile()
         {
             string subfolder = PathSet.ActiveDirectory;
-            string path = Path.Combine(subfolder, "PlanParameters.txt");
+            string filename = string.Concat(SessionName, "_PlanParameters.txt");
+            string path = Path.Combine(subfolder, filename);
             using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
             using (var bw = new StreamWriter(fs))
             {
-                bw.WriteLine("Raster Width: " + txt_rasterwidth.Text);
-                bw.WriteLine("Shot Step Size: " + txt_stepsize.Text);
-                bw.WriteLine("Slice Thickness: " + txt_slicethickness.Text);
+                bw.WriteLine("Raster Width: " + RasterPath.RasterWidth);
+                bw.WriteLine("Shot Step Size: " + RasterPath.StepSize);
+                bw.WriteLine("Slice Thickness: " + PathSet.ST);
                 bw.WriteLine("Prescription dose: " + PathSet.RxDose);
                 bw.WriteLine("Tolerance dose: " + PathSet.ToleranceDose);
             }
         }
+
+
 
         public void ExportShotList()
         {
@@ -1657,12 +1702,32 @@ namespace TomosurgeryAlpha
                     for (int shot = 0; shot < rp.shots.GetLength(0); shot++)
                     {
                         double weight = rp.ShotWeights[shot]*sliceweight;
-                        PointF p = rp.shots[shot];
+                        PointF original_p = rp.shots[shot];
+                        PointF p = ConvertXYCoordinates_MillimeterRes(original_p);
+                        float z = ConvertZCoordinate_MillimeterRes(PS.SlicePositions[i]);
                         string sep = ", ";
-                        bw.WriteLine(p.X + sep + p.Y + sep + PS.SlicePositions[i] + sep + Math.Round(weight, 2) + ";");
+                        bw.WriteLine(p.X + sep + p.Y + sep + z + sep + Math.Round(weight, 2) + ";");
                     }
                 }
             }
+        }
+
+        public PointF ConvertXYCoordinates_MillimeterRes(PointF p)
+        {
+            float centerx = StructureSet.centralpoint[0];
+            float centery = StructureSet.centralpoint[1];
+            
+            float x = ((p.X - centerx)/4.0f) + 100.0f;
+            float y = ((p.Y - centery) / 4.0f) + 100.0f;
+
+            return new PointF(x, y);
+        }
+
+        public float ConvertZCoordinate_MillimeterRes(int z)
+        {
+            float centerz = StructureSet.centralpoint[2];
+            float newz = ((z - centerz)/4.0f) + 100.0f;
+            return newz;
         }
 
         public double BeamOnTime(double doserate, double MaxGy)
@@ -1753,7 +1818,7 @@ namespace TomosurgeryAlpha
         {
             if (dicomdose_rb_btn.IsChecked == true)
             {
-                Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
+                Display2DFloat(ddf.Dose[GetCurrentSlice()]);
             }
             else if (plandose_rb_btn.IsChecked == true)
                 Display2DFloat(PS.DoseSpace[GetCurrentSlice()]);
@@ -1824,24 +1889,24 @@ namespace TomosurgeryAlpha
             newdose_rb_btn.IsEnabled = true;
             origdose_rb_btn.IsChecked = true;
             newdose_rb_btn.IsChecked = false;
-            if (DICOMDoseFile.OriginalDose != null)
+            if (ddf.OriginalDose != null)
             {
                 slider2.Minimum = 0;
-                slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
+                slider2.Maximum = ddf.OriginalDose.GetLength(0) - 1;
                 slider2.Value = (slider2.Maximum/2);
                 if (origdose_rb_btn.IsChecked == true)
                 {
                     if (ShowStruct_chkbox.IsChecked == true)
-                        DisplayDoseWithStruct(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
+                        DisplayDoseWithStruct(ddf.OriginalDose[GetCurrentSlice()]);
                     else
-                        Display2DFloat(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
+                        Display2DFloat(ddf.OriginalDose[GetCurrentSlice()]);
                 }
                 else if (newdose_rb_btn.IsChecked == true)
                 {
                     if (ShowStruct_chkbox.IsChecked == true)
-                        DisplayDoseWithStruct(DICOMDoseFile.Dose[GetCurrentSlice()]);
+                        DisplayDoseWithStruct(ddf.Dose[GetCurrentSlice()]);
                     else
-                        Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
+                        Display2DFloat(ddf.Dose[GetCurrentSlice()]);
                 }
             }
         }
@@ -1885,16 +1950,16 @@ namespace TomosurgeryAlpha
         {
             newdose_rb_btn.IsChecked = false;
             slider2.Minimum = 0;
-            slider2.Maximum = DICOMDoseFile.OriginalDose.GetLength(0) - 1;
-            Display2DFloat(DICOMDoseFile.OriginalDose[GetCurrentSlice()]);
+            slider2.Maximum = ddf.OriginalDose.GetLength(0) - 1;
+            Display2DFloat(ddf.OriginalDose[GetCurrentSlice()]);
         }
 
         private void newdose_rb_btn_Checked(object sender, RoutedEventArgs e)
         {
             origdose_rb_btn.IsChecked = false;
             slider2.Minimum = 0;
-            slider2.Maximum = DICOMDoseFile.Dose.GetLength(0) - 1;
-            Display2DFloat(DICOMDoseFile.Dose[GetCurrentSlice()]);
+            slider2.Maximum = ddf.Dose.GetLength(0) - 1;
+            Display2DFloat(ddf.Dose[GetCurrentSlice()]);
         }
 
         private void Normalized_chkbox_Checked(object sender, RoutedEventArgs e)
@@ -1927,10 +1992,12 @@ namespace TomosurgeryAlpha
         private void FindBeamOnTime()
         {
             double doserate = Convert.ToDouble(DoseRate_txtbox.Text);
+            Analysis.doserate = doserate;
             double maxdose = Convert.ToDouble(MaxDose_txtbox.Text);
+            Analysis.maxdose = maxdose;
             double time = BeamOnTime(Convert.ToDouble(DoseRate_txtbox.Text), Convert.ToDouble(MaxDose_txtbox.Text));
-            Analysis.AddLineToReport("For max dose " + maxdose + " at " + doserate + " Gy/min, TOTAL BEAM-ON TIME ==> " +
-                                     time);
+            Analysis.beamontime = time;
+            //Analysis.AddLineToReport("For max dose " + maxdose + " at " + doserate + " Gy/min, TOTAL BEAM-ON TIME ==> " +time);
             Time_lbl.Content = "" + Math.Round(time, 2) + " mins";
         }
 
@@ -2168,10 +2235,10 @@ namespace TomosurgeryAlpha
             }
             else if (dicomdose_rb_btn.IsChecked == true)
             {
-                if (DICOMDoseFile.Dose != null)
+                if (ddf.Dose != null)
                 {
-                    double aspectmultx = (DS_imgbox.Width/DICOMDoseFile.Dose[0].GetLength(0));
-                    double aspectmulty = (DS_imgbox.Height/DICOMDoseFile.Dose[0].GetLength(1));
+                    double aspectmultx = (DS_imgbox.Width/ddf.Dose[0].GetLength(0));
+                    double aspectmulty = (DS_imgbox.Height/ddf.Dose[0].GetLength(1));
                     img = new double[3];
                     img[0] = Math.Round(e.GetPosition(this.DS_imgbox).X/aspectmultx, 2);
                     img[1] = Math.Round(e.GetPosition(this.DS_imgbox).Y/aspectmulty, 2);
@@ -2902,6 +2969,125 @@ namespace TomosurgeryAlpha
             Display2DFloat(temp);
         }
 
+        private void DisplayOnA(float[,] f)
+        {
+            DisplayInfoUnderA(f.GetLength(0), f.GetLength(1));
+            double default_rx_dose = 0.5;
+            bool viewiso = Aiso_chkbox.IsChecked == true;
+
+
+            Comparison.Awb = new WriteableBitmap(f.GetLength(1), f.GetLength(0), 96, 96, PixelFormats.Bgr32, null);
+            imgA.Source = Comparison.Awb;
+            Comparison.Awb.Lock();
+
+            unsafe
+            {
+                for (int j = 0; j < f.GetLength(0); j++)
+                    for (int i = 0; i < f.GetLength(1); i++)
+                    {
+                        var pBackBuffer = (int)Comparison.Awb.BackBuffer;
+                        pBackBuffer += j * Comparison.Awb.BackBufferStride;
+                        pBackBuffer += i * 4;
+                        int value;
+                        int alpha;
+                        alpha = (int)Math.Round((f[j, i]) * 255);
+                        int color_data = 0;
+                        if (viewiso && alpha > (default_rx_dose * 255))
+                        {
+                            color_data = alpha << 16;
+                            color_data |= 0 << 8;
+                            color_data |= 0 << 0;
+                        }
+                        else
+                        {
+                            color_data = alpha << 16;
+                            color_data |= alpha << 8;
+                            color_data |= alpha << 0;
+                        }
+
+                        // Assign the color data to the pixel.
+                        *((int*)pBackBuffer) = color_data;
+                    }
+            }
+            try
+            {
+                Comparison.Awb.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(1), f.GetLength(0)));
+            }
+            catch (Exception ex)
+            {
+                string s = ex.ToString();
+            }
+            finally
+            {
+                Comparison.Awb.Unlock();
+            }
+        }
+
+        private void DisplayOnB(float[,] f)
+        {
+            DisplayInfoUnderB(f.GetLength(0), f.GetLength(1));
+            double default_rx_dose = 0.5;
+            bool viewiso = Biso_chkbox.IsChecked == true;
+
+
+            Comparison.Bwb = new WriteableBitmap(f.GetLength(1), f.GetLength(0), 96, 96, PixelFormats.Bgr32, null);
+            imgB.Source = Comparison.Bwb;
+            Comparison.Bwb.Lock();
+
+            unsafe
+            {
+                for (int j = 0; j < f.GetLength(0); j++)
+                    for (int i = 0; i < f.GetLength(1); i++)
+                    {
+                        var pBackBuffer = (int)Comparison.Bwb.BackBuffer;
+                        pBackBuffer += j * Comparison.Bwb.BackBufferStride;
+                        pBackBuffer += i * 4;
+                        int value;
+                        int alpha;
+                        alpha = (int)Math.Round((f[j, i]) * 255);
+                        int color_data = 0;
+                        if (viewiso && alpha > (default_rx_dose * 255))
+                        {
+                            color_data = alpha << 16;
+                            color_data |= 0 << 8;
+                            color_data |= 0 << 0;
+                        }
+                        else
+                        {
+                            color_data = alpha << 16;
+                            color_data |= alpha << 8;
+                            color_data |= alpha << 0;
+                        }
+
+                        // Assign the color data to the pixel.
+                        *((int*)pBackBuffer) = color_data;
+                    }
+            }
+            try
+            {
+                Comparison.Bwb.AddDirtyRect(new Int32Rect(0, 0, f.GetLength(1), f.GetLength(0)));
+            }
+            catch (Exception ex)
+            {
+                string s = ex.ToString();
+            }
+            finally
+            {
+                Comparison.Bwb.Unlock();
+            }
+
+        }
+
+        private void DisplayInfoUnderA(int x, int y)
+        {
+            string s = "Image A: " + x + " x " + y;
+        }
+
+        private void DisplayInfoUnderB(int x, int y)
+        {
+            string s = "Image B: " + x + " x " + y;
+        }
+
         private void Display2DFloat(float[,] f)
         {
             DisplayImageSizeInfo(f.GetLength(0), f.GetLength(1));
@@ -3143,6 +3329,29 @@ namespace TomosurgeryAlpha
         }
 
         #endregion
+
+        private void loadA_btn_Click(object sender, RoutedEventArgs e)
+        {
+            Comparison.LoadA();
+            DisplayOnA(Comparison.A.OriginalDose[0]);
+
+        }
+
+        private void loadB_btn_Click(object sender, RoutedEventArgs e)
+        {
+            Comparison.LoadB();
+            DisplayOnB(Comparison.B.OriginalDose[0]);
+        }
+
+        private void SaveFinalReport_btn_Click(object sender, RoutedEventArgs e)
+        {
+            string savepath = Analysis.CreateFinalReportFile();
+            ExportShotList();
+            Savepath_loc_txt.Content = "Report saved to: " + savepath;
+
+        }
+
+        
 
         
         

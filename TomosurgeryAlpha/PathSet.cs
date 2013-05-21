@@ -29,13 +29,18 @@ namespace TomosurgeryAlpha
         public static int LineSidePadding;
         public static int tumorflag = 10;
         public static int CSflag = 2;
+
+        public const int DCT_multiplier = 3;
         public const float ToleranceDose = 0.2f;
         public const float RxDose = 0.5f;
         public const float CSdose = 0.05f;
+
+
         public static int NumSlices; //Set in step 1
+        public static int TotalNumShots;
         private static int TumorVolCount = 0;
         private static int CSVolCount = 0;
-        
+        public static string SessionName;
         public static string ActiveDirectory;
 
         public static int DCT; //static version of dosecalcthickness
@@ -115,7 +120,7 @@ namespace TomosurgeryAlpha
         public void ProcessVolume(int sthick, int tolthick)
         {
             SliceThickness = sthick;
-            DCT = SliceThickness * 2;
+            DCT = SliceThickness * DCT_multiplier;
             TolThickness = tolthick;
             ApplySliceThickness(sthick);
             RasterPaths = new ArrayList();
@@ -155,7 +160,8 @@ namespace TomosurgeryAlpha
         {
             DK = dk;
             folderpath = temppath;
-            string subfolder = Path.Combine(temppath, DateTime.Now.ToString("yyyyMMddHHmmssfff"));
+            string foldername = String.Concat(SessionName, "_", DateTime.Now.ToString("yyyyMMddHHmmssfff"));
+            string subfolder = Path.Combine(temppath, foldername);
             Directory.CreateDirectory(subfolder);
             ActiveDirectory = subfolder;
             folderpath = subfolder;
@@ -254,6 +260,19 @@ namespace TomosurgeryAlpha
             SuggestedThickness = best_thick;
 
         }
+        public int GetTotalShotNumber()
+        {
+            int count = 0;
+            for (int i = 0; i < RasterPaths.Count; i++)
+            {
+                double sliceweight = SliceWeights[i];
+                var rp = (RasterPath)RasterPaths[i];
+                count = count + rp.shots.GetLength(0);
+            }
+            TotalNumShots = count;
+            return count;
+        }
+        
 
         private void ApplySliceThickness(int i)
         {
@@ -289,7 +308,7 @@ namespace TomosurgeryAlpha
             NumSlices = zrasterpos.GetLength(0);
             SlicePositions = (int[])zrasterpos.Clone();
             SliceThickness = i;
-            DCT = SliceThickness * 2;
+            DCT = SliceThickness * DCT_multiplier;
 
         }
 
@@ -336,7 +355,7 @@ namespace TomosurgeryAlpha
             }
             NumSlices = zrasterpos.GetLength(0);
             SlicePositions = (int[])zrasterpos.Clone();
-            DCT = SliceThickness*2;
+            DCT = SliceThickness * DCT_multiplier;
         }
 
         public int[] FindBoundaries(float[][,] f)
@@ -656,6 +675,7 @@ namespace TomosurgeryAlpha
                 var bvt = (float) (1.0/BothvsTumor);
                 var simplesum = (float) Math.Round(simplesum_ratio, 3);
                 var rvt = (float) (1.0/RxVolvsTumor);
+                var mean_br = (float) ((bvt + rvt)/2.0f);
 
                 double[] m1 = FindSliceDoseCoverage(Matrix.ThresholdEq(Matrix.ScalarMultiply(ds_slab, bvt), 0.5f), s,
                                                     0.5, dds_slab);
@@ -681,7 +701,8 @@ namespace TomosurgeryAlpha
                         break;
                 }
                 //double ratio = 1.0 / RxVolvsTumor;
-                //double ratio = simplesum_ratio;               
+                //double ratio = simplesum_ratio;  
+                //ratio = mean_br;
                 Debug.WriteLine("Slice: " + s + " Tumor coverage: " + BothvsTumor);
                 Debug.WriteLine("(Isovol/Tumor)x(Isotumor/Tumor): " + ratio + "; 1//BothVsTumor: " + (1.0/BothvsTumor) +
                                 "; 1//RxVolVsTumor: " + (1.0/RxVolvsTumor));
@@ -1925,15 +1946,15 @@ namespace TomosurgeryAlpha
 
         #region Reading/Writing to Files and BMPs
 
-        public void WritePathSetInfoToReport()
+        public void WritePathSetInfoToReport(string filename)
         {
-            Analysis.AddLineToReport("==============PLAN SUMMARY================");
-            Analysis.AddLineToReport("Slice Thickness: " + SliceThickness);
-            Analysis.AddLineToReport("Dose Calculation Thickness: " + DCT);
-            Analysis.AddLineToReport("Number of Slices: " + NumSlices);
-            Analysis.AddLineToReport(WriteArrayAsList("Tumor boundaries: ", boundaries));
+            Analysis.AddLineToReport(filename, "==============PLAN SUMMARY================");
+            Analysis.AddLineToReport(filename, "Slice Thickness: " + SliceThickness);
+            Analysis.AddLineToReport(filename, "Dose Calculation Thickness: " + DCT);
+            Analysis.AddLineToReport(filename, "Number of Slices: " + NumSlices);
+            Analysis.AddLineToReport(filename, WriteArrayAsList("Tumor boundaries: ", boundaries));
 
-            Analysis.AddLineToReport("==========================================");
+            Analysis.AddLineToReport(filename, "==========================================");
         }
 
         private void PrintIterationSummary(double[][] OldCoverage, double[][] SliceCoverage)
@@ -2082,7 +2103,7 @@ namespace TomosurgeryAlpha
             string filename = String.Concat("slice_", which_slice);
             string path = Path.Combine(subfolder, filename);
             float[] d = ReadSliceDoseFromFile(path);
-            Matrix.Normalize(ref d);
+            //Matrix.Normalize(ref d);
             return d;
         }
         
