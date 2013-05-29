@@ -918,23 +918,32 @@ namespace TomosurgeryAlpha
         {
             float[,] np = Matrix.ThresholdEq((float[,])p.Clone(), 0.4f);
             float[,] output = (float[,])np.Clone();
-            
-            for (int j = 2; j < p.GetLength(1) - 2; j++)
-                for (int i = 2; i < p.GetLength(0) - 2; i++)
+            for (int j = 0; j < p.GetLength(1); j++)
+                for (int i = 0; i < p.GetLength(0); i++)
                 {
-                    int L1 = i - 1;
-                    int L2 = i - 2;
-                    int R1 = i + 1;
-                    int R2 = i + 2;
-                    int U1 = j - 1;
-                    int U2 = j - 2;
-                    int D1 = j + 1;
-                    int D2 = j + 2;
-
-                    if (np[i, j] > 0)
-                        output[i, j] = PathSet.RxDose;
-                    else
+                    if (j < 2 || j > (p.GetLength(1)-2))
                     {
+                        output[i, j] = PathSet.ToleranceDose;
+                        continue;
+                    }
+                    else if (i < 2 || i > (p.GetLength(0)-2))
+                    {
+                        output[i, j] = PathSet.ToleranceDose;
+                    }
+                    else if (np[i,j] > 0)
+                    {
+                        output[i, j] = PathSet.RxDose * 1.6f;
+                    }
+                    else if ((j >=2 && j < (p.GetLength(1)-2)) && (i >= 2 && i < (p.GetLength(0)-2)))
+                    {
+                        int L1 = i - 1;
+                        int L2 = i - 2;
+                        int R1 = i + 1;
+                        int R2 = i + 2;
+                        int U1 = j - 1;
+                        int U2 = j - 2;
+                        int D1 = j + 1;
+                        int D2 = j + 2;
                         float A = np[i, U2];
                         float B = np[L1, U1];
                         float C = np[i, U1];
@@ -950,13 +959,52 @@ namespace TomosurgeryAlpha
 
                         float sum = A + B + C + D + E + F + G + H + I + J + K + L;
                         if (sum > 0)
-                            output[i, j] = PathSet.RxDose;
+                            output[i, j] = PathSet.RxDose * 1.6f;
                         else
                         {
                             output[i, j] = PathSet.ToleranceDose;
                         }
                     }
                 }
+
+            //for (int j = 2; j < p.GetLength(1) - 2; j++)
+            //            for (int i = 2; i < p.GetLength(0) - 2; i++)
+            //            {
+            //                int L1 = i - 1;
+            //                int L2 = i - 2;
+            //                int R1 = i + 1;
+            //                int R2 = i + 2;
+            //                int U1 = j - 1;
+            //                int U2 = j - 2;
+            //                int D1 = j + 1;
+            //                int D2 = j + 2;
+
+            //                if (np[i, j] > 0)
+            //                    output[i, j] = PathSet.RxDose;
+            //                else
+            //                {
+            //                    float A = np[i, U2];
+            //                    float B = np[L1, U1];
+            //                    float C = np[i, U1];
+            //                    float D = np[R1, U1];
+            //                    float E = np[L2, j];
+            //                    float F = np[L1, j];
+            //                    float G = np[R1, j];
+            //                    float H = np[R2, j];
+            //                    float I = np[L1, D1];
+            //                    float J = np[i, D1];
+            //                    float K = np[R1, D1];
+            //                    float L = np[i, D2];
+
+            //                    float sum = A + B + C + D + E + F + G + H + I + J + K + L;
+            //                    if (sum > 0)
+            //                        output[i, j] = PathSet.RxDose;
+            //                    else
+            //                    {
+            //                        output[i, j] = PathSet.ToleranceDose;
+            //                    }
+            //                }
+            //            }
             return output;
         }
 

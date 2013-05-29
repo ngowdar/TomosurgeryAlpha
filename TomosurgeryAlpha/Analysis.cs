@@ -317,7 +317,7 @@ namespace TomosurgeryAlpha
             //dosespace matrix.
             int startingz = (int) Math.Round(DICOMDoseFile.doseoffset[2] - StructureSet.f_SSoffset[2]) + zends[0];
             float[][,] t = PathSet.GrabSlab(tumor, zends[0], zends[1], true);
-            t = PathSet.PrepareDDS(t);
+            t = PathSet.PrepareDDS(t, 1.0f);
 
 
             var DICOM_dose = new AnalysisInfo();

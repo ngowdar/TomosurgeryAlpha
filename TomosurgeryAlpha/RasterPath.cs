@@ -23,6 +23,7 @@ namespace TomosurgeryAlpha
         public static string SessionName;
         public static float[,] dosemidplane; //Dose midplane
         public static int doseN = 161; //Size of dose matrix
+        public static int ShotSize;
         public static int N;
         public static int X;
         public static int Y;
@@ -76,7 +77,7 @@ namespace TomosurgeryAlpha
             slice = tumor;
             ModdedSlice = tumor;
             //slice = PrepareDDSFromSlice(f);
-            DDS_slice = PrepareDDSFromSlice(DilateSlice3(DilateSlice3(tumor)));
+            DDS_slice = PrepareDDSFromSlice(DilateSlice3(DilateSlice3(tumor)),1.6f);
             //WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
             //WriteFloatArray2BMP(tumor, "non_dilatedslice.bmp");
             //DDS_slice = PrepareDDSFromSlice(DilateSlice(tumor));
@@ -101,7 +102,7 @@ namespace TomosurgeryAlpha
             slice = t;
 
             ModdedSlice = t;
-            DDS_slice = PrepareDDSFromSlice(DilateSlice3(t));
+            DDS_slice = PrepareDDSFromSlice(DilateSlice3(t), 1.6f);
             //WriteFloatArray2BMP(DDS_slice, "dilated_slice.bmp");
             //WriteFloatArray2BMP(t, "non_dilatedslice.bmp");
             FindAllShotPoints();
@@ -182,8 +183,11 @@ namespace TomosurgeryAlpha
         }
 
 
-        private float[,] PrepareDDSFromSlice(float[,] slice)
+        private float[,] PrepareDDSFromSlice(float[,] slice, float mult)
         {
+            //The multiplier 'mult' is to increase the DDS 'rxdose' value artificially.
+            //Since these plans are using discrete shots, the algorithm will try to make
+            //the max value at the peak of each shot 0.5, when in reality it is fine to go up to 0.8
             var dds_slice = new float[slice.GetLength(0),slice.GetLength(1)];
             for (int j = 0; j < slice.GetLength(1); j++)
                 for (int i = 0; i < slice.GetLength(0); i++)
@@ -191,7 +195,7 @@ namespace TomosurgeryAlpha
                     if (slice[i, j] <= 0.1f)
                         dds_slice[i, j] = PathSet.ToleranceDose;
                     else if (slice[i, j] > 0.1f)
-                        dds_slice[i, j] = PathSet.RxDose;
+                        dds_slice[i, j] = PathSet.RxDose * mult;
                     else if (slice[i, j] > 1)
                         dds_slice[i, j] = 0.01f;
                 }
@@ -460,6 +464,8 @@ namespace TomosurgeryAlpha
 
         public int[] ShotSpacer(int ystart, int yend)
         {
+            int def_4mm_spacing = 40;
+            int def_8mm_spacing = 80;
             int[] shots;
             //if ((yend - ystart) <= (1.3 * StepSize))
             //{
@@ -470,7 +476,7 @@ namespace TomosurgeryAlpha
             //{
             int numshots;
             int length = yend - ystart;
-            if (length <= StepSize)
+            if (length <= 1.2*StepSize)
             {
                 shots = new int[1];
                 shots[0] = (ystart + yend) / 2;
@@ -482,103 +488,81 @@ namespace TomosurgeryAlpha
             //edgepad = (yend - ystart)/2;
             //Find shot spacing
 
-            int meat;
+            
             int first = ystart + edgepad;
             int last = yend - edgepad;
-            int newspacing;
-            //Rest of Logic goes here...
-            //meat = yend - ystart - edgepad * 2;
-            meat = last - first;
-            if (meat < StepSize)
+            int meat = last - first;
+            
+            
+            int meatshots = (meat / StepSize);
+            numshots = meatshots + 2; //The '2' refers to the first and last shots, which are not included in the number of shots
+            shots = new int[numshots];
+            //find a new spacing for the shots within the meat section
+            int meat_spacing = meat / (meatshots + 1);
+            shots[0] = first;
+            shots[numshots - 1] = last;
+            if (numshots >= 3)
             {
-                //if meat < stepsize, decrease padding to correct stepsize.
-                edgepad = edgepad - ((StepSize - meat) / 2);
-                first = ystart + edgepad;
-                last = yend - edgepad;
-                //int halfrr = (StepSize - meat) / 2;
-                //first = first - halfrr;
-                //last = last + halfrr;
-                shots = new int[2];
-                shots[0] = first;
-                shots[1] = last;
-                return shots;
-
+                for (int i = 1; i < numshots - 1; i++)
+                {
+                    shots[i] = shots[0] + (i * meat_spacing);
+                }
             }
-                //else if (meat < StepSize)
+            
+
+                //int leftover = length - (((numshots - 1)*StepSize));
+                
+                //if (leftover <= 0)
                 //{
-                //    int halfr = meat / 2;
-                //    edgepad = edgepad - halfr;
+                //    numshots = numshots - 1;
+                //    leftover = length - (((numshots - 1)*StepSize));
+                //    //leftover = length - (((numshots) * StepSize));
+                //    //Find the new spacing
+                //}
+
+                ////else
+                ////{
+                ////    int halfremainder = (meat % StepSize) / 2;
+                ////    //if (halfremainder < edgepad)
+                ////    edgepad = halfremainder;
+                ////    first = ystart + edgepad;
+                ////    last = yend - edgepad;
+                ////}
+
+
+                ////Determine if edgepad needs to be adjusted to "center" the shot line
+
+                //if (numshots > 2 && leftover <= StepSize)
+                //{
+                //    int shift = (int) Math.Floor((decimal) leftover/2);
+                //    first = ystart + edgepad + shift;
+                //    last = yend - edgepad + shift;
+                //}
+                //else if (leftover > StepSize)
+                //{
+                //    numshots = numshots + 1;
+                //    meat = (numshots - 1)*StepSize;
+                //    edgepad = (int) (Math.Floor((decimal) (length - meat)/2));
                 //    first = ystart + edgepad;
                 //    last = yend - edgepad;
-                //    shots = new int[2];
-                //    shots[0] = first;
-                //    shots[1] = last;
-                //    numshots = 2;
-                //    return shots;
                 //}
-            else //i.e. meat bigger than stepsize
-            {
-                //find number of shots that'll fit, plus the two end shots
-                double dmeat = meat;
-                double dss = StepSize;
-                numshots = (int) (Math.Floor((dmeat/dss)) + 1);
-                
-                int leftover = length - (((numshots - 1) * StepSize));
-                //int leftover = length - (((numshots) * StepSize));
-                if (leftover <= 0)
-                {
-                    numshots = numshots - 1;
-                    leftover = length - (((numshots - 1) * StepSize));
-                    //leftover = length - (((numshots) * StepSize));
-                    //Find the new spacing
-                }
-                
-                //else
+
+                //shots = new int[numshots];
+                //shots[0] = first;
+                //shots[numshots - 1] = last;
+
+
+                //if (numshots >= 3)
                 //{
-                //    int halfremainder = (meat % StepSize) / 2;
-                //    //if (halfremainder < edgepad)
-                //    edgepad = halfremainder;
-                //    first = ystart + edgepad;
-                //    last = yend - edgepad;
+                //    for (int i = 1; i < numshots - 1; i++)
+                //    {
+                //        //if ((first + (i*StepSize)) > last)
+                //        //    break;
+                //        //else
+                //        shots[i] = shots[0] + (i*StepSize);
+                //    }
                 //}
-
-
-                //Determine if edgepad needs to be adjusted to "center" the shot line
-                    
-                    if (leftover <= StepSize)
-                    {
-                        edgepad = (int)Math.Floor((decimal)leftover/2);
-                        first = ystart + edgepad;
-                        last = yend - edgepad;
-                    }
-                    else if (leftover > StepSize)
-                    {
-                        numshots = numshots + 1;
-                        meat = (numshots - 1)*StepSize;
-                        edgepad = (int)(Math.Floor((decimal)(length - meat) / 2));
-                        first = ystart + edgepad;
-                        last = yend - edgepad;
-                    }
-
-                shots = new int[numshots];
-                shots[0] = first;
-                shots[numshots - 1] = last;
-
-                
-                if (numshots >= 3)
-                {
-                    for (int i = 1; i < numshots-1; i++)
-                    {
-                        //if ((first + (i*StepSize)) > last)
-                        //    break;
-                        //else
-                        shots[i] = shots[0] + (i*StepSize);
-                    }
-                }
-                //}
-                //}
-                //NumOfShots += shots.GetLength(0);
-            }
+            //}
             Debug.WriteLine("Boundaries: " + ystart + "," + yend);
             Debug.WriteLine("Padding: " + edgepad);
             WriteArrayAsList("Shot Loc: ", shots);
@@ -742,7 +726,7 @@ namespace TomosurgeryAlpha
             var temp_weight = new double[ShotWeights.GetLength(0)];
             ShotWeights = InitWeightArray((float)ShotWeightRestriction, (float)ShotWeightRestriction);
 
-            float[,] temp_slice = PrepareDDSFromSlice(slice);
+            float[,] temp_slice = PrepareDDSFromSlice(slice, 1.6f);
             var ds = new float[slice.GetLength(0)*slice.GetLength(1)];
             for (int i = 0; i < ds.GetLength(0); i++)
                 ds[i] = 0.0f;
@@ -1195,8 +1179,8 @@ namespace TomosurgeryAlpha
                 //    Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int) pf.X, (int) pf.Y,
                   //                ComparisonKernelSize), MidplaneSubset);
             //float[,] DDStimesP = Matrix.MultiplyElements(Matrix.Subset(PrepareDDSFromSlice(DDS_slice), (int) pf.X, (int) pf.Y, ComparisonKernelSize),MidplaneSubset);
-            //float[,] dilatedDDS = Matrix.DilateSlice_Bigger(Matrix.DilateSlice_Bigger(DDS_slice));
-            float[,] dilatedDDS = Matrix.DilateSlice_Bigger(DDS_slice);
+            float[,] dilatedDDS = Matrix.DilateSlice_Bigger(Matrix.DilateSlice_Bigger(DDS_slice));
+            //float[,] dilatedDDS = Matrix.DilateSlice_Bigger(DDS_slice);
             float[,] DDStimesP = Matrix.Subset(dilatedDDS,(int) pf.X, (int) pf.Y, ComparisonKernelSize);
             float[,] DStimesP = Matrix.Subset(ds, DDS_slice.GetLength(0), DDS_slice.GetLength(1), (int)pf.X, (int)pf.Y, ComparisonKernelSize);
             

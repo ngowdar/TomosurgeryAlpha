@@ -786,28 +786,30 @@ namespace TomosurgeryAlpha
 
             //Adjust padding appropriately with stepsize
             //Find proportion of max first
-            if (slider_edgepad != null)
-            {
-                double edgeratio = Convert.ToDouble(txt_edgepadding.Text)/slider_edgepad.Value;
-                double sideratio = Convert.ToDouble(txt_sidepad.Text)/slider_sidepad.Value;
-                slider_edgepad.Minimum = 1.0;
-                slider_sidepad.Minimum = 1.0;
-                slider_edgepad.Maximum = slider_stepsize.Value/2;
-                slider_sidepad.Maximum = slider_stepsize.Value/2;
+            //if (slider_edgepad != null)
+            //{
+            //    double edgeratio = Convert.ToDouble(txt_edgepadding.Text)/slider_edgepad.Value;
+            //    double sideratio = Convert.ToDouble(txt_sidepad.Text)/slider_sidepad.Value;
+            //    slider_edgepad.Minimum = 1.0;
+            //    slider_sidepad.Minimum = 1.0;
+            //    //slider_edgepad.Maximum = slider_stepsize.Value/2;
+            //    //slider_sidepad.Maximum = slider_stepsize.Value/2;
+            //    slider_edgepad.Maximum = 20;
+            //    slider_sidepad.Maximum = 20;
 
-                if (edgeratio <= 1.0 && edgeratio > 0)
-                    slider_edgepad.Value = (edgeratio*slider_edgepad.Maximum);
-                else
-                    slider_edgepad.Value = slider_edgepad.Maximum/2;
+            //    if (edgeratio <= 1.0 && edgeratio > 0)
+            //        slider_edgepad.Value = (edgeratio*slider_edgepad.Maximum);
+            //    else
+            //        slider_edgepad.Value = slider_edgepad.Maximum/2;
 
-                if (sideratio <= 1.0 && sideratio > 0)
-                    slider_sidepad.Value = (sideratio*slider_sidepad.Maximum);
-                else
-                    slider_sidepad.Value = slider_sidepad.Maximum/2;
+            //    if (sideratio <= 1.0 && sideratio > 0)
+            //        slider_sidepad.Value = (sideratio*slider_sidepad.Maximum);
+            //    else
+            //        slider_sidepad.Value = slider_sidepad.Maximum/2;
 
-                txt_sidepad.Text = slider_sidepad.Value.ToString();
-                txt_edgepadding.Text = slider_edgepad.Value.ToString();
-            }
+            //    txt_sidepad.Text = slider_sidepad.Value.ToString();
+            //    txt_edgepadding.Text = slider_edgepad.Value.ToString();
+            //}
             if (PS != null)
             {
                 if (PS.RasterPaths != null && !PlanOptimized)
@@ -1561,9 +1563,16 @@ namespace TomosurgeryAlpha
             txt_rasterwidth.Text = "20";
             txt_slicethickness.Text = "20";
             txt_stepsize.Text = "20";
-            txt_edgepadding.Text = "8";
-            txt_sidepad.Text = "8";
-            RasterPath.ComparisonKernelSize = 40;
+            txt_edgepadding.Text = "10";
+            slider_edgepad.Maximum = 20;
+            slider_sidepad.Minimum = 1.0;
+            slider_edgepad.Value = 10;
+            txt_sidepad.Text = "10";
+            slider_sidepad.Maximum = 20;
+            slider_sidepad.Minimum = 1.0;
+            slider_sidepad.Value = 10;
+            RasterPath.ComparisonKernelSize = 60;
+            RasterPath.ShotSize = 4;
         }
 
         private void Load8mmDefault()
@@ -1587,14 +1596,15 @@ namespace TomosurgeryAlpha
             txt_slicethickness.Text = "36";
             txt_stepsize.Text = "38";
 
-            txt_edgepadding.Text = "10";
-            slider_edgepad.Maximum = Convert.ToInt16(txt_stepsize.Text);
+            txt_edgepadding.Text = "20";
+            slider_edgepad.Maximum = 40;
             slider_sidepad.Minimum = 1.0;
-            slider_edgepad.Value = Convert.ToInt16(txt_edgepadding.Text);
-            txt_sidepad.Text = "10";
-            slider_sidepad.Maximum = Convert.ToInt16(txt_stepsize.Text);
+            slider_edgepad.Value = 20;
+            txt_sidepad.Text = "20";
+            slider_sidepad.Maximum = 40;
             slider_sidepad.Minimum = 1.0;
-            slider_sidepad.Value = Convert.ToInt16(txt_sidepad.Text);
+            slider_sidepad.Value = 20;
+            RasterPath.ShotSize = 8;
         }
 
         private void CalcSaveDose_btn_Click(object sender, RoutedEventArgs e)

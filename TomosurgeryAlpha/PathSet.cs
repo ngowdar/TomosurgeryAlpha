@@ -449,7 +449,7 @@ namespace TomosurgeryAlpha
                 temp_weights[i] = 1.0;
             }
 
-            dds_nondilated = (float[][,]) PrepareDDS(SS.fj_Tumor).Clone();
+            dds_nondilated = (float[][,]) PrepareDDS(SS.fj_Tumor, 1.6f).Clone();
             DDS = (float[][,]) PrepareEdgeEnhanced_DDS(SS.fj_Tumor).Clone();
             //DDS = (float[][,])PrepareDDS(SS.fj_Tumor).Clone();
 
@@ -495,7 +495,7 @@ namespace TomosurgeryAlpha
             double old_error = 1000;
 
 
-            //TODO: Need to fix this whole loop. Currently goes to infinity.
+            
             while (Error >= .01 && index < 5)
             {
                 temp_weights = ReOptimizeSliceWeights(dds_nondilated, MultiplierChoice);
@@ -518,7 +518,7 @@ namespace TomosurgeryAlpha
                 {
                     for (int i = 0; i < temp_weights.GetLength(0); i++)
                     {
-                        if (temp_weights[i] > restricted_weights[i])
+                        if (temp_weights[i] > restricted_weights[i] && restricted_weights[i] != 1)
                         {
                             temp_weights[i] = restricted_weights[i];
                         }
@@ -654,11 +654,19 @@ namespace TomosurgeryAlpha
             for (int s = 0; s < NumSlices; s++)
             {
                 float[][,] ds_slab = GrabSlab(DoseSpace, DCT, SlicePositions[s]);
-                //WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_slab.bmp"));
+                
                 float[][,] dds_slab = GrabSlab(dds, DCT, SlicePositions[s]);
-                //WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_slab.bmp"));
+                
+                RasterPath rp = (RasterPath) RasterPaths[s];
+                float[][,] shot_slab = rp.Create3D_SliceDose(DK, DCT);
                 double[] measurements = FindSliceDoseCoverage(Matrix.ThresholdEq(ds_slab, 0.5f), s, 0.5, dds_slab);
-
+                WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0) / 2], String.Concat(s, "_ds_slab.bmp"));
+                WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0) / 2], String.Concat(s, "_dds_slab.bmp"));
+                ds_slab = Matrix.MultiplyElements(ds_slab, shot_slab);
+                dds_slab = Matrix.MultiplyElements(dds_slab, shot_slab);
+                WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_shotslab.bmp"));
+                WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_shotslab.bmp"));
+                double wratio = Matrix.SumAll(dds_slab)/Matrix.SumAll(ds_slab);
                 /* 0: ratio
                 * 1: RxVol
                 * 2: TumorVol
@@ -677,36 +685,36 @@ namespace TomosurgeryAlpha
                 var rvt = (float) (1.0/RxVolvsTumor);
                 var mean_br = (float) ((bvt + rvt)/2.0f);
 
-                double[] m1 = FindSliceDoseCoverage(Matrix.ThresholdEq(Matrix.ScalarMultiply(ds_slab, bvt), 0.5f), s,
-                                                    0.5, dds_slab);
-                double[] m2 = FindSliceDoseCoverage(Matrix.ThresholdEq(Matrix.ScalarMultiply(ds_slab, rvt), 0.5f), s,
-                                                    0.5, dds_slab);
+                //double[] m1 = FindSliceDoseCoverage(Matrix.ThresholdEq(Matrix.ScalarMultiply(ds_slab, bvt), 0.5f), s,
+                //                                    0.5, dds_slab);
+                //double[] m2 = FindSliceDoseCoverage(Matrix.ThresholdEq(Matrix.ScalarMultiply(ds_slab, rvt), 0.5f), s,
+                 //                                   0.5, dds_slab);
 
-                MultiplierChoice = CompareImprovements(m1, m2);
+                //MultiplierChoice = CompareImprovements(m1, m2);
 
-                double ratio;
-                switch (MultiplierChoice)
-                {
-                    case (1):
-                        ratio = bvt;
-                        break;
-                    case (2):
-                        ratio = rvt;
-                        break;
-                    case (3):
-                        ratio = simplesum_ratio;
-                        break;
-                    default:
-                        ratio = 1.0/BothvsTumor;
-                        break;
-                }
+                //double ratio;
+                //switch (MultiplierChoice)
+                //{
+                //    case (1):
+                //        ratio = bvt;
+                //        break;
+                //    case (2):
+                //        ratio = rvt;
+                //        break;
+                //    case (3):
+                //        ratio = simplesum_ratio;
+                //        break;
+                //    default:
+                //        ratio = 1.0/BothvsTumor;
+                //        break;
+                //}
                 //double ratio = 1.0 / RxVolvsTumor;
                 //double ratio = simplesum_ratio;  
-                //ratio = mean_br;
-                Debug.WriteLine("Slice: " + s + " Tumor coverage: " + BothvsTumor);
-                Debug.WriteLine("(Isovol/Tumor)x(Isotumor/Tumor): " + ratio + "; 1//BothVsTumor: " + (1.0/BothvsTumor) +
-                                "; 1//RxVolVsTumor: " + (1.0/RxVolvsTumor));
-                Debug.WriteLine("Currently using BothVsTumor");
+                double ratio = wratio;
+                Debug.WriteLine("Slice: " + s + " Tumor coverage: " + BothvsTumor + " Rx Volume vs Tumor: " + RxVolvsTumor);
+                //Debug.WriteLine("(Isovol/Tumor)x(Isotumor/Tumor): " + ratio + "; 1//BothVsTumor: " + (1.0/BothvsTumor) +
+                //                "; 1//RxVolVsTumor: " + (1.0/RxVolvsTumor));
+                Debug.WriteLine("Shot-slab-multiplied DDS/Ds ratio: " + wratio);
 
                 //if (SliceWeights[s] * ratio > 1.0)
                 //{
@@ -914,7 +922,7 @@ namespace TomosurgeryAlpha
             return ods;
         }
 
-        public static float[][,] PrepareDDS(float[][,] dds_slice)
+        public static float[][,] PrepareDDS(float[][,] dds_slice, float mult)
         {
             var pDDS = new float[dds_slice.GetLength(0)][,];
             int _debug_tumorcount = 0;
@@ -938,7 +946,7 @@ namespace TomosurgeryAlpha
                         else if (val == 1)
                         {
                             TumorVolCount++;
-                            pDDS[k][i, j] = RxDose;
+                            pDDS[k][i, j] = RxDose * mult;
                         }
                         else if (val > 1)
                         {
@@ -959,13 +967,13 @@ namespace TomosurgeryAlpha
 
             if (Dilate)
             {
-                EE_DDS = PrepareDDS(DilateDDS(DilateDDS(dds)));
+                EE_DDS = PrepareDDS(DilateDDS(DilateDDS(dds)),1.6f);
                 //EE_DDS = PrepareDDS(DilateDDS(EE_DDS));
                 //EE_DDS = PrepareDDS(DilateDDS(EE_DDS));
             }
             else
             {
-                EE_DDS = PrepareDDS(dds);
+                EE_DDS = PrepareDDS(dds, 1.6f);
             }
             return EE_DDS;
         }
@@ -1797,8 +1805,16 @@ namespace TomosurgeryAlpha
         public static float[][,] GrabSlab(float[][,] f, int thickness, int z_center)
         {
             //Find the start and end points based on the thickness
-            int temp_start = z_center - (thickness/2);
+            int temp_start;
+            if (thickness % 2 == 0)
+                temp_start = z_center - (thickness / 2);
+            else
+            {
+                temp_start = z_center - (thickness/2) - 1;
+            }
+
             int temp_end = z_center + (thickness/2);
+            
 
             //Check if the endpoints exist, change them if necessary 
             if (temp_start < 0)
