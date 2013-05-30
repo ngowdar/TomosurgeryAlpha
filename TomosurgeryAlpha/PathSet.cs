@@ -664,6 +664,8 @@ namespace TomosurgeryAlpha
                 WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0) / 2], String.Concat(s, "_dds_slab.bmp"));
                 ds_slab = Matrix.MultiplyElements(ds_slab, shot_slab);
                 dds_slab = Matrix.MultiplyElements(dds_slab, shot_slab);
+                //ds_slab = GPU.ElementMultiply(ds_slab, shot_slab);
+                //dds_slab = GPU.ElementMultiply(dds_slab, shot_slab);
                 WriteFloatArray2BMP(ds_slab[ds_slab.GetLength(0)/2],String.Concat(s,"_ds_shotslab.bmp"));
                 WriteFloatArray2BMP(dds_slab[dds_slab.GetLength(0)/2], String.Concat(s, "_dds_shotslab.bmp"));
                 double wratio = Matrix.SumAll(dds_slab)/Matrix.SumAll(ds_slab);

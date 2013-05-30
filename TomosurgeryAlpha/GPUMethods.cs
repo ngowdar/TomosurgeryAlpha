@@ -50,6 +50,45 @@ namespace TomosurgeryAlpha
             }
         }
 
+        public static float[][,] ElementMultiply(float[][,] A, float[][,] B)
+        {
+            int x = A[0].GetLength(0);
+            int y = A[0].GetLength(1);
+            int z = A.GetLength(0);
+            if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.Unknown)
+                CLCalc.InitCL();
+            if (CLCalc.CLAcceleration == CLCalc.CLAccelerationType.UsingCL)
+            {
+                var src = new CL_Sourcecode();
+                CLCalc.Program.Compile(new[] {src.ElementMultiply});
+                var ElementMultiply_kernel = new CLCalc.Program.Kernel("ElementMultiply");
+
+                //Convert parameter variables into 1D arrays
+                float[] Alin = ConvertTo1D(A);
+                float[] Blin = ConvertTo1D(B);
+                float[] resultlin = (float[])Alin.Clone();
+
+                //add variables to the program
+                var cl_A = new CLCalc.Program.Variable(Alin);
+                var cl_B = new CLCalc.Program.Variable(Blin);
+                var cl_result = new CLCalc.Program.Variable(resultlin);
+                var args = new CLCalc.Program.Variable[3] {cl_result, cl_A, cl_B};
+
+                //Run program
+                if (ElementMultiply_kernel != null)
+                    ElementMultiply_kernel.Execute(args, Alin.GetLength(0));
+                cl_result.ReadFromDeviceTo(resultlin);
+
+                return BackTo3D(resultlin, x, y, z);
+            }
+            else
+            {
+                Debug.WriteLine("ElementMultiply openCL code not working!");
+                return null;
+            }
+
+        }
+
         private static float[,] BackTo2D(float[] result_linear, int size)
         {
             var result = new float[size,size];

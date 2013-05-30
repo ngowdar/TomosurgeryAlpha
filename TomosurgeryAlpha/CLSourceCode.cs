@@ -58,6 +58,20 @@ __global	float * Result
  	Result[id] = A[id]*c[0];
  }
 ";
+        
+        public string ElementMultiply = @"
+__kernel void
+MultiplyElementsCL(
+__global     float * result,
+__global     float * A,
+__global     float * B)
+{
+	int id = get_global_id(0);
+	result[id] = (float)(A[id] * B[id]);
+}
+)
+";
+
         //NOT FINISHED YET.
         public string WeightOriginalDS = @"
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
